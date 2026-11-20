@@ -27,16 +27,57 @@ funciona sem internet depois de aberto uma vez. É um jogo de um jogador só.
    especial. Eles continuam na equipe. É o único jeito de conseguir as feras do Trovão
    (Lendária e Mítica).
 
-## As 150 espécies
+## Trabalho na fazendinha (estilo Palworld)
 
-50 famílias × 3 estágios. Cada família tem um **animal de referência** e um **tipo de corpo**:
+Cada companheiro tem **habilidades de trabalho** e escolhe sozinho a tarefa que sabe fazer:
 
-- **4 patas**: lobo, raposa, felino (leão/lince/pantera), cervo/rena, urso, javali, lagarto,
-  tartaruga, rinoceronte, mamute, dragão (com asas) e grifo (com asas de penas e bico).
+| Habilidade | O que faz | Quem costuma ter |
+|---|---|---|
+| 🌱 Semear | planta nos canteiros | Planta, coelho, cervo, mariposa |
+| 💦 Regar | rega o que foi semeado | Água, sapo, peixes |
+| 🧺 Coletar | colhe as frutas prontas | Vento, aves, lobos, felinos |
+| 🪓 Cortar | árvore → Madeira (a árvore volta em 90 s) | urso, gorila, rinoceronte, golem |
+| ⛏️ Minerar | rocha → Ferro, pedra e às vezes gema (volta em 2 min) | Pedra, besouro, tartaruga |
+| 🔥 Acender | funde Ferro em Barra de Metal no Forno | Fogo, dragões |
+| ❄️ Congelar | as frutas colhidas rendem +1 | Gelo |
+| ⚡ Energizar | a fazendinha inteira trabalha mais rápido | Elétrico, Trovão |
+| ✨ Encantar | acha itens raros explorando | Cósmico |
+
+**Plantação**: canteiro vazio → um companheiro **semeia** → outro **rega** → cresce por 1 minuto →
+você toca para colher (ou um com 🧺 Coletar colhe). Sem companheiro que semeia e rega, não planta.
+Quem não tem tarefa **explora** a região e traz os itens do elemento dela. Os itens ficam na bolsa
+do companheiro (bolha em cima dele); toque para pegar.
+
+**Base (Floresta Viva)**: Bancada (6 madeira + 2 ferro) → Forno, Canteiros Extras, Casinha
+(+1 lugar em todas as fazendinhas) e Totem do Trovão (+25% de velocidade). Na Bancada se fabrica
+Cristal de Evolução, Runa, Coroa, Ração Turbo e Orvalho.
+
+### A raridade vale de verdade
+
+| | Comum | Incomum | Raro | Épico | Lendário | Mítico |
+|---|---|---|---|---|---|---|
+| Habilidades | 1 | 2 | 2 | 3 | 3 | 4 |
+| Nível inicial delas | 1 | 1 | 2 | 2 | 3 | 4 |
+| Itens por tarefa | 1 | 1,4 | 1,8 | 2,3 | 3 | 4 |
+| Tamanho da bolsa | 3 | 4 | 5 | 6 | 7 | 8 |
+
+Cada evolução: **+1 nível em todas as habilidades**, +25% de itens, bolsa maior; o Adulto ganha
+**uma habilidade nova**, ombreiras de armadura, emblema do elemento no peito, marcas brilhantes,
+crista grande e aura. Em 23 famílias o Adulto **vira outro animal** (lagartixa → dragão,
+peixe → tubarão, raposa → lobo, coelho → pégaso, água-viva → polvo, ave → grifo...).
+
+## As 150 espécies (450 no Códice)
+
+150 espécies × 3 estágios = 450 formas no Códice. Por elemento: 6 comuns, 5 incomuns, 4 raras,
+2 épicas e 1 lendária (18 × 8 = 144), mais 6 do Trovão (3 lendárias e 3 míticas, só pela Fusão).
+Cada família tem um **animal de referência** e um **tipo de corpo**:
+
+- **4 patas**: lobo, raposa, felino, cervo, urso, javali, lagarto, tartaruga, rinoceronte, mamute,
+  dragão, grifo, cavalo/pégaso/unicórnio, coelho, crocodilo, hipopótamo, lontra e porco-espinho.
 - **2 patas**: sapo, pinguim, gorila, golem de pedra e dinossauro.
-- **Voadores**: ave (falcão, fênix, pássaro-trovão) e morcego.
-- **Aquáticos**: peixe e arraia. **Serpentes**: serpente marinha/celeste e enguia.
-- **Insetos**: besouro-rinoceronte e mariposa. **Espírito**: água-viva flutuante.
+- **Voadores**: ave (falcão, fênix, pássaro-trovão), coruja e morcego.
+- **Aquáticos**: peixe, tubarão e arraia. **Serpentes**: serpente marinha/celeste e enguia.
+- **Insetos**: besouro-rinoceronte, escorpião e mariposa. **Espíritos**: água-viva e polvo.
 
 A pele é uma textura feita pelo próprio jogo (pelo, escama, pena, couro, pedra, lava, gelo,
 quitina), com listras ou manchas por família. O elemento acrescenta peças: folhas e cipós,
@@ -57,13 +98,13 @@ girando. O Adulto fica maior, com chifres, garras e armadura, e os raros ganham 
 
 ### Raridade
 
-| Raridade | Famílias | Espécies | Como sai |
+| Raridade | Espécies | Formas no Códice | Como sai |
 |---|---|---|---|
-| Comum ★ | 16 | 48 | 2 itens comuns da região |
-| Incomum ★★ | 14 | 42 | item incomum + comum |
-| Raro ★★★ | 10 | 30 | item raro + incomum + comum |
-| Épico ★★★★ | 6 | 18 | 2 itens raros de regiões diferentes + Runa do Trovão |
-| Lendário ★★★★★ | 3 | 9 | item raro + Coroa do Trovão + Runa (o Grifo só pela Fusão) |
+| Comum ★ | 48 | 144 | 2 itens comuns da região |
+| Incomum ★★ | 40 | 120 | item incomum + comum |
+| Raro ★★★ | 32 | 96 | item raro + incomum + comum |
+| Épico ★★★★ | 16 | 48 | 2 itens raros de regiões diferentes + Runa do Trovão |
+| Lendário ★★★★★ | 11 | 33 | item raro + Coroa do Trovão + Runa (o Grifo só pela Fusão) |
 | Mítico | 1 | 3 | só na Fusão de dois Lendários |
 
 ### A sorte

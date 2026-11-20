@@ -6,7 +6,7 @@ import * as THREE from '../js/vendor/three.module.js';
 import { SPECIES } from '../js/data.js';
 import { buildCreature } from '../js/creature3d.js';
 const q = new URLSearchParams(location.search); document.getElementById("g").style.setProperty("--c", q.get("cols")||15); const from = +(q.get('from')||0), to = +(q.get('to')||150);
-const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true }); r.setSize(320, 320);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true }); r.setSize(200, 200);
 const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#8a7a9a', 1.3)); const dl = new THREE.DirectionalLight('#fff', 2.2); dl.position.set(2, 4, 3); sc.add(dl);
 const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
 for (let i = from; i < to; i++) {

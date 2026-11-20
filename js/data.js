@@ -1,5 +1,5 @@
 // Brilhinhos — todos os dados do jogo num lugar só: raridades, elementos, itens,
-// as 150 espécies (50 famílias × 3 estágios), regiões, resgates e conquistas.
+// as 150 espécies (450 no Códice, com as evoluções), regiões, resgates e conquistas.
 
 export const RARITIES = {
   comum:    { nome: 'Comum',    cor: '#8fd46b', estrelas: 1, pontos: 1 },
@@ -57,6 +57,15 @@ export const ITEMS = {
 // Cristal de Evolução não vai na Forja: serve para evoluir.
 export const GROW_ITEM = { nome: 'Cristal de Evolução', emoji: '🔷' };
 
+// recursos da fazendinha (não têm elemento)
+Object.assign(ITEMS, {
+  madeira: { nome: 'Madeira',        emoji: '🪵', el: null, rar: 'comum', recurso: true },
+  ferro:   { nome: 'Ferro Bruto',    emoji: '🔩', el: null, rar: 'comum', recurso: true },
+  fruta:   { nome: 'Fruta Energética', emoji: '🍎', el: null, rar: 'comum', recurso: true },
+  barra:   { nome: 'Barra de Metal', emoji: '🧱', el: null, rar: 'incomum', recurso: true },
+  racao:   { nome: 'Ração Turbo', emoji: '🥗', el: null, rar: 'incomum', recurso: true, comida: 40 },
+});
+
 export const EL_ITEMS = {};
 for (const [id, it] of Object.entries(ITEMS)) {
   if (!it.el) continue;
@@ -67,97 +76,144 @@ const ORDER = ['planta', 'agua', 'fogo', 'vento', 'gelo', 'pedra', 'eletrico', '
 export const ELEMENT_ORDER = ORDER;
 const next = (el) => ORDER[(ORDER.indexOf(el) + 1) % ORDER.length];
 
-// 50 famílias: [elemento, raridade, arquétipo, nomes dos 3 estágios, molde da receita]
-// arquétipo = o animal de referência; o tipo de corpo sai dele (4 patas, 2 patas, ave,
-// peixe, serpente, inseto, espírito flutuante).
-const LINES = [
-  ['planta', 'comum', 'besouro', 'Brotoso', 'Folhabesouro', 'Carvalhoplo', 'cc'],
-  ['planta', 'comum', 'sapo', 'Musgapo', 'Sapolodo', 'Pantanorrei', 'co'],
-  ['planta', 'incomum', 'cervo', 'Galhito', 'Ramacervo', 'Bosquerreal', 'uc'],
-  ['planta', 'incomum', 'lagarto', 'Camaleaf', 'Camufolha', 'Selvagarto', 'uu'],
-  ['planta', 'raro', 'urso', 'Ursomusgo', 'Ursilvestre', 'Ursequoia', 'ruc'],
-  ['planta', 'epico', 'dragao', 'Draconeiro', 'Dracofloresta', 'Draquerubim', 'rr*'],
-  ['agua', 'comum', 'peixe', 'Barbatim', 'Barbatanha', 'Mareforte', 'cc'],
-  ['agua', 'comum', 'tartaruga', 'Cascorrente', 'Cascomaré', 'Cascofundo', 'co'],
-  ['agua', 'incomum', 'arraia', 'Arraiinha', 'Arraiazul', 'Abissarraia', 'uc'],
-  ['agua', 'incomum', 'lagarto', 'Axoloto', 'Axolago', 'Axorrei', 'uu'],
-  ['agua', 'raro', 'lobo', 'Lobondas', 'Lobomarinho', 'Lobotsunami', 'ruc'],
-  ['agua', 'epico', 'serpente', 'Serpentágua', 'Leviagua', 'Leviatrom', 'rr*'],
-  ['fogo', 'comum', 'lagarto', 'Brasinha', 'Brasagarto', 'Salamandrax', 'cc'],
-  ['fogo', 'comum', 'javali', 'Javabrasa', 'Javalume', 'Javulcano', 'co'],
-  ['fogo', 'incomum', 'felino', 'Leãozito', 'Leãochama', 'Leonferno', 'uc'],
-  ['fogo', 'incomum', 'ave', 'Fagulhinho', 'Fenixito', 'Fênixar', 'uu'],
-  ['fogo', 'raro', 'rinoceronte', 'Rinolava', 'Rinomagma', 'Rinovulcão', 'ruc'],
-  ['fogo', 'epico', 'dino', 'Tiranito', 'Tiranochama', 'Tiranorrex', 'rr*'],
-  ['vento', 'comum', 'ave', 'Ventinho', 'Falcavento', 'Falcorrajada', 'cc'],
-  ['vento', 'comum', 'mariposa', 'Brisaposa', 'Mariventa', 'Mariciclone', 'co'],
-  ['vento', 'incomum', 'morcego', 'Morcevento', 'Morceguilho', 'Morcetufão', 'uc'],
-  ['vento', 'incomum', 'felino', 'Linceleve', 'Linceágil', 'Lincefuracão', 'uu'],
-  ['vento', 'raro', 'serpente', 'Serpenuvem', 'Nimbosserpe', 'Celestinguin', 'ruc'],
-  ['vento', 'epico', 'dragao', 'Draguinho', 'Dragoventos', 'Dragotufão', 'rr*'],
-  ['gelo', 'comum', 'pinguim', 'Pinguelo', 'Pinguerreiro', 'Pinguimperador', 'cc'],
-  ['gelo', 'comum', 'raposa', 'Raponeve', 'Raponevasca', 'Raporártica', 'co'],
-  ['gelo', 'incomum', 'urso', 'Polarito', 'Polarão', 'Polartitã', 'uc'],
-  ['gelo', 'incomum', 'aguaviva', 'Geleia', 'Geleiaviva', 'Glaciomedusa', 'uu'],
-  ['gelo', 'raro', 'cervo', 'Renagelo', 'Renaglacial', 'Renaurora', 'ruc'],
-  ['gelo', 'epico', 'mamute', 'Mamutinho', 'Mamutelo', 'Mamutundra', 'rr*'],
-  ['pedra', 'comum', 'tartaruga', 'Tatupedra', 'Tatumuralha', 'Tatufortaleza', 'cc'],
-  ['pedra', 'comum', 'besouro', 'Rochibesouro', 'Chifrerocha', 'Titanbesouro', 'co'],
-  ['pedra', 'incomum', 'macaco', 'Gorilito', 'Gorirocha', 'Gorilavalanche', 'uc'],
-  ['pedra', 'incomum', 'lagarto', 'Quartzagarto', 'Geodragarto', 'Cristalossauro', 'uu'],
-  ['pedra', 'raro', 'rinoceronte', 'Rinorrocha', 'Rinogranito', 'Rinomonólito', 'ruc'],
-  ['pedra', 'epico', 'golem', 'Golemzinho', 'Golemuro', 'Golemontanha', 'rr*'],
-  ['eletrico', 'comum', 'enguia', 'Choquinho', 'Enguivolt', 'Enguitrovão', 'cc'],
-  ['eletrico', 'comum', 'raposa', 'Faiscaposa', 'Raposvolt', 'Raposcurto', 'co'],
-  ['eletrico', 'incomum', 'lagarto', 'Voltagarto', 'Dinamagarto', 'Megavolt', 'uc'],
-  ['eletrico', 'raro', 'lobo', 'Lobovolt', 'Lobotrovão', 'Lobotempestade', 'ruc'],
-  ['eletrico', 'raro', 'ave', 'Trovinho', 'Falcotrom', 'Pássaro-Trovão', 'rcc'],
-  ['eletrico', 'lendario', 'dragao', 'Raiozinho', 'Raiodrago', 'Fulminatrix', 'rL'],
-  ['cosmo', 'comum', 'aguaviva', 'Nebulim', 'Nebulosa', 'Supernova', 'cc'],
-  ['cosmo', 'comum', 'macaco', 'Astromico', 'Astronauto', 'Galactogorila', 'co'],
-  ['cosmo', 'incomum', 'mariposa', 'Lunaposa', 'Eclipsosa', 'Mariposideral', 'uc'],
-  ['cosmo', 'raro', 'felino', 'Pantestrela', 'Pantegaláxia', 'Panterástro', 'ruc'],
-  ['cosmo', 'raro', 'arraia', 'Cometarraia', 'Orbitarraia', 'Arraiacósmica', 'rcc'],
-  ['cosmo', 'lendario', 'serpente', 'Orbitim', 'Orbiserpente', 'Constelaçon', 'rL'],
-  ['trovao', 'lendario', 'grifo', 'Grifinho', 'Grifotrom', 'Grifo-Tempestade', 'fusao'],
-  ['trovao', 'mitico', 'dragao', 'Trovãozinho', 'Trovardrago', 'Ragnatrovão', 'fusao'],
-];
+// ---------- habilidades de trabalho (estilo Palworld) ----------
+export const SKILLS = {
+  semear:    { nome: 'Semear',    icone: '🌱', desc: 'Planta sementes nos canteiros' },
+  regar:     { nome: 'Regar',     icone: '💦', desc: 'Rega os canteiros semeados' },
+  cortar:    { nome: 'Cortar',    icone: '🪓', desc: 'Corta árvores e traz madeira' },
+  minerar:   { nome: 'Minerar',   icone: '⛏️', desc: 'Quebra rochas e traz ferro e pedras' },
+  acender:   { nome: 'Acender',   icone: '🔥', desc: 'Acende o Forno e funde ferro em barras' },
+  coletar:   { nome: 'Coletar',   icone: '🧺', desc: 'Colhe as frutas prontas da plantação' },
+  congelar:  { nome: 'Congelar',  icone: '❄️', desc: 'Guarda o frescor: as frutas colhidas rendem mais' },
+  energizar: { nome: 'Energizar', icone: '⚡', desc: 'Dá energia: a fazendinha inteira trabalha mais rápido' },
+  encantar:  { nome: 'Encantar',  icone: '✨', desc: 'Acha itens raros quando explora a região' },
+};
+const EL_SKILL = { planta: 'semear', agua: 'regar', fogo: 'acender', vento: 'coletar', gelo: 'congelar', pedra: 'minerar', eletrico: 'energizar', cosmo: 'encantar', trovao: 'energizar' };
+const ARCH_SKILLS = {
+  urso: ['cortar', 'coletar'], macaco: ['cortar', 'coletar'], golem: ['minerar', 'cortar'], rinoceronte: ['cortar', 'minerar'],
+  mamute: ['cortar', 'minerar'], javali: ['minerar', 'coletar'], dino: ['cortar', 'minerar'], besouro: ['minerar', 'cortar'],
+  escorpiao: ['minerar', 'cortar'], crocodilo: ['cortar', 'regar'], hipopotamo: ['regar', 'cortar'], lagarto: ['minerar', 'coletar'],
+  tartaruga: ['minerar', 'regar'], lobo: ['coletar', 'cortar'], raposa: ['coletar', 'semear'], felino: ['coletar', 'cortar'],
+  cavalo: ['coletar', 'cortar'], coelho: ['semear', 'coletar'], ave: ['coletar', 'semear'], morcego: ['coletar', 'semear'],
+  coruja: ['coletar', 'semear'], mariposa: ['semear', 'coletar'], sapo: ['regar', 'coletar'], lontra: ['cortar', 'regar'],
+  pinguim: ['regar', 'coletar'], peixe: ['regar'], tubarao: ['regar', 'coletar'], arraia: ['regar'], serpente: ['regar', 'coletar'],
+  enguia: ['regar', 'energizar'], aguaviva: ['regar', 'encantar'], polvo: ['regar', 'coletar'], cervo: ['semear', 'coletar'],
+  porcoespinho: ['semear', 'minerar'], grifo: ['coletar', 'cortar'], dragao: ['acender', 'cortar'],
+};
+const ALL_SKILLS = Object.keys(SKILLS);
+export const SKILL_COUNT = { comum: 1, incomum: 2, raro: 2, epico: 3, lendario: 3, mitico: 4 };
+const SKILL_BASE = { comum: 1, incomum: 1, raro: 2, epico: 2, lendario: 3, mitico: 4 };
+// itens que cada tarefa rende, pela raridade (o estágio soma +25% por degrau)
+export const YIELD = { comum: 1, incomum: 1.4, raro: 1.8, epico: 2.3, lendario: 3, mitico: 4 };
+
+// ---------- as 150 espécies ----------
+// por elemento: 6 comuns, 5 incomuns, 4 raras, 2 épicas e 1 lendária = 18; mais 6 do Trovão.
+const ROSTER = {
+  planta:   { c: ['coelho', 'sapo', 'besouro', 'porcoespinho', 'lagarto', 'mariposa'], i: ['cervo', 'macaco', 'coruja', 'javali', 'tartaruga'], r: ['urso', 'cavalo', 'crocodilo', 'escorpiao'], e: ['dino', 'golem'], l: ['dragao'],
+    pre: ['Bro', 'Fol', 'Ram', 'Mus', 'Cipo', 'Galho', 'Hera', 'Selva', 'Flor', 'Raiz', 'Mato', 'Verde', 'Polen', 'Seiva', 'Lima', 'Orqui', 'Junco', 'Cacto'] },
+  agua:     { c: ['peixe', 'sapo', 'tartaruga', 'lontra', 'aguaviva', 'pinguim'], i: ['arraia', 'lagarto', 'enguia', 'crocodilo', 'ave'], r: ['lobo', 'tubarao', 'hipopotamo', 'cavalo'], e: ['serpente', 'polvo'], l: ['dragao'],
+    pre: ['Gota', 'Mare', 'Onda', 'Rio', 'Lago', 'Bruma', 'Coral', 'Abis', 'Ondi', 'Aqua', 'Marul', 'Tsuna', 'Perla', 'Delta', 'Fonte', 'Nau', 'Golfo', 'Hidro'] },
+  fogo:     { c: ['lagarto', 'javali', 'raposa', 'ave', 'besouro', 'escorpiao'], i: ['felino', 'cavalo', 'macaco', 'coelho', 'lontra'], r: ['rinoceronte', 'lobo', 'crocodilo', 'golem'], e: ['dino', 'ave'], l: ['dragao'],
+    pre: ['Brasa', 'Flama', 'Lava', 'Fumo', 'Pira', 'Igni', 'Calor', 'Magma', 'Ardi', 'Faro', 'Tocha', 'Fulgo', 'Pavio', 'Solar', 'Vulca', 'Rubi', 'Cinza', 'Infer'] },
+  vento:    { c: ['ave', 'mariposa', 'coelho', 'morcego', 'raposa', 'porcoespinho'], i: ['felino', 'coruja', 'cavalo', 'lontra', 'serpente'], r: ['grifo', 'lobo', 'arraia', 'cervo'], e: ['dragao', 'ave'], l: ['serpente'],
+    pre: ['Brisa', 'Sopro', 'Rajada', 'Nimbo', 'Cirro', 'Tufo', 'Ventu', 'Aero', 'Ciclo', 'Brisan', 'Asa', 'Zefi', 'Nuvo', 'Pluma', 'Ventan', 'Furac', 'Aura', 'Celes'] },
+  gelo:     { c: ['pinguim', 'raposa', 'coelho', 'lontra', 'aguaviva', 'besouro'], i: ['urso', 'cervo', 'coruja', 'lobo', 'tartaruga'], r: ['golem', 'felino', 'polvo', 'cavalo'], e: ['dragao', 'tubarao'], l: ['mamute'],
+    pre: ['Neve', 'Gela', 'Floco', 'Grani', 'Glaci', 'Iglu', 'Crio', 'Geada', 'Polar', 'Frio', 'Inver', 'Artico', 'Tundra', 'Nevas', 'Gelin', 'Aurora', 'Boreal', 'Icebe'] },
+  pedra:    { c: ['tartaruga', 'besouro', 'porcoespinho', 'lagarto', 'macaco', 'escorpiao'], i: ['cervo', 'javali', 'crocodilo', 'coruja', 'urso'], r: ['rinoceronte', 'dino', 'hipopotamo', 'lobo'], e: ['mamute', 'dragao'], l: ['golem'],
+    pre: ['Rocha', 'Seixo', 'Grani', 'Basal', 'Quartz', 'Mina', 'Geo', 'Pedre', 'Fossi', 'Calca', 'Monti', 'Rupe', 'Crista', 'Duro', 'Areia', 'Canion', 'Onix', 'Titan'] },
+  eletrico: { c: ['enguia', 'raposa', 'coelho', 'besouro', 'ave', 'lagarto'], i: ['lobo', 'felino', 'mariposa', 'porcoespinho', 'morcego'], r: ['grifo', 'cavalo', 'dino', 'escorpiao'], e: ['dragao', 'tubarao'], l: ['ave'],
+    pre: ['Volt', 'Watt', 'Choque', 'Faisca', 'Raio', 'Ampe', 'Ohm', 'Dina', 'Ion', 'Plasma', 'Neon', 'Tesla', 'Bobi', 'Surto', 'Pulso', 'Gera', 'Eletro', 'Zap'] },
+  cosmo:    { c: ['aguaviva', 'macaco', 'mariposa', 'coruja', 'polvo', 'raposa'], i: ['felino', 'arraia', 'cervo', 'serpente', 'morcego'], r: ['lobo', 'urso', 'dragao', 'golem'], e: ['serpente', 'grifo'], l: ['cavalo'],
+    pre: ['Astro', 'Luna', 'Nebu', 'Orbi', 'Cosmo', 'Galax', 'Plane', 'Cometa', 'Estel', 'Eclip', 'Quasa', 'Pulsa', 'Nova', 'Sidera', 'Zenit', 'Vacuo', 'Saturn', 'Meteo'] },
+};
+const THUNDER = [['lendario', 'grifo', 'Trovo'], ['lendario', 'lobo', 'Tempes'], ['lendario', 'cavalo', 'Fulmen'], ['mitico', 'dragao', 'Ragna'], ['mitico', 'serpente', 'Relamp'], ['mitico', 'golem', 'Tron']];
+// o pedaço do nome que vem do animal, por estágio
+const ARCH_NAMES = {
+  lobo: ['lupi', 'lobo', 'uivante'], raposa: ['rapi', 'raposa', 'kitsuno'], felino: ['gatim', 'felis', 'leonar'], cervo: ['corcin', 'cervo', 'alcerion'],
+  urso: ['ursim', 'urso', 'ursaltan'], javali: ['porqui', 'javal', 'javalorn'], lagarto: ['lagui', 'sauro', 'lagartex'], tartaruga: ['tartim', 'casco', 'fortudo'],
+  rinoceronte: ['rinim', 'rino', 'rinotank'], mamute: ['mamim', 'mamut', 'mamutão'], dragao: ['dragui', 'draco', 'dragonix'], grifo: ['grifim', 'grifo', 'grifaltor'],
+  cavalo: ['potri', 'corcel', 'pegasor'], coelho: ['pim', 'pulo', 'lebrão'], crocodilo: ['croqui', 'croco', 'crocodor'], hipopotamo: ['hipim', 'hipo', 'hipotanque'],
+  lontra: ['lontrim', 'lontra', 'lontrax'], porcoespinho: ['espim', 'espinho', 'espinhor'], sapo: ['girin', 'sapo', 'saporrei'], pinguim: ['pingui', 'pinguim', 'pinguinator'],
+  macaco: ['miqui', 'macaco', 'gorilon'], golem: ['pedrim', 'golem', 'colosso'], dino: ['dinim', 'dino', 'tiranor'], coruja: ['corujim', 'coruja', 'corujarca'],
+  ave: ['piu', 'falco', 'aquilor'], morcego: ['morcim', 'morcego', 'noturnex'], peixe: ['peixim', 'barbo', 'peixarrão'], tubarao: ['tubarim', 'tubarão', 'tubarex'],
+  arraia: ['arrai', 'arraia', 'arraiamante'], serpente: ['cobri', 'serpe', 'leviatã'], enguia: ['engui', 'enguia', 'enguilon'], besouro: ['besuri', 'besouro', 'escaravor'],
+  mariposa: ['larvi', 'mariposa', 'mariposeon'], escorpiao: ['escorpim', 'escorpio', 'escorpiarca'], aguaviva: ['medusim', 'medusa', 'medusarca'], polvo: ['polvim', 'polvo', 'kraken'],
+};
+// evoluções que TRANSFORMAM: em metade das famílias destes animais, o adulto vira outro bicho
+const EVO_ARCH = { lagarto: 'dragao', peixe: 'tubarao', raposa: 'lobo', coelho: 'cavalo', aguaviva: 'polvo', lontra: 'crocodilo', ave: 'grifo', enguia: 'serpente', besouro: 'escorpiao', porcoespinho: 'javali' };
 
 const STAGE_NAMES = ['Filhote', 'Jovem', 'Adulto'];
-export const EVOLVE_AT = [5, 12];   // nível para virar Jovem e Adulto
-export const EVOLVE_COST = [1, 2];  // Cristais de Evolução
+export const EVOLVE_AT = [5, 12];
+export const EVOLVE_COST = [1, 2];
 
+const MOLDS = { comum: ['cc', 'co', 'cco', 'cn', 'cm', 'cf'], incomum: ['uc', 'uu', 'uo', 'ucc', 'ui'], raro: ['ruc', 'rcc', 'ruu', 'rb'], epico: ['rr*', 'ru*'], lendario: ['rL'] };
 function recipeFor(el, mold) {
-  const I = EL_ITEMS[el] || {};
-  switch (mold) {
-    case 'cc': return [I.comum, I.comum];
-    case 'co': return [I.comum, 'orvalho'];
-    case 'uc': return [I.incomum, I.comum];
-    case 'uu': return [I.incomum, I.incomum];
-    case 'ruc': return [I.raro, I.incomum, I.comum];
-    case 'rcc': return [I.raro, I.comum, I.comum];
-    case 'rr*': return [I.raro, EL_ITEMS[next(el)].raro, 'runa'];
-    case 'rL': return [I.raro, 'coroa', 'runa'];
-    default: return null; // só na Fusão do Trovão
+  const I = EL_ITEMS[el] || {}, N = EL_ITEMS[next(el)] || {};
+  return ({
+    cc: [I.comum, I.comum], co: [I.comum, 'orvalho'], cco: [I.comum, I.comum, 'orvalho'], cn: [I.comum, N.comum], cm: [I.comum, 'madeira'], cf: [I.comum, 'fruta'],
+    uc: [I.incomum, I.comum], uu: [I.incomum, I.incomum], uo: [I.incomum, 'orvalho'], ucc: [I.incomum, I.comum, I.comum], ui: [I.incomum, 'ferro'],
+    ruc: [I.raro, I.incomum, I.comum], rcc: [I.raro, I.comum, I.comum], ruu: [I.raro, I.incomum, I.incomum], rb: [I.raro, 'barra'],
+    'rr*': [I.raro, N.raro, 'runa'], 'ru*': [I.raro, N.incomum, 'runa'], rL: [I.raro, 'coroa', 'runa'],
+  })[mold] || null;
+}
+const cap = (s) => s[0].toUpperCase() + s.slice(1);
+function hash(n) { n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n = n ^ (n >>> 4); n = Math.imul(n, 0x27d4eb2d); n = n ^ (n >>> 15); return (n >>> 0) / 4294967296; }
+
+export const FAMILIES = [];
+for (const el of ORDER) {
+  const R = ROSTER[el]; let k = 0;
+  for (const [key, rar] of [['c', 'comum'], ['i', 'incomum'], ['r', 'raro'], ['e', 'epico'], ['l', 'lendario']]) {
+    R[key].forEach((arch, j) => {
+      const id = FAMILIES.length; const pre = R.pre[k++];
+      FAMILIES.push({ id, el, rar, arch, pre, receita: recipeFor(el, MOLDS[rar][j]), fusao: false });
+    });
   }
 }
-
-export const FAMILIES = LINES.map((l, i) => ({
-  id: i, el: l[0], rar: l[1], arch: l[2], nomes: [l[3], l[4], l[5]],
-  receita: recipeFor(l[0], l[6]), fusao: l[6] === 'fusao',
-}));
+for (const [rar, arch, pre] of THUNDER) FAMILIES.push({ id: FAMILIES.length, el: 'trovao', rar, arch, pre, receita: null, fusao: true });
+for (const f of FAMILIES) {
+  const to = EVO_ARCH[f.arch];
+  f.archs = [f.arch, f.arch, to && hash(f.id + 7) < 0.55 ? to : f.arch];
+  f.nomes = f.archs.map((a, s) => cap(f.pre.toLowerCase()) + ARCH_NAMES[a][s]);
+  // habilidades: a do elemento primeiro, depois as do animal, depois sorteadas (sempre iguais para a família)
+  const list = [EL_SKILL[f.el], ...(ARCH_SKILLS[f.arch] || [])];
+  let s = f.id * 3;
+  while (new Set(list).size < 6) { const sk = ALL_SKILLS[Math.floor(hash(++s) * ALL_SKILLS.length)]; list.push(sk); }
+  f.skillPool = [...new Set(list)];
+}
 
 export const SPECIES = [];
-for (const f of FAMILIES) {
-  for (let s = 0; s < 3; s++) {
-    SPECIES.push({ id: f.id * 3 + s, fam: f.id, stage: s, nome: f.nomes[s], el: f.el, rar: f.rar, arch: f.arch, estagio: STAGE_NAMES[s] });
-  }
+for (const f of FAMILIES) for (let s = 0; s < 3; s++) {
+  SPECIES.push({ id: f.id * 3 + s, fam: f.id, stage: s, nome: f.nomes[s], el: f.el, rar: f.rar, arch: f.archs[s], estagio: STAGE_NAMES[s] });
 }
+// habilidades de uma espécie: mais e mais fortes com raridade e estágio
+export function skillsOf(spId) {
+  const s = SPECIES[spId], f = FAMILIES[s.fam];
+  const n = Math.min(f.skillPool.length, SKILL_COUNT[s.rar] + (s.stage === 2 ? 1 : 0));
+  const lvl = SKILL_BASE[s.rar] + s.stage;
+  return f.skillPool.slice(0, n).map((id, i) => ({ id, nivel: lvl + (i === 0 ? 1 : 0) }));
+}
+export const yieldOf = (spId) => YIELD[SPECIES[spId].rar] * (1 + SPECIES[spId].stage * 0.25);
+
 export const recipeKey = (items) => [...items].sort().join('+');
 export const RECIPE_INDEX = {};
 for (const f of FAMILIES) if (f.receita) RECIPE_INDEX[recipeKey(f.receita)] = f.id;
-// espécie que o guia mostra (o raio-filhote)
-export const GUIDE_SPECIES = FAMILIES.find((f) => f.nomes[0] === 'Raiozinho').id * 3;
+export const GUIDE_SPECIES = FAMILIES.find((f) => f.el === 'eletrico' && f.rar === 'lendario').id * 3;
+
+// ---------- a base: bancada, forno e construções ----------
+export const BUILDINGS = {
+  bancada: { nome: 'Bancada de Trabalho', icone: '🛠️', desc: 'Libera a fabricação de itens e as outras construções.', custo: { madeira: 6, ferro: 2 } },
+  forno:   { nome: 'Forno de Fundição',   icone: '🏭', desc: 'Funde Ferro Bruto em Barras de Metal. Precisa de um companheiro com 🔥 Acender na Floresta Viva.', custo: { madeira: 6, ferro: 6 }, precisa: 'bancada' },
+  canteiros: { nome: 'Canteiros Extras',  icone: '🌾', desc: '+2 canteiros na Floresta Viva (pode construir até 3 vezes).', custo: { madeira: 8, fruta: 2 }, precisa: 'bancada', max: 3 },
+  casinha: { nome: 'Casinha da Equipe',   icone: '🏠', desc: '+1 lugar para companheiros em todas as fazendinhas (até 3).', custo: { madeira: 12, barra: 3 }, precisa: 'bancada', max: 3 },
+  totem:   { nome: 'Totem do Trovão',     icone: '🗿', desc: 'Todos os companheiros trabalham 25% mais rápido.', custo: { barra: 6, runa: 1 }, precisa: 'forno' },
+};
+export const CRAFTS = [
+  { id: 'evo', nome: 'Cristal de Evolução', icone: '🔷', desc: 'Para evoluir companheiros', custo: { barra: 2, fruta: 3 }, dá: 'brilho' },
+  { id: 'runa', nome: 'Runa do Trovão', icone: '💠', desc: 'Ingrediente épico da Forja', custo: { barra: 3, faisca: 2 }, dá: 'runa' },
+  { id: 'coroa', nome: 'Coroa do Trovão', icone: '👑', desc: 'Ingrediente lendário da Forja', custo: { barra: 6, runa: 1, gema: 1 }, dá: 'coroa' },
+  { id: 'racao', nome: 'Ração Turbo', icone: '🥗', desc: '3 frutas viram 1 ração (+40 de experiência)', custo: { fruta: 3 }, dá: 'racao' },
+  { id: 'orvalho', nome: 'Gotas de Orvalho', icone: '💧', desc: '2 frutas viram 3 gotas', custo: { fruta: 2 }, dá: 'orvalho', qtd: 3 },
+];
 
 // Regiões: cada uma tem uma fazendinha, uma ponte de pedra rúnica para abrir e alguém para salvar.
 export const REGIONS = [
@@ -208,10 +264,13 @@ export const REGION_BY_EL = Object.fromEntries(REGIONS.map((r) => [r.el, r]));
 export const ACHIEVEMENTS = [
   { id: 'primeiro', nome: 'Primeira Forja', desc: 'Forje seu primeiro companheiro', icone: '🔨' },
   { id: 'dez', nome: 'Equipe Formada', desc: 'Tenha 10 companheiros', icone: '🛡️' },
-  { id: 'cod25', nome: 'Colecionador', desc: 'Descubra 25 espécies', icone: '📖' },
-  { id: 'cod50', nome: 'Explorador', desc: 'Descubra 50 espécies', icone: '🧭' },
-  { id: 'cod100', nome: 'Sábio das Feras', desc: 'Descubra 100 espécies', icone: '🎓' },
-  { id: 'cod150', nome: 'Mestre do Códice', desc: 'Descubra as 150 espécies', icone: '👑' },
+  { id: 'cod25', nome: 'Colecionador', desc: 'Descubra 50 formas no Códice', icone: '📖' },
+  { id: 'cod50', nome: 'Explorador', desc: 'Descubra 150 formas no Códice', icone: '🧭' },
+  { id: 'cod100', nome: 'Sábio das Feras', desc: 'Descubra 300 formas no Códice', icone: '🎓' },
+  { id: 'cod150', nome: 'Mestre do Códice', desc: 'Descubra as 450 formas', icone: '👑' },
+  { id: 'construtor', nome: 'Construtor', desc: 'Construa a Bancada de Trabalho', icone: '🛠️' },
+  { id: 'fazendeiro', nome: 'Fazendeiro', desc: 'Colha 20 frutas', icone: '🍎' },
+  { id: 'lenhador', nome: 'Lenhador', desc: 'Junte 50 madeiras', icone: '🪓' },
   { id: 'evo1', nome: 'Evolução!', desc: 'Evolua um companheiro pela primeira vez', icone: '🔷' },
   { id: 'evo2', nome: 'Forma Final', desc: 'Leve um companheiro até Adulto', icone: '🏅' },
   { id: 'brilhante', nome: 'Raro de Verdade', desc: 'Encontre um companheiro cintilante', icone: '💎' },

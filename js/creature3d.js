@@ -181,6 +181,8 @@ const PLAN = {
   sapo: 'biped', pinguim: 'biped', macaco: 'biped', golem: 'biped', dino: 'biped',
   ave: 'bird', morcego: 'bird', peixe: 'fish', arraia: 'fish', serpente: 'serpent', enguia: 'serpent',
   besouro: 'insect', mariposa: 'insect', aguaviva: 'spirit',
+  cavalo: 'quad', coelho: 'quad', crocodilo: 'quad', hipopotamo: 'quad', lontra: 'quad', porcoespinho: 'quad',
+  coruja: 'bird', tubarao: 'fish', escorpiao: 'insect', polvo: 'spirit',
 };
 const QUAD = {
   lobo:        { len: 1.25, h: 0.4, w: 0.38, leg: 0.55, legR: 0.085, head: 0.33, snout: 0.62, ears: 'pont', tail: 'peluda', neck: 0.32, skin: 'pelo', slit: false },
@@ -194,6 +196,12 @@ const QUAD = {
   rinoceronte: { len: 1.45, h: 0.6, w: 0.52, leg: 0.45, legR: 0.15, head: 0.4, snout: 0.75, ears: 'pont', tail: 'curta', neck: 0.08, skin: 'couro', horn: true },
   mamute:      { len: 1.4, h: 0.72, w: 0.6, leg: 0.6, legR: 0.17, head: 0.48, snout: 0.15, ears: 'leque', tail: 'curta', neck: 0.08, skin: 'pelo', tusks: 'mamute', trunk: true },
   dragao:      { len: 1.3, h: 0.43, w: 0.42, leg: 0.52, legR: 0.1, head: 0.34, snout: 0.66, ears: 'nada', tail: 'reptil', neck: 0.6, skin: 'escama', wings: 'membrana', horns: true, spikes: true, slit: true },
+  cavalo:      { len: 1.2, h: 0.4, w: 0.33, leg: 0.9, legR: 0.07, head: 0.27, snout: 0.85, ears: 'pont', tail: 'crina', neck: 0.65, skin: 'pelo', hmane: true },
+  coelho:      { len: 0.75, h: 0.34, w: 0.32, leg: 0.3, legR: 0.07, head: 0.32, snout: 0.28, ears: 'coelho', tail: 'pompom', neck: 0.18, skin: 'pelo' },
+  crocodilo:   { len: 1.5, h: 0.24, w: 0.36, leg: 0.22, legR: 0.08, head: 0.27, snout: 1.5, ears: 'nada', tail: 'reptil', neck: 0.05, skin: 'escama', splay: true, spikes: true, slit: true },
+  hipopotamo:  { len: 1.35, h: 0.6, w: 0.62, leg: 0.34, legR: 0.17, head: 0.45, snout: 0.65, ears: 'redonda', tail: 'curta', neck: 0.05, skin: 'couro', tusks: true },
+  lontra:      { len: 1.1, h: 0.28, w: 0.28, leg: 0.22, legR: 0.07, head: 0.27, snout: 0.35, ears: 'redonda', tail: 'reptil', neck: 0.25, skin: 'pelo' },
+  porcoespinho:{ len: 0.85, h: 0.35, w: 0.36, leg: 0.22, legR: 0.07, head: 0.27, snout: 0.5, ears: 'redonda', tail: 'curta', neck: 0.05, skin: 'pelo', quills: true },
   grifo:       { len: 1.25, h: 0.43, w: 0.42, leg: 0.55, legR: 0.095, head: 0.34, snout: 0, ears: 'tufo', tail: 'fina', neck: 0.48, skin: 'pena', wings: 'penas', beak: true },
 };
 
@@ -209,14 +217,14 @@ export function buildCreature(spec, opts = {}) {
   let [c1, c2, glow] = el ? ELEMENTS[el].cores : [spec.npc.cor, shade(spec.npc.cor, 0, -0.1, 0.15), '#ffffff'];
   if (el) {
     const fi = FAMILIES.filter((f) => f.el === el).findIndex((f) => f.id === SPECIES[spec.sp].fam);
-    c1 = shade(c1, (fi - 2.5) * 0.025, (rnd() - 0.5) * 0.15, (fi % 3 - 1) * 0.06);
+    c1 = shade(c1, ((fi * 7) % 6 - 2.5) * 0.022, (rnd() - 0.5) * 0.15, (fi % 3 - 1) * 0.07);
     if (opts.shiny) { c1 = shade(c1, 0.45, 0.1, 0.05); c2 = shade(c2, 0.4, 0, 0); glow = shade(glow, 0.3, 0, 0); }
   }
   const plan = PLAN[arch] || 'quad';
   const elSkin = el === 'pedra' && ['golem', 'tartaruga', 'rinoceronte', 'besouro', 'lagarto'].includes(arch) ? 'pedra'
     : el === 'fogo' && ['lagarto', 'dino', 'rinoceronte', 'javali'].includes(arch) ? 'lava'
     : el === 'gelo' && ['golem', 'aguaviva'].includes(arch) ? 'gelo' : null;
-  const baseSkin = elSkin || (plan === 'quad' ? QUAD[arch].skin : { sapo: 'pele', pinguim: 'pena', macaco: 'pelo', golem: 'pedra', dino: 'escama', ave: 'pena', morcego: 'pelo', peixe: 'escama', arraia: 'pele', serpente: 'escama', enguia: 'pele', besouro: 'quitina', mariposa: 'pelo', aguaviva: 'gel' }[arch]);
+  const baseSkin = elSkin || (plan === 'quad' ? QUAD[arch].skin : { sapo: 'pele', pinguim: 'pena', macaco: 'pelo', golem: 'pedra', dino: 'escama', ave: 'pena', morcego: 'pelo', peixe: 'escama', arraia: 'pele', serpente: 'escama', enguia: 'pele', besouro: 'quitina', mariposa: 'pelo', aguaviva: 'gel', coruja: 'pena', tubarao: 'couro', escorpiao: 'quitina', polvo: 'pele' }[arch]);
   const pat = ['listras', 'manchas', 'nada'][Math.floor(rnd() * 3)];
   const over = el === 'eletrico' || el === 'cosmo' || el === 'gelo' || el === 'planta' ? el : null;
   const glossy = baseSkin === 'quitina' || baseSkin === 'gel' || baseSkin === 'gelo';
@@ -230,7 +238,7 @@ export function buildCreature(spec, opts = {}) {
   const root = new THREE.Group(); const body = b.g(root); ctx.body = body;
   const R = ({ quad: buildQuad, biped: buildBiped, bird: buildBird, fish: buildFish, serpent: buildSerpent, insect: buildInsect, spirit: buildSpirit })[plan](ctx);
   // R: { height, head, headR, top (ponto no alto da cabeça), back: [pontos das costas], tailTip, eyesFwd }
-  if (!spec.npc) elementParts(ctx, R);
+  if (!spec.npc) { elementParts(ctx, R); armor(ctx, R); }
   if (spec.npc) hat(b, R.head, R.headR, spec.npc.chapeu);
   // aura de raridade alta no adulto
   if (!spec.npc && stage === 2 && ['epico', 'lendario', 'mitico'].includes(rar) && !b.sil) {
@@ -314,6 +322,7 @@ function buildQuad(ctx) {
     redonda: (sx) => b.m(head, G.sph, earM, [sx * hr * 0.66, hr * 0.68, -hr * 0.1], [hr * 0.26, hr * 0.26, hr * 0.12]),
     cervo: (sx) => b.m(head, SHAPES.leaf, earM, [sx * hr * 0.75, hr * 0.45, -hr * 0.15], [hr * 0.5, hr * 0.6, hr], [0, sx * 0.4, -sx * 1.25]),
     leque: (sx) => b.m(head, G.sph, earM, [sx * hr * 0.95, hr * 0.05, -hr * 0.1], [hr * 0.08, hr * 0.7, hr * 0.55], [0, sx * 0.3, 0]),
+    coelho: (sx) => b.m(head, SHAPES.leaf, earM, [sx * hr * 0.3, hr * 0.8, -hr * 0.1], [hr * 0.55, hr * 1.5, hr], [-0.15, sx * 0.25, -sx * 0.15]),
     tufo: (sx) => b.m(head, SHAPES.feather, earM, [sx * hr * 0.4, hr * 0.75, -hr * 0.3], [hr * 0.9, hr * 0.7, hr], [-0.6, 0, -sx * 0.5]),
   };
   if (earFn[P.ears]) for (const sx of [1, -1]) earFn[P.ears](sx);
@@ -325,6 +334,8 @@ function buildQuad(ctx) {
   if (P.tail === 'peluda') { b.m(tg, G.sph, ctx.skinM, [0, 0.12 * tl, -0.32 * tl], [0.16 * tl, 0.18 * tl, 0.42 * tl], [-0.55, 0, 0]); b.m(tg, G.sph, ctx.secM, [0, 0.3 * tl, -0.62 * tl], [0.12 * tl, 0.13 * tl, 0.16 * tl]); tailTip = tailBase.clone().add(V(0, 0.32 * tl, -0.66 * tl)); }
   if (P.tail === 'fina') { const pts = [V(0, 0, 0), V(0, 0.08, -0.3 * tl), V(0, 0.35 * tl, -0.55 * tl), V(0, 0.55 * tl, -0.5 * tl)]; b.m(tg, taperTube(pts, 0.05, 0.035), ctx.skinM); b.m(tg, G.sph, ctx.darkM, pts[3].toArray(), 0.07); tailTip = tailBase.clone().add(pts[3]); }
   if (P.tail === 'reptil') { const L = P.len * (0.9 + stage * 0.15); const pts = [V(0, 0, 0), V(0, -0.1, -L * 0.35), V(0.05, -0.2, -L * 0.7), V(0, -0.22, -L)]; b.m(tg, taperTube(pts, P.w * 0.5, 0.025), ctx.skinM); tailTip = tailBase.clone().add(pts[3]); ctx.tailPts = pts.map((p) => p.clone().add(tailBase)); }
+  if (P.tail === 'crina') { const pts = [V(0, 0, 0), V(0, -0.1, -0.15), V(0, -0.4, -0.25), V(0, -0.65, -0.2)]; b.m(tg, taperTube(pts, 0.09, 0.05), ctx.darkM); tailTip = tailBase.clone().add(pts[3]); }
+  if (P.tail === 'pompom') b.m(tg, G.sph, ctx.secM, [0, 0.05, -0.05], 0.13);
   if (P.tail === 'curta') b.m(tg, G.sph, ctx.skinM, [0, 0.02, -0.06], [0.07, 0.07, 0.14], [-0.6, 0, 0]);
   // peças especiais
   const back = [];
@@ -343,11 +354,14 @@ function buildQuad(ctx) {
   if (P.trunk) { const pts = [V(0, 0, 0), V(0, -0.35, 0.3), V(0, -0.75, 0.32), V(0, -0.95, 0.5)].map((v) => v.multiplyScalar(hr)); const tr = b.m(head, taperTube(pts, hr * 0.22, hr * 0.1), ctx.skinM, [0, -hr * 0.1, hr * 0.85]); ctx.anim.tails.push(tr); }
   if (P.mane) for (let i = 0; i < 7; i++) b.m(body, G.cone, ctx.darkM, [0, ty + P.h * 0.85, P.len * (0.45 - i * 0.12)], [0.05, 0.22, 0.05], [-0.4, 0, 0]);
   if (P.antlers) antlers(ctx, head, hr);
+  if (P.hmane) for (let i = 0; i < 7; i++) { const k = i / 6; const p = neckBase.clone().lerp(headPos, k); b.m(body, SHAPES.flame, ['fogo', 'eletrico', 'cosmo', 'trovao'].includes(ctx.el) ? mat(ctx.glow, { glow: 1.2 }) : ctx.darkM, [0, p.y + hr * 0.35, p.z - hr * 0.35], [0.22, 0.28 + stage * 0.06, 0.5], [-0.6, Math.PI / 2, 0]).castShadow = false; }
+  if (arch === 'cavalo' && (['lendario', 'mitico'].includes(ctx.rar) || (ctx.el === 'cosmo' && stage === 2))) { b.m(head, G.cone, mat('#fff6c9', { glow: 0.8, emis: ctx.glow }), [0, hr * 0.75, hr * 0.55], [hr * 0.12, hr * (0.7 + stage * 0.3), hr * 0.12], [0.5, 0, 0]); if (stage === 2) wings(ctx, body, V(0, ty + P.h * 0.75, P.len * 0.15), 'penas', 1.2); }
+  if (P.quills) for (let i = 0; i < 22 + stage * 8; i++) { const a = (i * 2.399) % (Math.PI * 2), e = 0.2 + (i % 5) * 0.16; const dir = V(Math.cos(a) * Math.cos(e) * 0.8, Math.sin(e) + 0.2, -Math.abs(Math.sin(a)) * Math.cos(e) - 0.2).normalize(); const q = b.m(body, G.cone, ctx.el === 'pedra' ? ctx.hornM : ctx.darkM, [dir.x * P.w, ty + dir.y * P.h, dir.z * P.len * 0.4], [0.035, 0.3 + stage * 0.08, 0.035]); b.aim(q, dir); }
   if (P.horns) for (const sx of [1, -1]) b.m(head, taperTube([V(0, 0, 0), V(sx * 0.05, 0.3, -0.12), V(sx * 0.08, 0.55, -0.35)].map((v) => v.multiplyScalar(hr * (1 + stage * 0.35))), hr * 0.1, hr * 0.02), ctx.hornM, [sx * hr * 0.42, hr * 0.55, -hr * 0.2]);
   if (P.spikes) for (const p of back) b.m(body, G.cone, ctx.hornM, [p.x, p.y + 0.04, p.z], [0.05 + stage * 0.015, 0.16 + stage * 0.06, 0.05 + stage * 0.015], [-0.3, 0, 0]);
   if (P.wings) wings(ctx, body, V(0, ty + P.h * 0.75, P.len * 0.15), P.wings, 0.9 + stage * 0.35);
   if (arch === 'felino' && ctx.el === 'fogo') mane(ctx, head, hr);
-  return { height: headPos.y + hr * 1.2, head, headR: hr, top: V(0, hr * 0.95, 0), back, backParent: body, tailTip, tailParent: body, footR: Math.max(P.len * 0.65, P.w * 1.4) };
+  return { height: headPos.y + hr * 1.2, head, headR: hr, top: V(0, hr * 0.95, 0), back, backParent: body, tailTip, tailParent: body, footR: Math.max(P.len * 0.65, P.w * 1.4), chest: V(0, ty + P.h * 0.1, P.len * 0.55), shoulders: [V(P.w * 0.85, ty + P.h * 0.55, P.len * 0.3), V(-P.w * 0.85, ty + P.h * 0.55, P.len * 0.3)], scaleRef: P.h };
 }
 function antlers(ctx, head, hr) {
   const { b, stage, el } = ctx; const crystal = el === 'gelo' || el === 'pedra';
@@ -414,7 +428,7 @@ function buildBiped(ctx) {
     b.m(head, G.sph, ctx.secM, [0, -hr * 0.1, hr * 0.55], [hr * 0.7, hr * 0.6, hr * 0.5]);
     eyes(ctx, head, hr, { x: hr * 0.4, y: hr * 0.2, z: hr * 0.78, size: hr * 0.2, color: ctx.el ? ctx.glow : '#3a2a1b', fierce: 0.45 });
     if (st >= 1) for (const sx of [1, -1]) b.m(head, SHAPES.feather, mat('#ffd23f', { rough: 0.6 }), [sx * hr * 0.5, hr * 0.45, hr * 0.3], [hr * 0.9, hr * 0.7, hr], [0, sx * 0.5, -sx * 1.1]);
-    height = by + 0.62 + hr; top = V(0, hr, 0); back = [V(0, by + 0.4, -0.38), V(0, by, -0.42)]; footR = 0.55;
+    height = by + 0.62 + hr; top = V(0, hr, 0); back = [V(0, by + 0.4, -0.38), V(0, by, -0.42)]; footR = 0.55; ctx.chest = V(0, by + 0.15, 0.42);
   } else if (arch === 'macaco') {
     const by = 0.75; b.m(ctx.body, G.sph, ctx.skinM, [0, by, 0], [0.55, 0.5, 0.45]);
     b.m(ctx.body, G.sph, ctx.skinM, [0, by + 0.3, 0.05], [0.62, 0.38, 0.45]);
@@ -432,7 +446,7 @@ function buildBiped(ctx) {
     b.m(head, G.sph, mat('#1c1620'), [0, -hr * 0.12, hr * 1.02], [hr * 0.18, hr * 0.1, hr * 0.08]);
     for (const sx of [1, -1]) b.m(head, G.sph, ctx.secM, [sx * hr * 0.95, 0, 0], [hr * 0.18, hr * 0.24, hr * 0.12]);
     eyes(ctx, head, hr, { x: hr * 0.36, y: hr * 0.1, z: hr * 0.78, size: hr * 0.17, color: ctx.el ? ctx.glow : '#6b4a2b', fierce: 0.15 });
-    height = by + 0.72 + hr; top = V(0, hr * 0.95, 0); back = [V(0, by + 0.6, -0.3), V(0, by + 0.3, -0.42), V(0, by, -0.42)]; footR = 0.8;
+    height = by + 0.72 + hr; top = V(0, hr * 0.95, 0); back = [V(0, by + 0.6, -0.3), V(0, by + 0.3, -0.42), V(0, by, -0.42)]; footR = 0.8; ctx.chest = V(0, by + 0.25, 0.42); ctx.shoulders = [V(0.62, by + 0.6, 0.05), V(-0.62, by + 0.6, 0.05)];
   } else if (arch === 'golem') {
     const by = 0.85; const chunk = (p, s, r) => b.m(ctx.body, G.dode, ctx.skinM, p, s, r);
     chunk([0, by, 0], [0.62, 0.55, 0.45], [0.2, 0.3, 0]); chunk([0, by + 0.45, 0], [0.8, 0.4, 0.5], [0, 0.6, 0.1]);
@@ -447,6 +461,7 @@ function buildBiped(ctx) {
     b.m(head, G.dode, ctx.skinM, [0, 0, 0], [hr * 1.1, hr, hr]);
     for (const sx of [1, -1]) b.m(head, G.sph, ctx.glowM, [sx * hr * 0.4, hr * 0.05, hr * 0.85], [hr * 0.17, hr * 0.1, hr * 0.06], [0, 0, sx * 0.3]);
     ctx.anim.eyes.push(head);
+    ctx.shoulders = [V(0.8, by + 0.72, 0), V(-0.8, by + 0.72, 0)];
     height = by + 0.82 + hr; top = V(0, hr * 0.9, 0); back = [V(0, by + 0.75, -0.35), V(-0.4, by + 0.65, -0.3), V(0.4, by + 0.65, -0.3), V(0, by + 0.3, -0.45)]; footR = 0.95;
   } else { // dino (T-rex amigável)
     const hipY = 0.75; const body = b.g(ctx.body, [0, 0, 0], [0, 0, 0]);
@@ -470,22 +485,27 @@ function buildBiped(ctx) {
     const pts = [V(0, 0, 0), V(0, -0.1, -0.45), V(0.05, -0.25, -0.9), V(0, -0.4, -1.35 - st * 0.2)];
     const tg = b.g(body, [0, hipY + 0.15, -0.45]); b.m(tg, taperTube(pts, 0.3, 0.03), ctx.skinM); ctx.anim.tails.push(tg); tailTip = V(0, hipY - 0.25, -1.8);
     ctx.tailPts = pts.map((p) => p.clone().add(V(0, hipY + 0.15, -0.45)));
+    ctx.chest = V(0, hipY + 0.3, 0.42);
     height = hipY + 0.82 + hr; top = V(0, hr * 0.85, -hr * 0.1); back = [V(0, hipY + 0.68, 0.15), V(0, hipY + 0.6, -0.1), V(0, hipY + 0.45, -0.35), V(0, hipY + 0.25, -0.6)]; footR = 1.0;
     for (const p of back) b.m(body, G.cone, ctx.hornM, [p.x, p.y, p.z], [0.06, 0.2 + st * 0.06, 0.06], [-0.4, 0, 0]);
   }
-  return { height, head, headR: hr, top, back, backParent: ctx.body, tailTip, tailParent: ctx.body, footR };
+  return { height, head, headR: hr, top, back, backParent: ctx.body, tailTip, tailParent: ctx.body, footR, chest: ctx.chest, shoulders: ctx.shoulders };
 }
 
 // ---------- aves e morcegos (voam sobre o chão) ----------
 function buildBird(ctx) {
-  const { b, stage, arch } = ctx; const bat = arch === 'morcego';
-  ctx.anim.float = 0.75 + stage * 0.15;
+  const { b, stage, arch } = ctx; const bat = arch === 'morcego', owl = arch === 'coruja';
+  ctx.anim.float = owl ? 0.45 + stage * 0.1 : 0.75 + stage * 0.15;
   const body = b.g(ctx.body, [0, 0, 0]);
   b.m(body, G.sph, ctx.skinM, [0, 0, 0], [0.32, 0.36, 0.5], [0.25, 0, 0]);
   b.m(body, G.sph, ctx.secM, [0, -0.08, 0.15], [0.24, 0.26, 0.32], [0.25, 0, 0]);
-  const head = b.g(body, [0, 0.32, 0.38]); const hr = stage === 0 ? 0.32 : 0.26; ctx.anim.head = head;
+  const head = b.g(body, owl ? [0, 0.42, 0.18] : [0, 0.32, 0.38]); const hr = (stage === 0 ? 0.32 : 0.26) * (owl ? 1.35 : 1); ctx.anim.head = head;
   b.m(head, G.sph, ctx.skinM, [0, 0, 0], hr);
-  if (bat) {
+  if (owl) {
+    b.m(head, G.sph, ctx.secM, [0, -hr * 0.05, hr * 0.55], [hr * 0.85, hr * 0.7, hr * 0.5]);
+    b.m(head, G.cone, mat('#e8b23a', { rough: 0.35 }), [0, -hr * 0.2, hr * 1.0], [hr * 0.12, hr * 0.3, hr * 0.12], [Math.PI / 2 + 0.6, 0, 0]);
+    for (const sx of [1, -1]) b.m(head, SHAPES.feather, ctx.darkM, [sx * hr * 0.55, hr * 0.75, 0], [hr * 0.8, hr * (0.9 + stage * 0.3), hr], [0, 0, -sx * 0.4]);
+  } else if (bat) {
     for (const sx of [1, -1]) b.m(head, SHAPES.ear, ctx.skinM, [sx * hr * 0.55, hr * 0.7, -hr * 0.1], [hr * 0.55, hr * 1.1, hr], [-0.2, sx * 0.3, -sx * 0.35]);
     b.m(head, G.sph, mat('#1c1620'), [0, -hr * 0.05, hr * 0.95], [hr * 0.14, hr * 0.1, hr * 0.08]);
     for (const sx of [1, -1]) b.m(head, G.cone, mat('#ffffff'), [sx * hr * 0.15, -hr * 0.42, hr * 0.82], [hr * 0.05, hr * 0.14, hr * 0.05], [Math.PI, 0, 0]);
@@ -494,13 +514,14 @@ function buildBird(ctx) {
     b.m(head, G.cone, mat(beakC, { rough: 0.35 }), [0, -hr * 0.12, hr * 1.0], [hr * 0.25, hr * 0.65, hr * 0.28], [Math.PI / 2 + 0.3, 0, 0]);
     for (let i = 0; i < 3; i++) b.m(head, SHAPES.feather, ctx.skinM, [0, hr * 0.8, -hr * (0.1 + i * 0.25)], [hr * 0.9, hr * (1.1 - i * 0.2), hr], [-0.9 - i * 0.3, 0, 0]);
   }
-  eyes(ctx, head, hr, { x: hr * 0.45, y: hr * 0.15, z: hr * 0.72, size: hr * 0.2, color: ctx.glow, fierce: 0.55 });
-  wings(ctx, body, V(0, 0.15, 0.05), bat ? 'membrana' : 'penas', 0.8 + stage * 0.35);
+  eyes(ctx, head, hr, { x: hr * (owl ? 0.38 : 0.45), y: hr * 0.15, z: hr * 0.72, size: hr * (owl ? 0.28 : 0.2), color: owl ? '#ffb020' : ctx.glow, fierce: owl ? 0.25 : 0.55 });
+  wings(ctx, body, V(0, 0.15, 0.05), bat ? 'membrana' : 'penas', (0.8 + stage * 0.35) * (owl ? 0.8 : 1));
   // cauda de penas e garras
+  ctx.chest = V(0, 0.05, 0.42);
   if (!bat) for (let i = 0; i < 5; i++) b.m(body, SHAPES.feather, i % 2 ? ctx.secM : ctx.skinM, [(i - 2) * 0.06, -0.05, -0.45], [0.35, 0.6 + stage * 0.15, 0.5], [-Math.PI / 2 - 0.3, 0, (i - 2) * 0.35]);
   for (const sx of [1, -1]) { const leg = b.g(body, [sx * 0.12, -0.3, 0.05]); b.limb(leg, mat('#e8b23a'), V(0, 0, 0), V(0, -0.18, 0.05), 0.035); for (const cx of [-1, 0, 1]) b.m(leg, G.cone, ctx.hornM, [cx * 0.04, -0.22, 0.1], [0.018, 0.08, 0.018], [Math.PI / 2, 0, 0]); ctx.anim.legs.push({ g: leg, ph: 0, tucked: true }); }
   const lift = ctx.anim.float;
-  return { height: lift + 0.6, head, headR: hr, top: V(0, hr, 0), back: [V(0, 0.3, -0.05), V(0, 0.25, -0.3)], backParent: body, tailTip: V(0, -0.1, -0.7), tailParent: body, footR: 0.7 };
+  return { height: lift + 0.6 + (owl ? 0.25 : 0), head, headR: hr, top: V(0, hr, 0), back: [V(0, 0.3, -0.05), V(0, 0.25, -0.3)], backParent: body, tailTip: V(0, -0.1, -0.7), tailParent: body, footR: 0.7, chest: ctx.chest, bodyParent: body };
 }
 
 // ---------- peixes e arraias ----------
@@ -520,18 +541,20 @@ function buildFish(ctx) {
     for (const sx of [1, -1]) b.m(head, G.cone, ctx.skinM, [sx * 0.12, 0, 0.12], [0.05, 0.2, 0.04], [Math.PI / 2, 0, -sx * 0.3]);
     return { height: ctx.anim.float + 0.3, head, headR: hr, top: V(0, hr, 0), back: [V(0, 0.12, 0), V(0, 0.1, -0.2)], backParent: body, tailTip: V(0, 0.15, -1.4), tailParent: body, footR: w * 0.9 };
   }
-  const L = 0.6 + stage * 0.08;
-  b.m(body, G.sph, ctx.skinM, [0, 0, 0], [0.3, 0.38, L]);
+  const shark = arch === 'tubarao'; const L = (shark ? 0.85 : 0.6) + stage * 0.1;
+  b.m(body, G.sph, ctx.skinM, [0, 0, 0], shark ? [0.32, 0.32, L] : [0.3, 0.38, L]);
   b.m(body, G.sph, ctx.secM, [0, -0.12, 0.05], [0.24, 0.24, L * 0.8]);
-  b.m(body, SHAPES.fin, finM, [0, 0.3, 0.1], [0.5 + stage * 0.15, 0.5 + stage * 0.15, 1], [0, Math.PI / 2, 0]);
+  b.m(body, SHAPES.fin, finM, [0, 0.28, shark ? -0.05 : 0.1], shark ? [0.9 + stage * 0.2, 0.9 + stage * 0.2, 1] : [0.5 + stage * 0.15, 0.5 + stage * 0.15, 1], [0, Math.PI / 2, shark ? 0.3 : 0]);
   for (const sx of [1, -1]) { const g = b.g(body, [sx * 0.27, -0.1, 0.15]); b.m(g, SHAPES.fin, finM, [0, 0, 0], 0.35, [0, sx * 1.2, -sx * 0.6]); ctx.anim.wings.push({ g, sx, flap: 0.4 }); }
   const tail = b.g(body, [0, 0, -L * 0.95]); ctx.anim.tails.push(tail);
   for (const sy of [1, -1]) b.m(tail, SHAPES.fin, finM, [0, 0, -0.05], [0.55 + stage * 0.2, sy * (0.55 + stage * 0.2), 1], [0, -Math.PI / 2, 0]);
   head = b.g(body, [0, 0.05, L * 0.55]); hr = 0.28; ctx.anim.head = head;
   eyes(ctx, head, hr, { x: hr * 0.75, y: hr * 0.2, z: hr * 0.35, size: hr * 0.25, color: ctx.glow, fierce: 0.4, yaw: 0.9 });
   b.m(head, G.sph, darkLip(ctx), [0, -hr * 0.2, hr * 0.9], [hr * 0.3, hr * 0.12, hr * 0.1]);
+  if (shark) for (let i = 0; i < 5; i++) b.m(head, G.cone, mat('#ffffff', { rough: 0.3 }), [(i - 2) * hr * 0.12, -hr * 0.12, hr * 0.95], [hr * 0.04, hr * 0.1, hr * 0.04], [Math.PI, 0, 0]);
+  ctx.chest = V(0, -0.05, L * 0.7);
   if (stage === 2) for (const sx of [1, -1]) b.m(head, G.cone, ctx.hornM, [sx * hr * 0.4, hr * 0.5, hr * 0.2], [0.04, 0.22, 0.04], [-0.4, 0, -sx * 0.4]);
-  return { height: ctx.anim.float + 0.55, head, headR: hr, top: V(0, hr * 0.9, 0), back: [V(0, 0.35, 0), V(0, 0.32, -0.25)], backParent: body, tailTip: V(0, 0, -L - 0.3), tailParent: body, footR: 0.75 };
+  return { height: ctx.anim.float + 0.55, head, headR: hr, top: V(0, hr * 0.9, 0), back: [V(0, 0.35, 0), V(0, 0.32, -0.25)], backParent: body, tailTip: V(0, 0, -L - 0.3), tailParent: body, footR: 0.75 + (shark ? 0.2 : 0), chest: ctx.chest };
 }
 const darkLip = (ctx) => mat(shade(ctx.c1, 0, 0, -0.3));
 
@@ -590,30 +613,35 @@ function buildInsect(ctx) {
   for (const sx of [1, -1]) for (const z of [-0.25, 0.05, 0.35]) { const leg = b.g(body, [sx * 0.32, y - 0.1, z * L]); b.limb(leg, ctx.darkM, V(0, 0, 0), V(sx * 0.25, 0.05, 0.05), 0.035); b.limb(leg, ctx.darkM, V(sx * 0.25, 0.05, 0.05), V(sx * 0.38, -y + 0.12, 0.1), 0.03); ctx.anim.legs.push({ g: leg, ph: (sx > 0 ? 0 : Math.PI) + z * 4 }); }
   const head = b.g(body, [0, y, L * 0.85]); const hr = 0.2; ctx.anim.head = head;
   b.m(head, G.sph, ctx.darkM, [0, 0, 0], hr);
-  b.m(head, taperTube([V(0, 0, 0), V(0, 0.15, 0.2), V(0, 0.45 + stage * 0.2, 0.25), V(0, 0.6 + stage * 0.25, 0.05)], 0.07, 0.015), ctx.hornM, [0, hr * 0.3, hr * 0.5]);
-  if (stage >= 1) b.m(body, taperTube([V(0, 0, 0), V(0, 0.15, 0.15), V(0, 0.25, 0.3)], 0.05, 0.01), ctx.hornM, [0, y + 0.22, L * 0.6]);
+  if (arch === 'escorpiao') {
+    for (const sx of [1, -1]) { const cl = b.g(head, [sx * hr * 0.7, -hr * 0.1, hr * 0.3]); b.limb(cl, ctx.darkM, V(0, 0, 0), V(sx * 0.15, 0, 0.3), 0.05); for (const sy of [1, -1]) b.m(cl, G.cone, ctx.skinM, [sx * 0.15, sy * 0.05, 0.42], [0.06, 0.25 + stage * 0.06, 0.05], [Math.PI / 2 - sy * 0.3, 0, 0]); ctx.anim.wings.push({ g: cl, sx, flap: 0.15, axisZ: true }); }
+    const tg = b.g(body, [0, y + 0.1, -L * 0.85]); const pts = [V(0, 0, 0), V(0, 0.35, -0.25), V(0, 0.8 + stage * 0.15, -0.05), V(0, 0.95 + stage * 0.2, 0.35)];
+    b.m(tg, taperTube(pts, 0.1, 0.05), ctx.skinM); b.m(tg, G.cone, ctx.hornM, [0, 0.9 + stage * 0.2, 0.5], [0.06, 0.25, 0.06], [Math.PI / 2 + 0.8, 0, 0]); ctx.anim.tails.push(tg);
+  } else b.m(head, taperTube([V(0, 0, 0), V(0, 0.15, 0.2), V(0, 0.45 + stage * 0.2, 0.25), V(0, 0.6 + stage * 0.25, 0.05)], 0.07, 0.015), ctx.hornM, [0, hr * 0.3, hr * 0.5]);
+  if (stage >= 1 && arch !== 'escorpiao') b.m(body, taperTube([V(0, 0, 0), V(0, 0.15, 0.15), V(0, 0.25, 0.3)], 0.05, 0.01), ctx.hornM, [0, y + 0.22, L * 0.6]);
   eyes(ctx, head, hr, { x: hr * 0.62, y: hr * 0.15, z: hr * 0.6, size: hr * 0.25, color: ctx.glow, fierce: 0.3, yaw: 0.7, glowEyes: true });
-  return { height: y + 0.6 + stage * 0.2, head, headR: hr, top: V(0, hr, 0), back: [V(0, y + 0.42, 0), V(-0.2, y + 0.38, -0.2), V(0.2, y + 0.38, -0.2)], backParent: body, tailTip: V(0, y, -L), tailParent: body, footR: 0.85 };
+  return { height: y + 0.6 + stage * 0.2 + (arch === 'escorpiao' ? 0.4 : 0), head, headR: hr, top: V(0, hr, 0), back: [V(0, y + 0.42, 0), V(-0.2, y + 0.38, -0.2), V(0.2, y + 0.38, -0.2)], backParent: body, tailTip: arch === 'escorpiao' ? null : V(0, y, -L), tailParent: body, footR: 0.85 };
 }
 
 // ---------- espírito (água-viva) ----------
 function buildSpirit(ctx) {
-  const { b, stage } = ctx; ctx.anim.float = 0.9;
+  const { b, stage, arch } = ctx; const oct = arch === 'polvo'; ctx.anim.float = oct ? 0.75 : 0.9;
   const body = b.g(ctx.body, [0, 0, 0]);
-  const R0 = 0.45 + stage * 0.1;
-  b.m(body, G.dome, ctx.skinM, [0, 0, 0], [R0, R0 * 0.85, R0]);
-  b.m(body, G.sph, ctx.glowM, [0, R0 * 0.2, 0], R0 * 0.35);
+  const R0 = (oct ? 0.5 : 0.45) + stage * 0.1;
+  if (oct) b.m(body, G.sph, ctx.skinM, [0, R0 * 0.35, -R0 * 0.1], [R0, R0 * 1.15, R0 * 1.05], [-0.25, 0, 0]);
+  else { b.m(body, G.dome, ctx.skinM, [0, 0, 0], [R0, R0 * 0.85, R0]); b.m(body, G.sph, ctx.glowM, [0, R0 * 0.2, 0], R0 * 0.35); }
   const head = b.g(body, [0, R0 * 0.3, R0 * 0.7]); ctx.anim.head = head;
-  eyes(ctx, head, R0, { x: R0 * 0.28, y: 0, z: 0, size: R0 * 0.14, color: ctx.glow, fierce: 0.2, yaw: 0.3, glowEyes: true });
+  eyes(ctx, head, R0, { x: R0 * (oct ? 0.4 : 0.28), y: oct ? -R0 * 0.05 : 0, z: oct ? R0 * 0.2 : 0, size: R0 * (oct ? 0.2 : 0.14), color: ctx.glow, fierce: oct ? 0.45 : 0.2, yaw: 0.3, glowEyes: !oct, slit: oct });
   const tents = [];
-  const n = 6 + stage * 2;
+  const n = oct ? 8 : 6 + stage * 2;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2; const g = b.g(body, [Math.cos(a) * R0 * 0.7, 0, Math.sin(a) * R0 * 0.7]);
-    b.m(g, taperTube([V(0, 0, 0), V(Math.cos(a) * 0.05, -0.3, Math.sin(a) * 0.05), V(0, -0.6 - stage * 0.15, 0), V(Math.cos(a) * 0.08, -0.9 - stage * 0.25, Math.sin(a) * 0.08)], 0.05, 0.01), mat(ctx.c2, { op: 0.75, glow: 0.5, emis: ctx.glow }));
+    if (oct) b.m(g, taperTube([V(0, 0, 0), V(Math.cos(a) * 0.25, -0.3, Math.sin(a) * 0.25), V(Math.cos(a) * 0.55, -0.55, Math.sin(a) * 0.55), V(Math.cos(a) * 0.75, -0.45 + stage * 0.05, Math.sin(a) * 0.75)].map((v) => v.multiplyScalar(1 + stage * 0.2)), 0.11, 0.025), ctx.skinM);
+    else b.m(g, taperTube([V(0, 0, 0), V(Math.cos(a) * 0.05, -0.3, Math.sin(a) * 0.05), V(0, -0.6 - stage * 0.15, 0), V(Math.cos(a) * 0.08, -0.9 - stage * 0.25, Math.sin(a) * 0.08)], 0.05, 0.01), mat(ctx.c2, { op: 0.75, glow: 0.5, emis: ctx.glow }));
     tents.push({ g, ph: i });
   }
   ctx.anim.tentacles = tents;
-  b.m(body, G.ring, ctx.glowM, [0, 0.02, 0], [R0 * 1.01, R0 * 1.01, 1], [Math.PI / 2, 0, 0]);
+  if (!oct) b.m(body, G.ring, ctx.glowM, [0, 0.02, 0], [R0 * 1.01, R0 * 1.01, 1], [Math.PI / 2, 0, 0]);
   return { height: 0.9 + R0, head: body, headR: R0, top: V(0, R0 * 0.85, 0), back: [V(0, R0 * 0.8, 0)], backParent: body, tailTip: null, footR: R0 * 1.3 };
 }
 
@@ -686,6 +714,35 @@ function elementParts(ctx, R) {
   }
 }
 
+// ---------- a evolução: crista no Jovem; armadura, emblema e marcas brilhantes no Adulto ----------
+function armor(ctx, R) {
+  const { b, stage, el } = ctx; if (stage === 0) return;
+  const hr = R.headR; const head = R.head;
+  const glowS = { glow: 1.6, emis: ctx.glow };
+  // crista na cabeça (cresce no adulto)
+  const crest = b.g(head, R.top.toArray());
+  const n = stage === 1 ? 2 : 4;
+  for (let i = 0; i < n; i++) b.m(crest, G.cone, ctx.hornM, [0, hr * 0.05, -i * hr * 0.25], [hr * 0.07, hr * (0.35 - i * 0.05) * (stage === 2 ? 1.6 : 1), hr * 0.07], [-0.5 - i * 0.25, 0, 0]);
+  if (stage < 2) return;
+  const armM = mat(shade(ctx.c1, 0.02, -0.15, -0.25), { rough: 0.3, metal: 0.75 });
+  const trimM = mat(ctx.glow, glowS);
+  // ombreiras / placas
+  for (const p of R.shoulders || []) {
+    const sh = b.m(R.backParent, G.dome, armM, p.toArray(), [0.2, 0.15, 0.22], [0, 0, p.x > 0 ? -0.5 : 0.5]);
+    b.m(R.backParent, G.ring, trimM, p.toArray(), [0.2, 0.2, 1], [Math.PI / 2, 0, p.x > 0 ? -0.5 : 0.5]).castShadow = false;
+  }
+  // emblema do elemento no peito
+  const shape = { planta: SHAPES.leaf, fogo: SHAPES.flame, eletrico: SHAPES.bolt, trovao: SHAPES.bolt, cosmo: SHAPES.star, vento: SHAPES.feather }[el];
+  const at = R.chest || V(0, R.height * 0.45, 0.45);
+  const em = shape ? b.m(R.backParent, shape, trimM, at.toArray(), 0.14) : b.m(R.backParent, el === 'pedra' ? G.dode : el === 'gelo' ? G.oct : G.sph, trimM, at.toArray(), [0.09, 0.12, 0.05]);
+  em.castShadow = false;
+  // placas brilhantes nas costas
+  for (const p of R.back.slice(0, 3)) b.m(R.backParent, G.oct, trimM, [p.x, p.y + 0.02, p.z], [0.05, 0.12, 0.05]).castShadow = false;
+  // faixa brilhante na testa
+  b.m(head, G.box, trimM, [0, hr * 0.45, hr * 0.82], [hr * 0.5, hr * 0.06, hr * 0.06], [0.35, 0, 0]).castShadow = false;
+  // aura de partículas subindo
+  orbit(ctx, ctx.body, 6, R.height * 0.35, (R.footR || 0.8) * 0.85, (g) => { const s = b.m(g, G.oct, mat(ctx.glow, { glow: 2 }), [0, 0, 0], 0.04); s.castShadow = false; }, 1.1);
+}
 function hat(b, head, R, kind) {
   const t = R * 0.85;
   const m = (c) => mat(c, { rough: 0.7 });

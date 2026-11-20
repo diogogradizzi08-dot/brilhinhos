@@ -1,561 +1,755 @@
-// Brilhinhos — gerador 3D dos companheiros (e dos moradores, ovos e itens).
-// Tudo é montado por código: um corpo fofinho de olhos grandes, mais as peças
-// do arquétipo (orelhas, cauda, casco...) e do elemento (folhinha, barbatana,
-// juba de sol, asas, cristais, gema, lua, estrela). O estágio deixa maior e
-// mais enfeitado. Estilo "desenho": material toon de 3 tons + contorno.
+// Brilhinhos — gerador 3D dos companheiros (e dos moradores, núcleos e itens).
+// Cada espécie tem um TIPO DE CORPO de verdade, a partir de um animal de referência:
+// 4 patas (lobo, raposa, felino, cervo, urso, javali, lagarto, tartaruga, rinoceronte,
+// mamute, dragão, grifo), 2 patas (sapo, pinguim, gorila, golem, dinossauro), ave/morcego,
+// peixe/arraia, serpente/enguia, inseto (besouro, mariposa) e espírito (água-viva).
+// A pele é uma textura feita na hora (pelo, escama, pena, pedra, lava, gelo, raio, galáxia)
+// e o elemento acrescenta peças (folhas, barbatanas, chamas, cristais, placas, raios, estrelas).
+// O estágio muda proporção (filhote cabeçudo → adulto imponente) e acrescenta armadura.
 import * as THREE from './vendor/three.module.js';
 import { SPECIES, FAMILIES, ELEMENTS } from './data.js';
 
-// ---------- materiais ----------
-const GRAD = (() => {
-  const t = new THREE.DataTexture(new Uint8Array([110, 190, 255]), 3, 1, THREE.RedFormat);
-  t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
-})();
-const matCache = new Map();
-export function toon(color, emissive = 0) {
-  const k = `t${color}|${emissive}`;
-  if (!matCache.has(k)) {
-    const c = new THREE.Color(color);
-    matCache.set(k, new THREE.MeshToonMaterial({ color: c, gradientMap: GRAD, emissive: c, emissiveIntensity: emissive }));
-  }
-  return matCache.get(k);
-}
-function outlineMat(color) {
-  const k = `o${color}`;
-  if (!matCache.has(k)) {
-    const c = new THREE.Color(color); const hsl = {}; c.getHSL(hsl);
-    c.setHSL(hsl.h, Math.min(1, hsl.s * 0.9 + 0.1), Math.max(0.12, hsl.l * 0.42));
-    matCache.set(k, new THREE.MeshBasicMaterial({ color: c, side: THREE.BackSide }));
-  }
-  return matCache.get(k);
-}
-function glassMat(color, opacity = 0.35) {
-  const k = `g${color}|${opacity}`;
-  if (!matCache.has(k)) matCache.set(k, new THREE.MeshToonMaterial({ color, gradientMap: GRAD, transparent: true, opacity, depthWrite: false, emissive: new THREE.Color(color), emissiveIntensity: 0.25 }));
-  return matCache.get(k);
-}
-const SIL = new THREE.MeshBasicMaterial({ color: '#3d3766' });
-
-// ---------- formas ----------
-const G = {
-  sph: new THREE.SphereGeometry(1, 30, 22),
-  sphLo: new THREE.SphereGeometry(1, 14, 10),
-  cone: new THREE.ConeGeometry(1, 1, 22),
-  cyl: new THREE.CylinderGeometry(1, 1, 1, 18),
-  oct: new THREE.OctahedronGeometry(1, 0),
-  smile: new THREE.TorusGeometry(1, 0.2, 8, 20, Math.PI),
-  ring: new THREE.TorusGeometry(1, 0.08, 10, 40),
-  halfRing: new THREE.TorusGeometry(1, 0.22, 10, 30, Math.PI),
-  crescent: new THREE.TorusGeometry(1, 0.3, 10, 24, Math.PI * 1.25),
-};
-function starGeo(points = 5, inner = 0.45) {
-  const s = new THREE.Shape();
-  for (let i = 0; i <= points * 2; i++) {
-    const r = i % 2 ? inner : 1, a = (i / (points * 2)) * Math.PI * 2 + Math.PI / 2;
-    const x = Math.cos(a) * r, y = Math.sin(a) * r; i ? s.lineTo(x, y) : s.moveTo(x, y);
-  }
-  const g = new THREE.ExtrudeGeometry(s, { depth: 0.3, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.12, bevelSegments: 3 });
-  g.center(); return g;
-}
-G.star = starGeo();
-function heartGeo() {
-  const s = new THREE.Shape();
-  s.moveTo(0, -0.9); s.bezierCurveTo(-1.2, -0.1, -1.0, 1.0, 0, 0.45); s.bezierCurveTo(1.0, 1.0, 1.2, -0.1, 0, -0.9);
-  const g = new THREE.ExtrudeGeometry(s, { depth: 0.3, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.12, bevelSegments: 3 });
-  g.center(); return g;
-}
-G.heart = heartGeo();
-
 // ---------- utilidades ----------
 function mulberry(seed) { return () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-function shade(hex, dh = 0, ds = 0, dl = 0) {
+export function shade(hex, dh = 0, ds = 0, dl = 0) {
   const c = new THREE.Color(hex); const o = {}; c.getHSL(o);
   c.setHSL((o.h + dh + 1) % 1, THREE.MathUtils.clamp(o.s + ds, 0, 1), THREE.MathUtils.clamp(o.l + dl, 0, 1));
   return '#' + c.getHexString();
 }
-const RAINBOW = ['#ff7b9c', '#ffb36b', '#ffe36b', '#8ce07a', '#6fc8ff', '#b59cff'];
-// cor principal de cada família dentro do elemento (na ordem em que aparecem)
-const FAMILY_COLORS = {
-  planta: ['#86d96c', '#56c98e', '#b4dc4f', '#6fbf7c', '#a4d47e', '#3fb98a'],
-  agua:   ['#5ab8f6', '#45cfdf', '#6d95ff', '#7fd8f0', '#38a8d6', '#5b7ce8'],
-  sol:    ['#ffa24a', '#ff7f5e', '#ffc248', '#ff8f73', '#ffb763', '#ff6a4a'],
-  vento:  ['#9fd3ff', '#c4e6ff', '#b3c4ff', '#a3eefc', '#d4dcff', '#8bbcf0'],
-  gelo:   ['#b4eef5', '#dcf6ff', '#a2dcff', '#c4fbef', '#bccdff', '#93e2e8'],
-  pedra:  ['#b39a80', '#9d8bb5', '#c9a07a', '#8e9cab', '#a5b897', '#cf8f8f'],
-  sonho:  ['#c6a6f2', '#a7a3f2', '#e3a7e6', '#b6aeff', '#d6b5ff', '#998de0'],
-  luz:    ['#ffd95a', '#ffe98c', '#ffc25a', '#fff07a', '#ffd38f', '#ffe066'],
-  arco:   ['#ff9ad5', '#ffb3e6'],
-};
-const PATTERNS = ['capuz', 'manchas', 'listras', 'pontas', 'mascara', 'liso'];
+export const RAINBOW = ['#ff7b9c', '#ffb36b', '#ffe36b', '#8ce07a', '#6fc8ff', '#b59cff'];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-class Builder {
-  constructor(sil) { this.sil = sil; }
-  part(parent, geo, color, p = [0, 0, 0], s = [1, 1, 1], r = [0, 0, 0], o = {}) {
-    const mat = this.sil ? SIL : o.glass ? glassMat(color, o.glass) : toon(color, o.glow || 0);
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(...p); m.scale.set(...(Array.isArray(s) ? s : [s, s, s])); m.rotation.set(...r);
-    if (o.outline && !this.sil && !o.glass) {
-      const ol = new THREE.Mesh(geo, outlineMat(color)); ol.scale.setScalar(1 + (o.outline === true ? 0.07 : o.outline)); m.add(ol);
+// ---------- texturas de pele (canvas, em cache) ----------
+const texCache = new Map();
+function canvasTex(w, h, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x, w, h);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function noiseDots(x, w, h, n, r0, r1, col, a0, a1, rnd) { for (let i = 0; i < n; i++) { x.globalAlpha = a0 + rnd() * (a1 - a0); x.fillStyle = col; x.beginPath(); x.arc(rnd() * w, rnd() * h, r0 + rnd() * (r1 - r0), 0, 7); x.fill(); } x.globalAlpha = 1; }
+// kind: pelo|escama|pena|pele|quitina|couro|pedra|lava|gelo|gel|casco ; over: elemento ; pat: listras|manchas|nada
+function skin(kind, c1, c2, over, pat, seed) {
+  const key = [kind, c1, c2, over, pat, seed].join('|');
+  if (texCache.has(key)) return texCache.get(key);
+  const W = 256, H = 128; let emis = null;
+  const map = canvasTex(W, H, (x) => {
+    const rnd = mulberry(seed * 13 + kind.length * 7);
+    x.fillStyle = c1; x.fillRect(0, 0, W, H);
+    // gradiente de barriga (parte de baixo da esfera = fim da textura)
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(0,0,0,0.18)'); g.addColorStop(0.55, 'rgba(0,0,0,0)'); g.addColorStop(1, c2 + 'aa'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    const dk = shade(c1, 0, 0, -0.14), lt = shade(c1, 0, 0, 0.12);
+    if (kind === 'pelo') { for (let i = 0; i < 2600; i++) { const px = rnd() * W, py = rnd() * H; x.strokeStyle = rnd() < 0.5 ? dk : lt; x.globalAlpha = 0.25 + rnd() * 0.3; x.lineWidth = 1; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - 0.5) * 3, py + 3 + rnd() * 4); x.stroke(); } }
+    if (kind === 'escama' || kind === 'casco') {
+      const s = kind === 'casco' ? 22 : 9;
+      for (let yy = 0; yy < H + s; yy += s * 0.62) for (let xx = 0; xx < W + s; xx += s) {
+        const ox = (Math.round(yy / (s * 0.62)) % 2) * s / 2; x.globalAlpha = 0.55; x.strokeStyle = dk; x.lineWidth = kind === 'casco' ? 2.5 : 1.2;
+        x.beginPath(); x.arc(xx + ox, yy, s * 0.55, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke();
+        x.globalAlpha = 0.18; x.fillStyle = lt; x.beginPath(); x.arc(xx + ox, yy - s * 0.15, s * 0.25, 0, 7); x.fill();
+      }
     }
-    parent.add(m); return m;
+    if (kind === 'pena') for (let yy = 0; yy < H + 10; yy += 7) for (let xx = 0; xx < W + 10; xx += 10) { const ox = (yy / 7) % 2 * 5; x.globalAlpha = 0.45; x.strokeStyle = dk; x.lineWidth = 1.4; x.beginPath(); x.arc(xx + ox, yy, 5.5, 0.1, Math.PI - 0.1); x.stroke(); }
+    if (kind === 'pele') noiseDots(x, W, H, 160, 1, 4, dk, 0.15, 0.4, rnd);
+    if (kind === 'couro') { noiseDots(x, W, H, 900, 0.5, 1.6, dk, 0.2, 0.5, rnd); for (let i = 0; i < 40; i++) { x.globalAlpha = 0.3; x.strokeStyle = dk; x.beginPath(); const px = rnd() * W, py = rnd() * H; x.moveTo(px, py); x.quadraticCurveTo(px + 8, py + rnd() * 6, px + 16, py); x.stroke(); } }
+    if (kind === 'quitina') { for (let i = 0; i < 8; i++) { x.globalAlpha = 0.25; x.fillStyle = lt; x.fillRect(0, i * 16 + 3, W, 2); } noiseDots(x, W, H, 200, 0.5, 1.5, dk, 0.2, 0.4, rnd); }
+    if (kind === 'pedra' || kind === 'lava') {
+      noiseDots(x, W, H, 260, 3, 12, dk, 0.15, 0.35, rnd); noiseDots(x, W, H, 200, 2, 7, lt, 0.1, 0.25, rnd);
+      x.globalAlpha = 0.7; x.strokeStyle = shade(c1, 0, 0, -0.3); x.lineWidth = 1.5;
+      for (let i = 0; i < 18; i++) { let px = rnd() * W, py = rnd() * H; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (rnd() - 0.5) * 30; py += (rnd() - 0.5) * 20; x.lineTo(px, py); } x.stroke(); }
+    }
+    if (kind === 'gelo') { for (let i = 0; i < 60; i++) { x.globalAlpha = 0.25 + rnd() * 0.3; x.strokeStyle = '#ffffff'; x.lineWidth = 1 + rnd() * 2; const px = rnd() * W, py = rnd() * H; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - 0.5) * 40, py + (rnd() - 0.5) * 40); x.stroke(); } }
+    if (kind === 'gel') { noiseDots(x, W, H, 40, 4, 14, lt, 0.15, 0.3, rnd); }
+    // padrão da família
+    x.globalAlpha = 1;
+    if (pat === 'listras') { x.fillStyle = shade(c1, 0, 0.05, -0.2); for (let i = 0; i < 9; i++) { const xx = (i / 9) * W + rnd() * 6; x.beginPath(); x.moveTo(xx, 0); x.quadraticCurveTo(xx + 10, H * 0.25, xx + 3, H * 0.5); x.lineTo(xx - 3, H * 0.5); x.quadraticCurveTo(xx + 2, H * 0.25, xx - 6, 0); x.fill(); } }
+    if (pat === 'manchas') noiseDots(x, W, H * 0.6, 24, 5, 11, shade(c1, 0.02, 0.05, -0.18), 0.65, 0.85, rnd);
+    // elemento por cima
+    if (over === 'eletrico') { x.strokeStyle = '#2a2638'; x.globalAlpha = 0.85; x.lineWidth = 5; for (let i = 0; i < 6; i++) { const xx = (i / 6) * W + 10; x.beginPath(); x.moveTo(xx, 0); x.lineTo(xx + 12, H * 0.18); x.lineTo(xx - 4, H * 0.26); x.lineTo(xx + 10, H * 0.45); x.stroke(); } }
+    if (over === 'cosmo') {
+      for (let i = 0; i < 6; i++) { const gx = rnd() * W, gy = rnd() * H, gr = 20 + rnd() * 30; const rg = x.createRadialGradient(gx, gy, 0, gx, gy, gr); rg.addColorStop(0, i % 2 ? '#ff7df280' : '#6fa8ff80'); rg.addColorStop(1, '#00000000'); x.fillStyle = rg; x.globalAlpha = 1; x.fillRect(gx - gr, gy - gr, gr * 2, gr * 2); }
+      noiseDots(x, W, H, 120, 0.4, 1.4, '#ffffff', 0.6, 1, rnd);
+    }
+    if (over === 'gelo' && kind !== 'gelo') { for (let i = 0; i < 30; i++) { x.globalAlpha = 0.35; x.strokeStyle = '#ffffff'; x.lineWidth = 1.5; const px = rnd() * W, py = rnd() * H * 0.5; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - 0.5) * 20, py + 10); x.stroke(); } }
+    if (over === 'planta' && kind !== 'pele') noiseDots(x, W, H * 0.55, 30, 3, 8, '#6fae3c', 0.5, 0.8, rnd);
+    x.globalAlpha = 1;
+  });
+  if (kind === 'lava' || over === 'eletrico' || over === 'cosmo') {
+    emis = canvasTex(W, H, (x) => {
+      const rnd = mulberry(seed * 13 + kind.length * 7 + 5);
+      x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+      if (kind === 'lava') { x.strokeStyle = '#ff8a1c'; x.lineWidth = 2.5; x.shadowColor = '#ffcc33'; x.shadowBlur = 6; for (let i = 0; i < 22; i++) { let px = rnd() * W, py = rnd() * H; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (rnd() - 0.5) * 30; py += (rnd() - 0.5) * 18; x.lineTo(px, py); } x.stroke(); } }
+      if (over === 'cosmo') noiseDots(x, W, H, 120, 0.4, 1.4, '#ffffff', 0.6, 1, rnd);
+      if (over === 'eletrico') { x.strokeStyle = '#fff47a'; x.globalAlpha = 0.5; x.lineWidth = 1.5; for (let i = 0; i < 6; i++) { const xx = (i / 6) * W + 10; x.beginPath(); x.moveTo(xx + 3, 0); x.lineTo(xx + 15, H * 0.18); x.lineTo(xx - 1, H * 0.26); x.lineTo(xx + 13, H * 0.45); x.stroke(); } }
+    });
   }
-  group(parent, p = [0, 0, 0], r = [0, 0, 0]) { const g = new THREE.Group(); g.position.set(...p); g.rotation.set(...r); parent.add(g); return g; }
-  // a mesma peça dos dois lados (x espelhado)
-  pair(parent, fn) { return [fn(1), fn(-1)]; }
+  const out = { map, emis }; texCache.set(key, out); return out;
+}
+function irisTex(color, slit, glow) {
+  const key = `iris|${color}|${slit}|${glow}`;
+  if (texCache.has(key)) return texCache.get(key);
+  const t = canvasTex(128, 128, (x) => {
+    x.fillStyle = '#fff'; x.fillRect(0, 0, 128, 128);
+    const g = x.createRadialGradient(64, 64, 6, 64, 64, 46); g.addColorStop(0, shade(color, 0, 0.1, 0.2)); g.addColorStop(0.7, color); g.addColorStop(1, shade(color, 0, 0, -0.3));
+    x.fillStyle = g; x.beginPath(); x.arc(64, 64, 46, 0, 7); x.fill();
+    x.strokeStyle = shade(color, 0, 0, -0.35); x.lineWidth = 4; x.stroke();
+    x.fillStyle = '#120c18'; x.beginPath(); if (slit) x.ellipse(64, 64, 8, 34, 0, 0, 7); else x.arc(64, 64, 20, 0, 7); x.fill();
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(48, 46, 10, 0, 7); x.fill(); x.beginPath(); x.arc(78, 80, 4, 0, 7); x.fill();
+  });
+  texCache.set(key, t); return t;
 }
 
-// ponto na superfície de um elipsoide (para pôr olho, bochecha, enfeite)
-function onSurf(R, sx, sy, sz, x, y, front = 1) {
-  const u = x / (R * sx), v = y / (R * sy); const w = Math.sqrt(Math.max(0, 1 - u * u - v * v));
-  return { p: [x, y, w * R * sz * front], ry: Math.atan2(u, w) * front, rx: -Math.atan2(v, w) };
+// ---------- materiais ----------
+const matCache = new Map();
+const SIL = new THREE.MeshBasicMaterial({ color: '#2b2550' });
+function mat(color, o = {}) {
+  const k = JSON.stringify([color, o.kind, o.c2, o.over, o.pat, o.seed, o.rough, o.metal, o.glow, o.op, o.emis, o.flat]);
+  if (matCache.has(k)) return matCache.get(k);
+  const p = { color: o.kind ? '#ffffff' : color, roughness: o.rough ?? 0.75, metalness: o.metal ?? 0, flatShading: !!o.flat };
+  if (o.kind) { const s = skin(o.kind, color, o.c2 || color, o.over, o.pat, o.seed || 1); p.map = s.map; p.bumpMap = s.map; p.bumpScale = 1.2; if (s.emis) { p.emissiveMap = s.emis; p.emissive = new THREE.Color(o.kind === 'lava' ? '#ff6a00' : o.over === 'eletrico' ? '#ffee55' : '#ffffff'); p.emissiveIntensity = 1.4; } }
+  if (o.glow) { p.emissive = new THREE.Color(o.emis || color); p.emissiveIntensity = o.glow; }
+  if (o.op) { p.transparent = true; p.opacity = o.op; p.depthWrite = false; }
+  const m = new THREE.MeshStandardMaterial(p);
+  matCache.set(k, m); return m;
+}
+export function toon(color, glow = 0) { return mat(color, { glow }); } // compatibilidade (cenário)
+
+// ---------- formas ----------
+const G = {
+  sph: new THREE.SphereGeometry(1, 32, 22),
+  sphLo: new THREE.SphereGeometry(1, 14, 10),
+  cone: new THREE.ConeGeometry(1, 1, 18),
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 16),
+  oct: new THREE.OctahedronGeometry(1, 0),
+  ico: new THREE.IcosahedronGeometry(1, 0),
+  dode: new THREE.DodecahedronGeometry(1, 0),
+  box: new THREE.BoxGeometry(1, 1, 1),
+  ring: new THREE.TorusGeometry(1, 0.06, 10, 48),
+  lid: new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+  dome: new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+};
+function shapeGeo(pts, depth = 0.04, curves = true) {
+  const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) { const p = pts[i]; if (curves && p.length === 4) s.quadraticCurveTo(p[0], p[1], p[2], p[3]); else s.lineTo(p[0], p[1]); }
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: depth * 0.6, bevelSize: depth * 0.6, bevelSegments: 2, curveSegments: 10 });
+  g.translate(0, 0, -depth / 2); return g;
+}
+const SHAPES = {
+  star: (() => { const p = []; for (let i = 0; i <= 10; i++) { const r = i % 2 ? 0.45 : 1, a = (i / 10) * Math.PI * 2 + Math.PI / 2; p.push([Math.cos(a) * r, Math.sin(a) * r]); } return shapeGeo(p, 0.3, false); })(),
+  bolt: shapeGeo([[0.1, 1], [-0.45, 0.05], [-0.02, 0.05], [-0.25, -1], [0.45, 0.15], [0.02, 0.15], [0.3, 1]], 0.18, false),
+  leaf: shapeGeo([[0, 0], [0.45, 0.35, 0.05, 1], [-0.35, 0.35, 0, 0]], 0.05),
+  fin: shapeGeo([[0, 0], [0.2, 0.7, 0.75, 0.85], [0.6, 0.3, 0.9, 0], [0, 0]], 0.04),
+  ear: shapeGeo([[-0.5, 0], [-0.35, 0.5, 0, 1], [0.35, 0.5, 0.5, 0], [0, -0.1, -0.5, 0]], 0.06),
+  feather: shapeGeo([[0, 0], [0.18, 0.4, 0.06, 1], [-0.1, 0.4, 0, 0]], 0.03),
+  membrane: shapeGeo([[0, 0], [0.5, 0.55], [1.15, 0.65], [1.25, 0.1], [1.0, 0.25, 0.9, -0.05], [0.7, 0.15, 0.6, -0.15], [0.35, 0.05, 0, -0.1]], 0.03, false),
+  flame: shapeGeo([[0, 0], [0.5, 0.25, 0.25, 0.7], [0.15, 0.85, 0, 1.2], [-0.05, 0.75, -0.2, 0.6], [-0.4, 0.3, 0, 0]], 0.08),
+  mothWing: shapeGeo([[0, 0], [0.3, 0.9, 1.0, 0.85], [1.25, 0.4, 0.9, 0], [0.5, -0.1, 0, 0]], 0.025),
+  mothWing2: shapeGeo([[0, 0], [0.7, -0.1, 0.75, -0.6], [0.35, -0.85, 0.05, -0.3], [0, 0]], 0.025),
+};
+
+// tubo afinando (caudas, serpentes, tentáculos)
+function taperTube(points, r0, r1, seg = 24) {
+  const curve = new THREE.CatmullRomCurve3(points);
+  const rad = 10; const g = new THREE.TubeGeometry(curve, seg, 1, rad, false);
+  const pos = g.attributes.position;
+  for (let i = 0; i <= seg; i++) {
+    const c = curve.getPointAt(i / seg); const r = r0 + (r1 - r0) * Math.pow(i / seg, 0.9);
+    for (let j = 0; j <= rad; j++) { const k = i * (rad + 1) + j; const v = V(pos.getX(k), pos.getY(k), pos.getZ(k)).sub(c).multiplyScalar(r).add(c); pos.setXYZ(k, v.x, v.y, v.z); }
+  }
+  g.computeVertexNormals(); return g;
+}
+
+class B {
+  constructor(sil) { this.sil = sil; this.meshes = []; }
+  m(parent, geo, material, p = [0, 0, 0], s = 1, r = [0, 0, 0]) {
+    const mesh = new THREE.Mesh(geo, this.sil ? SIL : material);
+    mesh.position.set(...p); if (Array.isArray(s)) mesh.scale.set(...s); else mesh.scale.setScalar(s); mesh.rotation.set(...r);
+    mesh.castShadow = true; parent.add(mesh); return mesh;
+  }
+  g(parent, p = [0, 0, 0], r = [0, 0, 0]) { const g = new THREE.Group(); g.position.set(...p); g.rotation.set(...r); parent.add(g); return g; }
+  // cápsula de a até b
+  limb(parent, material, a, b, r) {
+    const d = b.clone().sub(a); const len = d.length();
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.001, len), 6, 12), this.sil ? SIL : material);
+    mesh.position.copy(a).add(b).multiplyScalar(0.5); mesh.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); mesh.castShadow = true; parent.add(mesh); return mesh;
+  }
+  // aponta um objeto (eixo Y) para uma direção
+  aim(mesh, dir) { mesh.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize()); return mesh; }
 }
 
 // ---------- arquétipos ----------
-const ARCH = {
-  gato:      { ears: 'cat', tail: 'thin', whisk: true },
-  coelho:    { ears: 'bunny', tail: 'puff' },
-  raposa:    { ears: 'fox', tail: 'fluffy', snout: true },
-  urso:      { ears: 'round', tail: 'puff', snout: true },
-  rato:      { ears: 'mouse', tail: 'thin', whisk: true },
-  passaro:   { ears: 'tuft', tail: 'feathers', beak: true, wings: true, birdFeet: true },
-  peixe:     { ears: 'none', tail: 'fish', fins: true, float: true, noLegs: true },
-  tartaruga: { ears: 'none', tail: 'tiny', shell: true },
-  sapo:      { ears: 'none', tail: 'none', topEyes: true, wide: true },
-  cervo:     { ears: 'deer', tail: 'puff', antlers: true },
-  coruja:    { ears: 'tuft', tail: 'feathers', beak: true, wings: true, owl: true, birdFeet: true },
-  foca:      { ears: 'none', tail: 'flipper', flippers: true, noLegs: true, whisk: true, wide: true },
-  pinguim:   { ears: 'none', tail: 'tiny', beak: true, flippers: true, bigBelly: true, birdFeet: true },
-  ourico:    { ears: 'round', tail: 'none', spikes: true, snout: true, smallEars: true },
-  dragao:    { ears: 'none', tail: 'dragon', horns: true, wings: true, snout: true },
-  carneiro:  { ears: 'floppy', tail: 'puff', wool: true },
-  axolote:   { ears: 'none', tail: 'fish', gills: true, wide: true },
-  panda:     { ears: 'round', tail: 'puff', panda: true },
-  esquilo:   { ears: 'cat', tail: 'curl', smallEars: true },
+const PLAN = {
+  lobo: 'quad', raposa: 'quad', felino: 'quad', cervo: 'quad', urso: 'quad', javali: 'quad', lagarto: 'quad', tartaruga: 'quad',
+  rinoceronte: 'quad', mamute: 'quad', dragao: 'quad', grifo: 'quad',
+  sapo: 'biped', pinguim: 'biped', macaco: 'biped', golem: 'biped', dino: 'biped',
+  ave: 'bird', morcego: 'bird', peixe: 'fish', arraia: 'fish', serpente: 'serpent', enguia: 'serpent',
+  besouro: 'insect', mariposa: 'insect', aguaviva: 'spirit',
+};
+const QUAD = {
+  lobo:        { len: 1.25, h: 0.4, w: 0.38, leg: 0.55, legR: 0.085, head: 0.33, snout: 0.62, ears: 'pont', tail: 'peluda', neck: 0.32, skin: 'pelo', slit: false },
+  raposa:      { len: 1.0, h: 0.34, w: 0.32, leg: 0.42, legR: 0.07, head: 0.32, snout: 0.66, ears: 'grande', tail: 'peluda', neck: 0.28, skin: 'pelo', slit: true },
+  felino:      { len: 1.2, h: 0.38, w: 0.37, leg: 0.5, legR: 0.09, head: 0.33, snout: 0.32, ears: 'pont', tail: 'fina', neck: 0.28, skin: 'pelo', slit: true },
+  cervo:       { len: 1.1, h: 0.38, w: 0.33, leg: 0.85, legR: 0.06, head: 0.28, snout: 0.6, ears: 'cervo', tail: 'curta', neck: 0.6, skin: 'pelo', antlers: true },
+  urso:        { len: 1.3, h: 0.55, w: 0.52, leg: 0.45, legR: 0.15, head: 0.4, snout: 0.42, ears: 'redonda', tail: 'curta', neck: 0.15, skin: 'pelo' },
+  javali:      { len: 1.15, h: 0.46, w: 0.42, leg: 0.36, legR: 0.1, head: 0.36, snout: 0.62, ears: 'pont', tail: 'curta', neck: 0.08, skin: 'pelo', tusks: true, mane: true },
+  lagarto:     { len: 1.3, h: 0.25, w: 0.32, leg: 0.24, legR: 0.07, head: 0.28, snout: 0.62, ears: 'nada', tail: 'reptil', neck: 0.12, skin: 'escama', splay: true, slit: true },
+  tartaruga:   { len: 1.05, h: 0.32, w: 0.55, leg: 0.24, legR: 0.11, head: 0.26, snout: 0.35, ears: 'nada', tail: 'curta', neck: 0.28, skin: 'escama', splay: true, shell: true },
+  rinoceronte: { len: 1.45, h: 0.6, w: 0.52, leg: 0.45, legR: 0.15, head: 0.4, snout: 0.75, ears: 'pont', tail: 'curta', neck: 0.08, skin: 'couro', horn: true },
+  mamute:      { len: 1.4, h: 0.72, w: 0.6, leg: 0.6, legR: 0.17, head: 0.48, snout: 0.15, ears: 'leque', tail: 'curta', neck: 0.08, skin: 'pelo', tusks: 'mamute', trunk: true },
+  dragao:      { len: 1.3, h: 0.43, w: 0.42, leg: 0.52, legR: 0.1, head: 0.34, snout: 0.66, ears: 'nada', tail: 'reptil', neck: 0.6, skin: 'escama', wings: 'membrana', horns: true, spikes: true, slit: true },
+  grifo:       { len: 1.25, h: 0.43, w: 0.42, leg: 0.55, legR: 0.095, head: 0.34, snout: 0, ears: 'tufo', tail: 'fina', neck: 0.48, skin: 'pena', wings: 'penas', beak: true },
 };
 
-const STAGE = [
-  { scale: 0.82, headR: 0.8, headY: 1.02, bodyR: 0.52, bodySY: 0.95, bodyY: 0.42, eye: 1.15 },
-  { scale: 1.0, headR: 0.74, headY: 1.34, bodyR: 0.6, bodySY: 1.12, bodyY: 0.56, eye: 1.0 },
-  { scale: 1.16, headR: 0.72, headY: 1.62, bodyR: 0.68, bodySY: 1.3, bodyY: 0.7, eye: 0.92 },
-];
-
 // ---------- montagem ----------
-// spec: { sp } espécie | { npc: {arch, cor, chapeu} }; opts: { silhouette, shiny }
+// spec: { sp } | { npc: {arch, cor, chapeu} } ; opts: { silhouette, shiny }
 export function buildCreature(spec, opts = {}) {
-  const B = new Builder(!!opts.silhouette);
-  let arch, el, stage, seed, rar, famId;
-  if (spec.npc) { arch = spec.npc.arch; el = null; stage = 1; seed = 999; rar = 'comum'; }
-  else { const s = SPECIES[spec.sp]; arch = s.arch; el = s.el; stage = s.stage; famId = s.fam; seed = s.fam * 7 + 3; rar = s.rar; }
-  const A = ARCH[arch] || ARCH.gato; const st = STAGE[stage]; const rand = mulberry(seed);
+  const b = new B(!!opts.silhouette);
+  let arch, el, stage, seed, rar;
+  if (spec.npc) { arch = spec.npc.arch; el = null; stage = 1; seed = 999 + arch.length; rar = 'comum'; }
+  else { const s = SPECIES[spec.sp]; arch = s.arch; el = s.el; stage = s.stage; seed = s.fam * 7 + 3; rar = s.rar; }
+  const rnd = mulberry(seed);
+  // cores da família: variação dentro do elemento
+  let [c1, c2, glow] = el ? ELEMENTS[el].cores : [spec.npc.cor, shade(spec.npc.cor, 0, -0.1, 0.15), '#ffffff'];
+  if (el) {
+    const fi = FAMILIES.filter((f) => f.el === el).findIndex((f) => f.id === SPECIES[spec.sp].fam);
+    c1 = shade(c1, (fi - 2.5) * 0.025, (rnd() - 0.5) * 0.15, (fi % 3 - 1) * 0.06);
+    if (opts.shiny) { c1 = shade(c1, 0.45, 0.1, 0.05); c2 = shade(c2, 0.4, 0, 0); glow = shade(glow, 0.3, 0, 0); }
+  }
+  const plan = PLAN[arch] || 'quad';
+  const elSkin = el === 'pedra' && ['golem', 'tartaruga', 'rinoceronte', 'besouro', 'lagarto'].includes(arch) ? 'pedra'
+    : el === 'fogo' && ['lagarto', 'dino', 'rinoceronte', 'javali'].includes(arch) ? 'lava'
+    : el === 'gelo' && ['golem', 'aguaviva'].includes(arch) ? 'gelo' : null;
+  const baseSkin = elSkin || (plan === 'quad' ? QUAD[arch].skin : { sapo: 'pele', pinguim: 'pena', macaco: 'pelo', golem: 'pedra', dino: 'escama', ave: 'pena', morcego: 'pelo', peixe: 'escama', arraia: 'pele', serpente: 'escama', enguia: 'pele', besouro: 'quitina', mariposa: 'pelo', aguaviva: 'gel' }[arch]);
+  const pat = ['listras', 'manchas', 'nada'][Math.floor(rnd() * 3)];
+  const over = el === 'eletrico' || el === 'cosmo' || el === 'gelo' || el === 'planta' ? el : null;
+  const glossy = baseSkin === 'quitina' || baseSkin === 'gel' || baseSkin === 'gelo';
+  const skinM = mat(c1, { kind: baseSkin, c2, over, pat: spec.npc ? 'nada' : pat, seed, rough: glossy ? 0.3 : baseSkin === 'escama' ? 0.55 : 0.85, metal: baseSkin === 'quitina' ? 0.25 : 0, op: baseSkin === 'gel' ? 0.82 : 0 });
+  const secM = mat(c2, { rough: 0.8 });
+  const darkM = mat(shade(c1, 0, -0.05, -0.25), { rough: 0.7 });
+  const hornM = mat(el === 'gelo' ? '#e6fbff' : el === 'pedra' ? glow : el === 'eletrico' ? '#fff27a' : el === 'cosmo' ? '#d9c8ff' : '#f2e6cc', { rough: 0.35, glow: ['gelo', 'eletrico', 'cosmo', 'trovao'].includes(el) ? 0.35 : 0, emis: glow });
+  const glowM = mat(glow, { glow: 1.6, rough: 0.4 });
+  const ctx = { b, rnd, el, stage, rar, arch, c1, c2, glow, skinM, secM, darkM, hornM, glowM, npc: spec.npc, anim: { legs: [], tails: [], wings: [], eyes: [], spin: [], wave: [], flames: [], float: 0, head: null } };
 
-  // cores
-  let main, belly, acc;
-  if (spec.npc) { main = spec.npc.cor; belly = shade(main, 0, -0.1, 0.12); acc = '#ff9fb8'; }
-  else {
-    [main, belly, acc] = ELEMENTS[el].cores;
-    const fIdx = FAMILIES.filter((f) => f.el === el).findIndex((f) => f.id === famId);
-    main = FAMILY_COLORS[el][fIdx] || main;
-    if (arch === 'panda') { belly = '#ffffff'; }
-    if (opts.shiny) { main = shade(main, 0.42, 0.1, 0.05); acc = shade(acc, 0.35, 0, 0); }
+  const root = new THREE.Group(); const body = b.g(root); ctx.body = body;
+  const R = ({ quad: buildQuad, biped: buildBiped, bird: buildBird, fish: buildFish, serpent: buildSerpent, insect: buildInsect, spirit: buildSpirit })[plan](ctx);
+  // R: { height, head, headR, top (ponto no alto da cabeça), back: [pontos das costas], tailTip, eyesFwd }
+  if (!spec.npc) elementParts(ctx, R);
+  if (spec.npc) hat(b, R.head, R.headR, spec.npc.chapeu);
+  // aura de raridade alta no adulto
+  if (!spec.npc && stage === 2 && ['epico', 'lendario', 'mitico'].includes(rar) && !b.sil) {
+    const ring = b.m(root, G.ring, mat(rar === 'epico' ? '#ff6fb5' : rar === 'mitico' ? '#7df9ff' : '#ffc22e', { glow: 2 }), [0, 0.03, 0], [R.footR || 1, R.footR || 1, 1], [Math.PI / 2, 0, 0]);
+    ring.castShadow = false; ctx.anim.spin.push({ g: ring, speed: 0.7, axis: 'z' });
   }
-  const dark = shade(main, 0, 0, -0.22);
-  const pink = '#ff9fbd';
-  const pattern = spec.npc ? 'liso' : PATTERNS[Math.floor(rand() * PATTERNS.length)];
-  const second = spec.npc ? main : (rand() < 0.5 ? shade(acc, 0, -0.05, 0.02) : shade(main, 0.06, 0.05, -0.16));
-
-  const root = new THREE.Group(); // fica no chão
-  const body = B.group(root); // tudo que pula/respira
-  const anim = { ears: [], tails: [], wings: [], eyes: [], spin: [], float: [] };
-  const legs = stage === 2 && !A.noLegs ? 0.16 : 0;
-  const lift = (A.float ? 0.35 : 0);
-  body.position.y = lift;
-  const torso = B.group(body, [0, legs, 0]);
-
-  // corpo
-  const bw = A.wide ? 1.12 : 1;
-  B.part(torso, G.sph, main, [0, st.bodyY, 0], [st.bodyR * bw, st.bodyR * st.bodySY, st.bodyR * 0.92], [0, 0, 0], { outline: 0.06 });
-  B.part(torso, G.sph, belly, [0, st.bodyY - 0.03, st.bodyR * 0.42], [st.bodyR * (A.bigBelly ? 0.82 : 0.62) * bw, st.bodyR * st.bodySY * (A.bigBelly ? 0.85 : 0.72), st.bodyR * 0.55]);
-
-  // pés e braços
-  if (!A.noLegs) {
-    const fc = A.birdFeet ? '#ffa94d' : (arch === 'panda' ? '#3a3a48' : shade(main, 0, 0, -0.08));
-    B.pair(body, (sx) => B.part(body, G.sph, fc, [sx * st.bodyR * 0.5, 0.11, st.bodyR * 0.45], [0.2, 0.12, 0.26], [0, 0, 0], { outline: 0.1 }));
-    if (legs) B.pair(body, (sx) => B.part(body, G.cyl, A.birdFeet ? fc : main, [sx * st.bodyR * 0.5, 0.2, st.bodyR * 0.3], [0.11, 0.24, 0.11], [0, 0, 0], { outline: 0.1 }));
-    if (stage >= 1 && !A.flippers && !A.wings) {
-      B.pair(torso, (sx) => B.part(torso, G.sph, arch === 'panda' ? '#3a3a48' : main, [sx * st.bodyR * 0.98 * bw, st.bodyY + 0.05, st.bodyR * 0.2], [0.15, 0.26, 0.15], [0.2, 0, sx * 0.5], { outline: 0.1 }));
-    }
+  if (opts.shiny && !b.sil) orbit(ctx, root, 5, R.height * 0.75, (R.footR || 0.9) * 1.1, (g) => { const s = b.m(g, SHAPES.star, mat('#fff6a8', { glow: 2 }), [0, 0, 0], 0.07); s.castShadow = false; }, 1.4);
+  // sombra de contato (para quando não há sombra de verdade)
+  if (!b.sil) {
+    const sh = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.22, depthWrite: false }));
+    sh.rotation.x = -Math.PI / 2; sh.position.y = 0.012; sh.userData.base = R.footR || 0.8; sh.scale.setScalar(sh.userData.base); root.add(sh); ctx.anim.shadow = sh;
   }
-  if (A.flippers) B.pair(body, (sx) => { const f = B.part(torso, G.sph, dark, [sx * st.bodyR * 1.0 * bw, st.bodyY, 0.05], [0.12, 0.36, 0.22], [0, 0, sx * 0.7], { outline: 0.1 }); anim.wings.push({ m: f, sx, base: sx * 0.7, amp: 0.25 }); return f; });
-
-  // cabeça
-  const R = st.headR; const HS = [1, 0.92, 0.95];
-  const head = B.group(torso, [0, st.headY, 0.02]);
-  const hw = A.wide ? (arch === 'sapo' ? 1.2 : 1.08) : 1, hh = arch === 'sapo' ? 0.82 : 1;
-  B.part(head, G.sph, main, [0, 0, 0], [R * HS[0] * hw, R * HS[1] * hh, R * HS[2]], [0, 0, 0], { outline: 0.06 });
-  // padrão de pelagem da família
-  if (!B.sil) switch (pattern) {
-    case 'capuz': B.part(head, G.sph, second, [0, R * 0.12, -R * 0.06], [R * 1.02 * hw, R * 0.86 * hh, R * 0.94], [-0.35, 0, 0]); break;
-    case 'manchas': for (let i = 0; i < 4 + stage * 2; i++) {
-      const a = rand() * Math.PI * 2, b = rand() * 1.2 - 0.3;
-      const dir = new THREE.Vector3(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)); if (dir.z > 0.45) dir.z = -dir.z;
-      const onHead = i % 2 === 1;
-      const m = B.part(onHead ? head : torso, G.sph, second, onHead ? [dir.x * R * 0.97, dir.y * R * 0.9, dir.z * R * 0.93] : [dir.x * st.bodyR * 0.97, st.bodyY + dir.y * st.bodyR * st.bodySY * 0.9, dir.z * st.bodyR * 0.9], [0.11, 0.11, 0.035]);
-      m.lookAt(m.position.clone().multiplyScalar(3));
-    } break;
-    case 'listras': for (let i = 0; i < 3; i++) {
-      const yy = st.bodyY + st.bodyR * (0.45 - i * 0.35) * st.bodySY;
-      B.part(torso, G.sph, second, [0, yy, -st.bodyR * 0.55], [st.bodyR * 0.75, 0.06, st.bodyR * 0.5], [0, 0, 0]);
-      B.part(head, G.sph, second, [0, R * (0.75 - i * 0.12), -R * (0.35 + i * 0.22)], [R * (0.35 - i * 0.05), 0.04, R * 0.5], [-0.6 - i * 0.35, 0, 0]);
-    } break;
-    case 'mascara': B.part(head, G.sph, second, [0, R * 0.05, R * 0.5], [R * 0.72, R * 0.3, R * 0.42]); break;
-  }
-  anim.head = head;
-
-  // rosto
-  const eyeK = st.eye * (A.owl ? 1.25 : 1);
-  const eyeY = A.topEyes ? R * 0.55 : R * 0.02;
-  const eyeX = R * (A.topEyes ? 0.38 : 0.34);
-  if (arch === 'panda') B.pair(head, (sx) => { const q = onSurf(R, 1, 0.92, 0.95, sx * eyeX, eyeY - 0.02); B.part(head, G.sph, '#3a3a48', q.p, [R * 0.27, R * 0.3, R * 0.12], [q.rx, q.ry, sx * -0.5]); });
-  if (A.owl) B.pair(head, (sx) => { const q = onSurf(R, 1, 0.92, 0.95, sx * eyeX, eyeY); B.part(head, G.sph, belly, q.p, [R * 0.33, R * 0.33, R * 0.1], [q.rx, q.ry, 0]); });
-  for (const sx of [1, -1]) {
-    const q = onSurf(R, 1, 0.92, 0.95, sx * eyeX, eyeY);
-    const eg = B.group(head, q.p, [q.rx, q.ry, 0]);
-    if (A.topEyes) { eg.position.z -= R * 0.12; eg.position.y += R * 0.06; B.part(eg, G.sph, main, [0, 0, -0.03], [R * 0.3, R * 0.3, R * 0.28], [0, 0, 0], { outline: 0.08 }); }
-    B.part(eg, G.sph, '#ffffff', [0, 0, 0], [R * 0.2 * eyeK, R * 0.24 * eyeK, R * 0.1]);
-    B.part(eg, G.sph, '#2d2346', [0, -R * 0.02, R * 0.04], [R * 0.155 * eyeK, R * 0.2 * eyeK, R * 0.08]);
-    if (!B.sil) {
-      B.part(eg, G.sphLo, opts.shiny ? '#ffe46b' : '#ffffff', [R * 0.05 * eyeK, R * 0.08 * eyeK, R * 0.11], [R * 0.06 * eyeK, R * 0.07 * eyeK, R * 0.02], [0, 0, 0], { glow: 0.6 });
-      B.part(eg, G.sphLo, '#ffffff', [-R * 0.05 * eyeK, -R * 0.08 * eyeK, R * 0.1], [R * 0.03, R * 0.03, R * 0.015], [0, 0, 0], { glow: 0.6 });
-    }
-    anim.eyes.push(eg);
-  }
-  // bochechas
-  if (!B.sil) B.pair(head, (sx) => { const q = onSurf(R, 1, 0.92, 0.95, sx * R * 0.56, -R * 0.24); B.part(head, G.sph, pink, q.p, [R * 0.13, R * 0.08, R * 0.04], [q.rx, q.ry, 0]); });
-  // focinho / bico / boca
-  if (A.beak) {
-    const q = onSurf(R, 1, 0.92, 0.95, 0, -R * 0.2);
-    B.part(head, G.cone, '#ffa94d', [0, q.p[1], q.p[2] + R * 0.05], [R * 0.13, R * 0.24, R * 0.1], [Math.PI / 2, 0, 0], { outline: 0.1 });
-  } else {
-    let mouthY = -R * 0.3, mz = 0;
-    if (A.snout) {
-      const q = onSurf(R, 1, 0.92, 0.95, 0, -R * 0.25);
-      B.part(head, G.sph, belly, [0, q.p[1], q.p[2] - R * 0.05], [R * 0.3, R * 0.2, R * 0.2]);
-      B.part(head, G.sph, '#3b2d3f', [0, q.p[1] + R * 0.07, q.p[2] + R * 0.13], [R * 0.08, R * 0.06, R * 0.05]);
-      mouthY = -R * 0.38; mz = R * 0.12;
-    }
-    const q = onSurf(R, 1, 0.92, 0.95, 0, mouthY);
-    if (!B.sil) B.part(head, G.smile, '#4a2b3a', [0, q.p[1], q.p[2] + mz - R * 0.01], [R * (A.wide ? 0.13 : 0.08), R * 0.07, R * 0.05], [q.rx, 0, Math.PI]);
-  }
-  if (A.whisk && !B.sil) for (const sx of [1, -1]) for (const dy of [0.02, -0.06]) {
-    const q = onSurf(R, 1, 0.92, 0.95, sx * R * 0.7, -R * 0.2 + dy * R);
-    B.part(head, G.cyl, '#ffffff', q.p, [0.006, R * 0.32, 0.006], [0, 0, sx * (1.45 + dy * 3)]);
-  }
-
-  // orelhas
-  const earC = arch === 'panda' ? '#3a3a48' : pattern === 'pontas' || pattern === 'capuz' ? second : main;
-  const ears = A.smallEars ? 0.7 : 1;
-  const earFn = {
-    cat: (sx) => { const g = B.group(head, [sx * R * 0.46, R * 0.7, -R * 0.05], [0, 0, -sx * 0.32]); B.part(g, G.cone, earC, [0, R * 0.2 * ears, 0], [R * 0.24 * ears, R * 0.46 * ears, R * 0.16], [0, 0, 0], { outline: 0.08 }); B.part(g, G.cone, pink, [0, R * 0.18 * ears, R * 0.06], [R * 0.13 * ears, R * 0.3 * ears, R * 0.06]); return g; },
-    fox: (sx) => { const g = B.group(head, [sx * R * 0.5, R * 0.66, -R * 0.08], [0, 0, -sx * 0.4]); B.part(g, G.cone, earC, [0, R * 0.32, 0], [R * 0.3, R * 0.7, R * 0.18], [0, 0, 0], { outline: 0.08 }); B.part(g, G.cone, belly, [0, R * 0.28, R * 0.08], [R * 0.18, R * 0.48, R * 0.06]); return g; },
-    bunny: (sx) => { const g = B.group(head, [sx * R * 0.3, R * 0.75, -R * 0.08], [-0.15, 0, -sx * 0.18]); B.part(g, G.sph, earC, [0, R * 0.55, 0], [R * 0.17, R * 0.6, R * 0.12], [0, 0, 0], { outline: 0.08 }); B.part(g, G.sph, pink, [0, R * 0.55, R * 0.07], [R * 0.09, R * 0.45, R * 0.05]); return g; },
-    round: (sx) => { const g = B.group(head, [sx * R * 0.62 * (A.smallEars ? 0.9 : 1), R * 0.66, -R * 0.1], [0, 0, -sx * 0.4]); B.part(g, G.sph, earC, [0, 0, 0], [R * 0.25 * ears, R * 0.25 * ears, R * 0.14], [0, 0, 0], { outline: 0.08 }); B.part(g, G.sph, arch === 'panda' ? '#5b5b6b' : pink, [0, 0, R * 0.06], [R * 0.14 * ears, R * 0.14 * ears, R * 0.06]); return g; },
-    mouse: (sx) => { const g = B.group(head, [sx * R * 0.66, R * 0.58, -R * 0.12], [0, 0, -sx * 0.5]); B.part(g, G.sph, earC, [0, 0, 0], [R * 0.4, R * 0.4, R * 0.1], [0, 0, 0], { outline: 0.06 }); B.part(g, G.sph, pink, [0, 0, R * 0.05], [R * 0.26, R * 0.26, R * 0.05]); return g; },
-    floppy: (sx) => { const g = B.group(head, [sx * R * 0.86, R * 0.22, -R * 0.05], [0, 0, -sx * 0.9]); B.part(g, G.sph, shade(belly, 0, 0, -0.08), [sx * R * 0.12, -R * 0.12, 0], [R * 0.32, R * 0.15, R * 0.18], [0, 0, 0], { outline: 0.08 }); return g; },
-    deer: (sx) => { const g = B.group(head, [sx * R * 0.8, R * 0.42, -R * 0.1], [0, 0, -sx * 1.05]); B.part(g, G.sph, earC, [0, R * 0.2, 0], [R * 0.14, R * 0.3, R * 0.08], [0, 0, 0], { outline: 0.08 }); B.part(g, G.sph, pink, [0, R * 0.2, R * 0.05], [R * 0.08, R * 0.2, R * 0.04]); return g; },
-    tuft: (sx) => { const g = B.group(head, [sx * R * 0.38, R * 0.8, -R * 0.1], [0, 0, -sx * 0.5]); B.part(g, G.cone, dark, [0, R * 0.15, 0], [R * 0.12, R * 0.36, R * 0.08], [0, 0, 0], { outline: 0.1 }); return g; },
-  };
-  if (earFn[A.ears]) for (const sx of [1, -1]) anim.ears.push({ g: earFn[A.ears](sx), sx });
-
-  // cauda (no corpo, atrás)
-  const tailG = B.group(torso, [0, st.bodyY - 0.05, -st.bodyR * 0.82]);
-  const tailC = pattern === 'pontas' || pattern === 'listras' ? second : main;
-  anim.tails.push(tailG);
-  const tl = 1 + stage * 0.25;
-  switch (A.tail) {
-    case 'puff': B.part(tailG, G.sph, belly, [0, 0, -0.06], 0.18 * tl, [0, 0, 0], { outline: 0.08 }); break;
-    case 'tiny': B.part(tailG, G.sph, dark, [0, -0.1, 0], [0.1, 0.08, 0.14]); break;
-    case 'thin': {
-      const pts = [[0, 0, 0], [0, 0.15, -0.25], [0, 0.45, -0.38], [0, 0.72, -0.28]].map((p) => new THREE.Vector3(p[0], p[1] * tl, p[2] * tl));
-      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.06, 8);
-      B.part(tailG, g, tailC, [0, 0, 0], 1, [0, 0, 0], { outline: 0.25 });
-      B.part(tailG, G.sph, el ? acc : belly, [pts[3].x, pts[3].y, pts[3].z], 0.1, [0, 0, 0], { outline: 0.1 });
-      break; }
-    case 'fluffy': {
-      B.part(tailG, G.sph, tailC, [0, 0.28 * tl, -0.25 * tl], [0.3 * tl, 0.5 * tl, 0.3 * tl], [-0.7, 0, 0], { outline: 0.06 });
-      B.part(tailG, G.sph, belly, [0, 0.62 * tl, -0.48 * tl], [0.2 * tl, 0.24 * tl, 0.2 * tl], [-0.7, 0, 0]);
-      if (spec.sp !== undefined && SPECIES[spec.sp].rar === 'mitico') {
-        for (const sx of [1, -1]) { B.part(tailG, G.sph, RAINBOW[sx > 0 ? 4 : 0], [sx * 0.32, 0.24 * tl, -0.2 * tl], [0.22 * tl, 0.42 * tl, 0.22 * tl], [-0.6, 0, sx * 0.6], { outline: 0.06 }); }
-      }
-      break; }
-    case 'curl': {
-      for (let i = 0; i < 7; i++) {
-        const a = i / 6; const rr = (0.2 + 0.12 * Math.sin(a * Math.PI)) * tl;
-        B.part(tailG, G.sph, i % 2 ? main : tailC, [0, (0.1 + a * 1.0) * tl, (-0.1 - Math.sin(a * 2.4) * 0.45) * tl], rr, [0, 0, 0], { outline: 0.06 });
-      }
-      break; }
-    case 'fish': {
-      B.part(tailG, G.sph, acc, [0.14, 0.05, -0.18], [0.04, 0.28 * tl, 0.22 * tl], [0.5, 0.25, 0], { outline: 0.1 });
-      B.part(tailG, G.sph, acc, [-0.14, 0.05, -0.18], [0.04, 0.28 * tl, 0.22 * tl], [0.5, -0.25, 0], { outline: 0.1 });
-      break; }
-    case 'flipper': B.pair(tailG, (sx) => B.part(tailG, G.sph, dark, [sx * 0.12, -0.25, -0.1], [0.16, 0.06, 0.24], [0, sx * 0.4, 0], { outline: 0.1 })); break;
-    case 'feathers': for (const a of [-0.45, 0, 0.45]) B.part(tailG, G.sph, a ? main : acc, [Math.sin(a) * 0.12, 0.12, -0.18], [0.1, 0.04, 0.3 * tl], [0.5, a, 0], { outline: 0.12 }); break;
-    case 'dragon': {
-      for (let i = 0; i < 5; i++) { const k = i / 4; B.part(tailG, G.sph, main, [0, -0.2 + k * 0.35, -0.1 - k * 0.55 * tl], (0.2 - k * 0.1) * tl, [0, 0, 0], { outline: 0.08 }); }
-      B.part(tailG, G.cone, acc, [0, 0.2, -0.72 * tl], [0.15, 0.3, 0.06], [-0.9, 0, 0], { outline: 0.1 });
-      break; }
-  }
-
-  // peças especiais do arquétipo
-  if (A.shell) {
-    const sc = el === 'pedra' ? shade(acc, 0, -0.2, 0.05) : el ? shade(ELEMENTS[el].cores[2], 0, -0.1, -0.05) : '#8bc06a';
-    B.part(torso, G.sph, sc, [0, st.bodyY + 0.08, -st.bodyR * 0.25], [st.bodyR * 1.05, st.bodyR * st.bodySY * 0.95, st.bodyR * 0.9], [0, 0, 0], { outline: 0.05 });
-    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; B.part(torso, G.sph, shade(sc, 0, 0, 0.12), [Math.cos(a) * st.bodyR * 0.62, st.bodyY + 0.12 + Math.sin(a) * st.bodyR * 0.55, -st.bodyR * 0.95], [0.12, 0.12, 0.05]); }
-  }
-  if (A.spikes) {
-    const spc = el === 'planta' ? '#4e9c45' : el === 'pedra' ? acc : dark;
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2, ring = i % 2 ? 0.55 : 0.85;
-      const dir = new THREE.Vector3(Math.cos(a) * ring, Math.sin(a) * ring * 0.9 + 0.2, -0.75).normalize();
-      const m = B.part(torso, el === 'pedra' ? G.oct : G.cone, spc, [dir.x * st.bodyR, st.bodyY + dir.y * st.bodyR * st.bodySY, dir.z * st.bodyR], el === 'pedra' ? [0.08, 0.16, 0.08] : [0.08, 0.28, 0.08], [0, 0, 0], { outline: 0.15 });
-      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-    }
-  }
-  if (arch === 'dragao') { // crista nas costas e barriga em gomos: cara de dragãozinho
-    for (let i = 0; i < 4 + stage; i++) {
-      const k = i / (3 + stage), a = -0.2 + k * 1.6;
-      const yy = st.bodyY + Math.cos(a) * st.bodyR * st.bodySY * 0.95, zz = -Math.sin(a) * st.bodyR * 0.9;
-      B.part(torso, G.cone, acc, [0, yy, zz], [0.07, 0.18, 0.07], [-a, 0, 0], { outline: 0.15 });
-    }
-    for (let i = 0; i < 3; i++) B.part(torso, G.sph, shade(belly, 0, 0, -0.06), [0, st.bodyY + st.bodyR * (0.35 - i * 0.3) * st.bodySY, st.bodyR * 0.82], [st.bodyR * (0.48 - i * 0.06), 0.035, 0.08]);
-    B.part(head, G.cone, acc, [0, R * 0.95, -R * 0.4], [R * 0.08, R * 0.22, R * 0.08], [-0.6, 0, 0], { outline: 0.15 });
-  }
-  if (arch === 'ourico') for (let i = 0; i < 7; i++) {
-    const a = Math.PI * (0.12 + i * 0.127);
-    const dir = new THREE.Vector3(Math.cos(a), Math.sin(a) * 0.9 + 0.1, -0.7).normalize();
-    const m = B.part(head, el === 'pedra' ? G.oct : G.cone, el === 'planta' ? '#4e9c45' : el === 'pedra' ? acc : dark, [dir.x * R * 0.85, dir.y * R * 0.85, dir.z * R * 0.85], [R * 0.11, R * 0.4, R * 0.11], [0, 0, 0], { outline: 0.15 });
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-  }
-  if (arch === 'raposa' || arch === 'gato') B.pair(head, (sx) => B.part(head, G.cone, belly, [sx * R * 0.9, -R * 0.25, 0], [R * 0.14, R * 0.3, R * 0.12], [0, 0, sx * 1.9], { outline: 0.1 }));
-  if (A.wool) {
-    const wc = el === 'sol' ? '#fff3c4' : el === 'sonho' ? '#f3e8ff' : '#ffffff';
-    for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; B.part(torso, G.sph, wc, [Math.cos(a) * st.bodyR * 0.85, st.bodyY + Math.sin(a) * st.bodyR * 0.8 * st.bodySY, -0.05], 0.24 * st.bodyR / 0.6, [0, 0, 0], { outline: 0.06 }); }
-    for (let i = 0; i < 5; i++) { const a = Math.PI * (0.15 + i * 0.175); B.part(head, G.sph, wc, [Math.cos(a) * R * 0.62, R * 0.55 + Math.sin(a) * R * 0.22, -R * 0.12], R * 0.26, [0, 0, 0], { outline: 0.06 }); }
-  }
-  if (A.gills) for (const sx of [1, -1]) for (let i = 0; i < 3; i++) {
-    const a = -0.5 + i * 0.5;
-    B.part(head, G.sph, acc === '#ffd36b' ? '#ff9fc4' : acc, [sx * R * 0.92, R * (0.15 + i * 0.18), -R * 0.1], [R * 0.08, R * 0.26, R * 0.08], [0, 0, -sx * (1.0 + a)], { outline: 0.12 });
-  }
-  if (A.fins) {
-    B.pair(head, (sx) => B.part(head, G.sph, acc, [sx * R * 0.95, -R * 0.1, -R * 0.1], [R * 0.06, R * 0.24, R * 0.3], [0, sx * 0.4, 0], { outline: 0.1 }));
-    B.part(head, G.sph, acc, [0, R * 0.95, -R * 0.15], [R * 0.06, R * 0.32, R * 0.4], [0.3, 0, 0], { outline: 0.1 });
-  }
-  if (A.horns) B.pair(head, (sx) => B.part(head, el === 'gelo' || el === 'pedra' ? G.oct : G.cone, el === 'gelo' ? '#dffaff' : el === 'pedra' ? acc : '#fff2c4', [sx * R * 0.35, R * 0.85, -R * 0.15], el === 'gelo' || el === 'pedra' ? [R * 0.1, R * 0.28, R * 0.1] : [R * 0.11, R * 0.34, R * 0.11], [-0.3, 0, -sx * 0.35], { outline: 0.12 }));
-  if (A.antlers) {
-    const ac = el === 'planta' ? '#8b6a4a' : el === 'gelo' ? '#e0fbff' : el === 'pedra' ? acc : el === 'luz' ? '#fff1a8' : el === 'arco' ? '#ffffff' : '#c9a27a';
-    const glow = el === 'luz' || el === 'arco' ? 0.4 : 0;
-    if (el === 'arco') { // chifre de unicórnio
-      const q = onSurf(R, 1, 0.92, 0.95, 0, R * 0.62);
-      B.part(head, G.cone, '#fff6c9', [0, q.p[1] + R * 0.25, q.p[2] * 0.6], [R * 0.13, R * 0.6, R * 0.13], [0.3, 0, 0], { outline: 0.1, glow: 0.3 });
-    } else for (const sx of [1, -1]) {
-      const g = B.group(head, [sx * R * 0.32, R * 0.78, -R * 0.08], [0, 0, -sx * 0.3]);
-      const crystal = el === 'gelo' || el === 'pedra';
-      B.part(g, crystal ? G.oct : G.cyl, ac, [0, R * 0.25, 0], crystal ? [R * 0.09, R * 0.3, R * 0.09] : [R * 0.045, R * 0.5, R * 0.045], [0, 0, 0], { outline: 0.15, glow });
-      if (stage >= 1) B.part(g, crystal ? G.oct : G.cyl, ac, [sx * R * 0.12, R * 0.35, 0], crystal ? [R * 0.06, R * 0.2, R * 0.06] : [R * 0.035, R * 0.28, R * 0.035], [0, 0, -sx * 0.8], { outline: 0.15, glow });
-      if (el === 'planta') B.part(g, G.sph, '#7ed46a', [0, R * 0.5, 0], [R * 0.12, R * 0.06, R * 0.08], [0, 0, 0.4], { outline: 0.1 });
-    }
-  }
-  const hasWings = A.wings || el === 'vento' || el === 'sonho' && stage >= 1;
-  if (hasWings) {
-    const sonhoW = el === 'sonho' && !A.wings;
-    const wc = sonhoW ? '#ffd1ec' : el === 'vento' ? '#ffffff' : A.owl || arch === 'passaro' ? dark : shade(acc, 0, -0.1, 0.05);
-    const ws = (el === 'vento' ? 1.25 : 1) * (0.75 + stage * 0.2);
-    for (const sx of [1, -1]) {
-      const g = B.group(torso, [sx * st.bodyR * 0.55, st.bodyY + st.bodyR * 0.35, -st.bodyR * 0.45], [0, -sx * 0.5, 0]);
-      if (sonhoW) {
-        B.part(g, G.sph, wc, [sx * 0.28 * ws, 0.12 * ws, 0], [0.32 * ws, 0.24 * ws, 0.03], [0, 0, sx * 0.3], { glass: 0.65 });
-        B.part(g, G.sph, '#c6a6f2', [sx * 0.22 * ws, -0.15 * ws, 0], [0.2 * ws, 0.16 * ws, 0.03], [0, 0, -sx * 0.3], { glass: 0.65 });
-      } else {
-        B.part(g, G.sph, wc, [sx * 0.28 * ws, 0.08, 0], [0.34 * ws, 0.16 * ws, 0.07], [0, 0, sx * 0.35], { outline: 0.1 });
-        B.part(g, G.sph, wc, [sx * 0.2 * ws, -0.06, 0.01], [0.26 * ws, 0.12 * ws, 0.06], [0, 0, sx * 0.05], { outline: 0.1 });
-      }
-      anim.wings.push({ m: g, sx, base: g.rotation.z, amp: 0.35, axis: 'y', baseY: g.rotation.y });
-    }
-  }
-
-  // ---------- enfeites do elemento ----------
-  const top = (y = 0) => [0, R * 0.92 + y, -R * 0.02];
-  if (!spec.npc) switch (el) {
-    case 'planta': {
-      const g = B.group(head, top(), [0, 0, 0.1]);
-      B.part(g, G.cyl, '#5aa84a', [0, R * 0.12, 0], [0.025, R * 0.25, 0.025]);
-      for (const sx of [1, -1]) B.part(g, G.sph, sx > 0 ? '#8ee07a' : '#6cc95a', [sx * R * 0.17, R * 0.25, 0], [R * 0.2, R * 0.07, R * 0.12], [0, 0, sx * 0.5], { outline: 0.12 });
-      anim.spin.push({ g, wob: true });
-      if (stage >= 1) flower(B, head, [R * 0.5, R * 0.62, R * 0.25], R * 0.2, acc);
-      if (stage >= 2) for (let i = 0; i < 7; i++) { const a = Math.PI * (0.1 + i * 0.133); B.part(head, G.sph, i % 2 ? '#8ee07a' : '#6cc95a', [Math.cos(a) * R * 0.85, Math.sin(a) * R * 0.55 + R * 0.25, -R * 0.35], [R * 0.2, R * 0.08, R * 0.12], [0.3, 0, a - Math.PI / 2], { outline: 0.1 }); }
-      break; }
-    case 'agua': {
-      B.part(head, G.sph, acc === '#ffd36b' ? '#8fd8ff' : acc, top(-R * 0.05), [R * 0.07, R * 0.3, R * 0.35], [-0.2, 0, 0], { outline: 0.1 });
-      const q = onSurf(R, 1, 0.92, 0.95, 0, R * 0.42);
-      B.part(head, G.sph, '#bfeaff', q.p, [R * 0.08, R * 0.11, R * 0.05], [q.rx, 0, 0], { glow: 0.3 });
-      if (stage >= 1 && !A.fins && !A.gills) B.pair(head, (sx) => B.part(head, G.sph, '#8fd8ff', [sx * R * 0.95, -R * 0.05, -R * 0.12], [R * 0.05, R * 0.2, R * 0.28], [0, sx * 0.5, 0], { outline: 0.1 }));
-      if (stage >= 2) orbit(B, torso, anim, 4, st.bodyY + 0.2, 0.95, (g, i) => B.part(g, G.sph, '#d4f2ff', [0, 0, 0], 0.07 + (i % 2) * 0.03, [0, 0, 0], { glass: 0.55 }));
-      break; }
-    case 'sol': {
-      const n = stage === 0 ? 1 : stage === 1 ? 8 : 12;
-      if (n === 1) {
-        const g = B.group(head, top(-R * 0.02));
-        B.part(g, G.sph, '#ffcf4a', [0, R * 0.12, 0], [R * 0.16, R * 0.16, R * 0.16], [0, 0, 0], { outline: 0.1, glow: 0.2 });
-        B.part(g, G.cone, '#ffb13b', [0, R * 0.32, 0], [R * 0.13, R * 0.3, R * 0.13], [0, 0, 0], { outline: 0.1, glow: 0.2 });
-        anim.spin.push({ g, wob: true });
-      } else {
-        const g = B.group(head, [0, R * 0.1, -R * 0.45]);
-        for (let i = 0; i < n; i++) {
-          const a = (i / n) * Math.PI * 2;
-          B.part(g, G.cone, i % 2 ? '#ffcf4a' : '#ffa53b', [Math.cos(a) * R * 1.0, Math.sin(a) * R * 1.0, 0], [R * 0.16, R * (stage === 2 ? 0.42 : 0.32), R * 0.08], [0, 0, a - Math.PI / 2], { outline: 0.1, glow: 0.25 });
-        }
-        anim.spin.push({ g, speed: 0.25, axis: 'z' });
-      }
-      break; }
-    case 'vento': {
-      B.pair(head, (sx) => B.part(head, G.sph, '#ffffff', [sx * R * 0.55, R * 0.72, -R * 0.2], [R * 0.2, R * 0.13, R * 0.14], [0, 0, sx * 0.3], { outline: 0.1 }));
-      if (stage >= 2) { const r = B.part(torso, G.ring, '#dff2ff', [0, st.bodyY, 0], [0.95, 0.95, 0.95], [Math.PI / 2.3, 0, 0], { glass: 0.7 }); anim.spin.push({ g: r, speed: 0.8, axis: 'z' }); }
-      break; }
-    case 'gelo': {
-      const cr = (p, s, rz) => B.part(head, G.oct, '#dffaff', p, s, [0, 0, rz], { outline: 0.12, glow: 0.2 });
-      if (!A.horns && !A.antlers) cr(top(R * 0.08), [R * 0.12, R * 0.3, R * 0.12], 0);
-      if (stage >= 1) for (const sx of [1, -1]) cr([sx * R * 0.4, R * 0.8, -R * 0.1], [R * 0.08, R * 0.22, R * 0.08], -sx * 0.4);
-      if (!B.sil) B.pair(head, (sx) => { const q = onSurf(R, 1, 0.92, 0.95, sx * R * 0.6, -R * 0.02); B.part(head, G.star, '#ffffff', q.p, R * 0.06, [q.rx, q.ry, 0], { glow: 0.5 }); });
-      if (stage >= 2) orbit(B, torso, anim, 5, st.headY + 0.1, 1.0, (g) => B.part(g, G.oct, '#e6fcff', [0, 0, 0], [0.06, 0.12, 0.06], [0, 0, 0], { glow: 0.4 }));
-      break; }
-    case 'pedra': {
-      const q = onSurf(R, 1, 0.92, 0.95, 0, R * 0.42);
-      B.part(head, G.oct, acc, q.p, [R * 0.12, R * 0.15, R * 0.08], [q.rx, 0, 0], { outline: 0.12, glow: 0.25 });
-      if (stage >= 1 && !A.spikes && !A.shell) for (let i = 0; i < 3; i++) B.part(torso, G.oct, shade(main, 0, 0, -0.1), [(i - 1) * 0.22, st.bodyY + st.bodyR * 0.5, -st.bodyR * 0.75], [0.1, 0.18, 0.1], [0.5, 0, (i - 1) * 0.3], { outline: 0.12 });
-      if (stage >= 2) for (let i = 0; i < 3; i++) B.part(head, G.oct, i === 1 ? acc : '#7be0c8', [(i - 1) * R * 0.28, R * 0.95 + (i === 1 ? R * 0.1 : 0), -R * 0.05], [R * 0.1, R * 0.24, R * 0.1], [0, 0, (i - 1) * -0.3], { outline: 0.12, glow: 0.3 });
-      break; }
-    case 'sonho': {
-      const q = onSurf(R, 1, 0.92, 0.95, 0, R * 0.45);
-      B.part(head, G.crescent, '#fff3b0', q.p, [R * 0.12, R * 0.12, R * 0.12], [q.rx, 0, 0.6], { glow: 0.5 });
-      if (stage >= 2) orbit(B, torso, anim, 3, st.headY + 0.3, 0.9, (g) => B.part(g, G.star, '#fff3b0', [0, 0, 0], 0.08, [0, 0, 0], { glow: 0.6 }));
-      break; }
-    case 'luz': {
-      const g = B.group(head, top(R * 0.05));
-      B.part(g, G.cyl, '#ffe9a8', [0, R * 0.12, 0], [0.02, R * 0.25, 0.02]);
-      B.part(g, G.star, '#ffe066', [0, R * 0.34, 0], R * 0.17, [0, 0, 0], { outline: 0.12, glow: 0.6 });
-      anim.spin.push({ g: g.children[1], speed: 1.2, axis: 'y' });
-      if (stage >= 1) { const h = B.part(head, G.ring, '#fff3a6', [0, R * 1.15, -R * 0.1], [R * 0.45, R * 0.45, R * 0.45], [Math.PI / 2, 0, 0], { glow: 0.8 }); anim.spin.push({ g: h, speed: 0.5, axis: 'z' }); }
-      if (stage >= 2) orbit(B, torso, anim, 4, st.bodyY + 0.3, 1.0, (gg) => B.part(gg, G.star, '#ffe066', [0, 0, 0], 0.08, [0, 0, 0], { glow: 0.7 }));
-      break; }
-    case 'arco': {
-      const g = B.group(head, [0, R * 0.1, -R * 0.5]);
-      const n = 3 + stage;
-      for (let i = 0; i < n; i++) B.part(g, G.halfRing, RAINBOW[i % 6], [0, 0, -i * 0.02], R * (0.95 + i * 0.13), [0, 0, 0], { glow: 0.25 });
-      if (SPECIES[spec.sp].rar === 'mitico') orbit(B, torso, anim, 6, st.headY, 1.1, (gg, i) => B.part(gg, G.star, RAINBOW[i], [0, 0, 0], 0.07, [0, 0, 0], { glow: 0.7 }));
-      break; }
-  }
-  // Adulto ganha uma "capinha" de brilho por raridade alta
-  if (!spec.npc && stage === 2 && ['epico', 'lendario', 'mitico'].includes(rar) && !B.sil) {
-    const ring = B.part(root, G.ring, rar === 'epico' ? '#ff9fd8' : '#ffd84a', [0, 0.04, 0], [1.1, 1.1, 1.1], [Math.PI / 2, 0, 0], { glow: 0.9 });
-    anim.spin.push({ g: ring, speed: 0.6, axis: 'z' });
-  }
-  // chapéu dos moradores
-  if (spec.npc) hat(B, head, R, spec.npc.chapeu);
-
-  // sombra
-  if (!B.sil) {
-    const sh = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.16, depthWrite: false }));
-    sh.rotation.x = -Math.PI / 2; sh.position.y = 0.01; sh.userData.base = st.bodyR * 1.15 * (A.wide ? 1.15 : 1); sh.scale.setScalar(sh.userData.base); root.add(sh); anim.shadow = sh;
-  }
-  // brilho do cintilante
-  if (opts.shiny && !B.sil) orbit(B, root, anim, 5, 1.2 * st.scale, 1.05, (g) => B.part(g, G.star, '#fff6a8', [0, 0, 0], 0.06, [0, 0, 0], { glow: 0.9 }), 1.6);
-
-  root.scale.setScalar(st.scale);
-  const height = (st.headY + R * 1.2 + lift + legs) * st.scale;
-  const ctrl = makeController(root, body, anim, A, height);
-  root.userData = { ctrl, height, sp: spec.sp, stage };
+  const sc = [0.62, 0.85, 1.12][stage];
+  root.scale.setScalar(sc);
+  const ctrl = controller(ctx, plan);
+  root.userData = { ctrl, height: R.height * sc, sp: spec.sp, stage };
   return root;
 }
 
-function flower(B, parent, p, s, color) {
-  const g = B.group(parent, p, [0.3, 0, 0]);
-  for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; B.part(g, G.sph, color, [Math.cos(a) * s * 0.55, Math.sin(a) * s * 0.55, 0], [s * 0.45, s * 0.45, s * 0.2], [0, 0, 0], { outline: 0.12 }); }
-  B.part(g, G.sph, '#ffe36b', [0, 0, s * 0.1], s * 0.3);
-  return g;
+// ---------- olhos (menores, com pálpebra: olhar decidido) ----------
+function eyes(ctx, head, r, opts) {
+  const { b } = ctx; const { x, y, z, size, slit, color, fierce = 0.35, glowEyes } = opts;
+  for (const sx of [1, -1]) {
+    const g = b.g(head, [sx * x, y, z], [0, sx * (opts.yaw ?? 0.45), 0]);
+    const white = b.m(g, G.sph, mat('#f4f1ea', { rough: 0.25 }), [0, 0, 0], size);
+    const iris = b.m(g, G.sph, b.sil ? SIL : (glowEyes ? mat(color, { glow: 1.8 }) : new THREE.MeshStandardMaterial({ map: irisTex(color, slit), roughness: 0.15 })), [0, 0, size * 0.42], glowEyes ? [size * 0.78, size * 0.78, size * 0.6] : [size * 0.6, size * 0.78, size * 0.78]);
+    if (!glowEyes && !b.sil) iris.rotation.y = -Math.PI / 2; // centro da textura para frente
+    // pálpebra de cima, inclinada para o meio (cara de bravo, mas fofo)
+    const lid = b.m(g, G.lid, ctx.skinM, [0, size * 0.05, 0], size * 1.12, [-0.35, 0, sx * fierce]);
+    ctx.anim.eyes.push(g);
+  }
 }
-function orbit(B, parent, anim, n, y, radius, fn, speed = 0.8) {
-  const g = B.group(parent, [0, y, 0]);
-  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; const c = B.group(g, [Math.cos(a) * radius, Math.sin(i * 2.1) * 0.12, Math.sin(a) * radius]); fn(c, i); }
-  anim.spin.push({ g, speed, axis: 'y' });
+
+// ---------- corpo de 4 patas ----------
+function buildQuad(ctx) {
+  const { b, stage, arch } = ctx; const P = { ...QUAD[arch] };
+  if (stage === 0) { P.head *= 1.32; P.leg *= 0.78; P.len *= 0.78; P.neck *= 0.7; P.snout *= 0.75; }
+  if (stage === 2) { P.h *= 1.08; P.w *= 1.08; P.legR *= 1.15; }
+  const legH = P.splay ? P.leg * 0.55 : P.leg;
+  const ty = legH + P.h * 0.62;
+  const body = b.g(ctx.body, [0, 0, 0]);
+  b.m(body, G.sph, ctx.skinM, [0, ty, 0], [P.w, P.h, P.len * 0.5]);
+  b.m(body, G.sph, ctx.skinM, [0, ty + P.h * 0.08, P.len * 0.3], [P.w * 1.06, P.h * 1.02, P.len * 0.27]);
+  b.m(body, G.sph, ctx.secM, [0, ty - P.h * 0.35, P.len * 0.12], [P.w * 0.75, P.h * 0.55, P.len * 0.38]);
+  // pernas (pivô no quadril: anima a caminhada)
+  for (const [sx, sz, ph] of [[1, 1, 0], [-1, 1, Math.PI], [1, -1, Math.PI], [-1, -1, 0]]) {
+    const hip = b.g(body, [sx * P.w * 0.62, ty - P.h * 0.25, sz * P.len * 0.32]);
+    const foot = P.splay ? V(sx * P.leg * 0.5, -(ty - P.h * 0.25) + 0.06, sz * 0.05) : V(0, -(ty - P.h * 0.25) + 0.06, 0.02);
+    const knee = foot.clone().multiplyScalar(0.5).add(V(0, 0, sz * 0.04));
+    b.limb(hip, ctx.skinM, V(0, 0, 0), knee, P.legR * 1.15);
+    b.limb(hip, ctx.skinM, knee, foot, P.legR);
+    b.m(hip, G.sph, ctx.darkM, [foot.x, foot.y - 0.01, foot.z + 0.04], [P.legR * 1.4, P.legR * 0.8, P.legR * 1.8]);
+    if (['felino', 'lobo', 'dragao', 'grifo', 'lagarto', 'urso'].includes(arch) && stage > 0) for (const cx of [-1, 0, 1]) b.m(hip, G.cone, ctx.hornM, [foot.x + cx * P.legR * 0.6, foot.y, foot.z + P.legR * 1.7], [P.legR * 0.18, P.legR * 0.6, P.legR * 0.18], [Math.PI / 2, 0, 0]);
+    ctx.anim.legs.push({ g: hip, ph });
+  }
+  // pescoço e cabeça
+  const neckBase = V(0, ty + P.h * 0.4, P.len * 0.42);
+  const headPos = V(0, ty + P.h * 0.45 + P.neck * 0.9, P.len * 0.5 + P.neck * 0.35);
+  if (P.neck > 0.12) b.limb(body, ctx.skinM, neckBase, headPos.clone().add(V(0, -P.head * 0.3, -P.head * 0.2)), P.head * 0.45);
+  const head = b.g(body, headPos.toArray()); ctx.anim.head = head;
+  const hr = P.head;
+  b.m(head, G.sph, ctx.skinM, [0, 0, 0], [hr, hr * 0.9, hr * 1.05]);
+  if (P.beak) {
+    b.m(head, G.cone, mat('#e8b23a', { rough: 0.4 }), [0, -hr * 0.1, hr * 1.05], [hr * 0.32, hr * 0.7, hr * 0.38], [Math.PI / 2 + 0.35, 0, 0]);
+  } else if (P.snout > 0.2) {
+    const sl = hr * P.snout;
+    b.m(head, G.sph, ctx.skinM, [0, -hr * 0.22, hr * 0.62 + sl * 0.35], [hr * 0.55, hr * 0.45, sl * 0.75]);
+    b.m(head, G.sph, ctx.secM, [0, -hr * 0.38, hr * 0.55 + sl * 0.3], [hr * 0.45, hr * 0.25, sl * 0.65]);
+    b.m(head, G.sph, mat('#1c1620', { rough: 0.3 }), [0, -hr * 0.1, hr * 0.62 + sl * 1.05], [hr * 0.15, hr * 0.11, hr * 0.1]);
+    if (['lobo', 'felino', 'dragao', 'lagarto', 'urso', 'raposa'].includes(arch) && stage > 0) for (const sx of [1, -1]) b.m(head, G.cone, mat('#ffffff', { rough: 0.3 }), [sx * hr * 0.2, -hr * 0.55, hr * 0.55 + sl * 0.85], [hr * 0.05, hr * 0.14, hr * 0.05], [Math.PI, 0, 0]);
+  } else {
+    b.m(head, G.sph, ctx.secM, [0, -hr * 0.3, hr * 0.72], [hr * 0.52, hr * 0.36, hr * 0.36]);
+    b.m(head, G.sph, mat('#1c1620', { rough: 0.3 }), [0, -hr * 0.12, hr * 1.02], [hr * 0.13, hr * 0.09, hr * 0.08]);
+  }
+  eyes(ctx, head, hr, { x: hr * 0.45, y: hr * 0.18, z: hr * 0.72, size: hr * (stage === 0 ? 0.24 : 0.19), slit: P.slit, color: ctx.el ? ctx.glow : '#6b4a2b', fierce: P.beak ? 0.5 : 0.35 });
+  // orelhas
+  const earM = ctx.skinM;
+  const earFn = {
+    pont: (sx) => { const e = b.m(head, SHAPES.ear, earM, [sx * hr * 0.5, hr * 0.72, -hr * 0.1], [hr * 0.42, hr * 0.62, hr], [-0.2, sx * 0.3, -sx * 0.35]); return e; },
+    grande: (sx) => b.m(head, SHAPES.ear, earM, [sx * hr * 0.55, hr * 0.72, -hr * 0.15], [hr * 0.55, hr * 0.95, hr], [-0.15, sx * 0.35, -sx * 0.45]),
+    redonda: (sx) => b.m(head, G.sph, earM, [sx * hr * 0.66, hr * 0.68, -hr * 0.1], [hr * 0.26, hr * 0.26, hr * 0.12]),
+    cervo: (sx) => b.m(head, SHAPES.leaf, earM, [sx * hr * 0.75, hr * 0.45, -hr * 0.15], [hr * 0.5, hr * 0.6, hr], [0, sx * 0.4, -sx * 1.25]),
+    leque: (sx) => b.m(head, G.sph, earM, [sx * hr * 0.95, hr * 0.05, -hr * 0.1], [hr * 0.08, hr * 0.7, hr * 0.55], [0, sx * 0.3, 0]),
+    tufo: (sx) => b.m(head, SHAPES.feather, earM, [sx * hr * 0.4, hr * 0.75, -hr * 0.3], [hr * 0.9, hr * 0.7, hr], [-0.6, 0, -sx * 0.5]),
+  };
+  if (earFn[P.ears]) for (const sx of [1, -1]) earFn[P.ears](sx);
+  // cauda
+  const tailBase = V(0, ty + P.h * 0.2, -P.len * 0.5);
+  const tg = b.g(body, tailBase.toArray()); ctx.anim.tails.push(tg);
+  let tailTip = V(0, ty + 0.4, -P.len - 0.3);
+  const tl = (0.7 + stage * 0.2);
+  if (P.tail === 'peluda') { b.m(tg, G.sph, ctx.skinM, [0, 0.12 * tl, -0.32 * tl], [0.16 * tl, 0.18 * tl, 0.42 * tl], [-0.55, 0, 0]); b.m(tg, G.sph, ctx.secM, [0, 0.3 * tl, -0.62 * tl], [0.12 * tl, 0.13 * tl, 0.16 * tl]); tailTip = tailBase.clone().add(V(0, 0.32 * tl, -0.66 * tl)); }
+  if (P.tail === 'fina') { const pts = [V(0, 0, 0), V(0, 0.08, -0.3 * tl), V(0, 0.35 * tl, -0.55 * tl), V(0, 0.55 * tl, -0.5 * tl)]; b.m(tg, taperTube(pts, 0.05, 0.035), ctx.skinM); b.m(tg, G.sph, ctx.darkM, pts[3].toArray(), 0.07); tailTip = tailBase.clone().add(pts[3]); }
+  if (P.tail === 'reptil') { const L = P.len * (0.9 + stage * 0.15); const pts = [V(0, 0, 0), V(0, -0.1, -L * 0.35), V(0.05, -0.2, -L * 0.7), V(0, -0.22, -L)]; b.m(tg, taperTube(pts, P.w * 0.5, 0.025), ctx.skinM); tailTip = tailBase.clone().add(pts[3]); ctx.tailPts = pts.map((p) => p.clone().add(tailBase)); }
+  if (P.tail === 'curta') b.m(tg, G.sph, ctx.skinM, [0, 0.02, -0.06], [0.07, 0.07, 0.14], [-0.6, 0, 0]);
+  // peças especiais
+  const back = [];
+  for (let i = 0; i < 5; i++) { const z = P.len * (0.35 - i * 0.18); back.push(V(0, ty + P.h * (0.92 - Math.abs(i - 1.5) * 0.04), z)); }
+  if (P.shell) {
+    const shellM = mat(ctx.el === 'pedra' ? ctx.c2 : shade(ctx.c1, 0.08, -0.1, -0.12), { kind: ctx.el === 'pedra' ? 'pedra' : 'casco', seed: 5, rough: 0.6 });
+    b.m(body, G.dome, shellM, [0, ty - P.h * 0.1, 0], [P.w * 1.18, P.h * 1.55, P.len * 0.62]);
+    b.m(body, G.cyl, ctx.darkM, [0, ty - P.h * 0.1, 0], [P.w * 1.2, 0.05, P.len * 0.63]);
+    back.length = 0; for (let i = 0; i < 3; i++) back.push(V(0, ty + P.h * 1.4, (i - 1) * P.len * 0.25));
+  }
+  if (P.horn) { b.m(head, G.cone, ctx.hornM, [0, hr * 0.15, hr * 0.62 + hr * P.snout * 0.7], [hr * 0.18, hr * (0.55 + stage * 0.25), hr * 0.18], [0.45, 0, 0]); if (stage > 0) b.m(head, G.cone, ctx.hornM, [0, hr * 0.32, hr * 0.68], [hr * 0.1, hr * 0.3, hr * 0.1], [0.2, 0, 0]); }
+  if (P.tusks) for (const sx of [1, -1]) {
+    if (P.tusks === 'mamute') b.m(head, taperTube([V(0, 0, 0), V(sx * 0.1, -0.25, 0.25), V(sx * 0.05, -0.15, 0.55), V(-sx * 0.05, 0.12, 0.62)].map((v) => v.multiplyScalar(hr * 1.6)), hr * 0.09, hr * 0.03), ctx.hornM, [sx * hr * 0.3, -hr * 0.35, hr * 0.5]);
+    else b.m(head, G.cone, ctx.hornM, [sx * hr * 0.32, -hr * 0.35, hr * 0.95], [hr * 0.06, hr * 0.3, hr * 0.06], [-0.5, 0, sx * 0.4]);
+  }
+  if (P.trunk) { const pts = [V(0, 0, 0), V(0, -0.35, 0.3), V(0, -0.75, 0.32), V(0, -0.95, 0.5)].map((v) => v.multiplyScalar(hr)); const tr = b.m(head, taperTube(pts, hr * 0.22, hr * 0.1), ctx.skinM, [0, -hr * 0.1, hr * 0.85]); ctx.anim.tails.push(tr); }
+  if (P.mane) for (let i = 0; i < 7; i++) b.m(body, G.cone, ctx.darkM, [0, ty + P.h * 0.85, P.len * (0.45 - i * 0.12)], [0.05, 0.22, 0.05], [-0.4, 0, 0]);
+  if (P.antlers) antlers(ctx, head, hr);
+  if (P.horns) for (const sx of [1, -1]) b.m(head, taperTube([V(0, 0, 0), V(sx * 0.05, 0.3, -0.12), V(sx * 0.08, 0.55, -0.35)].map((v) => v.multiplyScalar(hr * (1 + stage * 0.35))), hr * 0.1, hr * 0.02), ctx.hornM, [sx * hr * 0.42, hr * 0.55, -hr * 0.2]);
+  if (P.spikes) for (const p of back) b.m(body, G.cone, ctx.hornM, [p.x, p.y + 0.04, p.z], [0.05 + stage * 0.015, 0.16 + stage * 0.06, 0.05 + stage * 0.015], [-0.3, 0, 0]);
+  if (P.wings) wings(ctx, body, V(0, ty + P.h * 0.75, P.len * 0.15), P.wings, 0.9 + stage * 0.35);
+  if (arch === 'felino' && ctx.el === 'fogo') mane(ctx, head, hr);
+  return { height: headPos.y + hr * 1.2, head, headR: hr, top: V(0, hr * 0.95, 0), back, backParent: body, tailTip, tailParent: body, footR: Math.max(P.len * 0.65, P.w * 1.4) };
 }
-function hat(B, head, R, kind) {
-  const t = R * 0.88;
+function antlers(ctx, head, hr) {
+  const { b, stage, el } = ctx; const crystal = el === 'gelo' || el === 'pedra';
+  for (const sx of [1, -1]) {
+    const g = b.g(head, [sx * hr * 0.32, hr * 0.72, -hr * 0.05], [0, 0, -sx * 0.35]);
+    const L = hr * (0.7 + stage * 0.45);
+    if (crystal) { b.m(g, G.oct, ctx.hornM, [0, L * 0.5, 0], [hr * 0.1, L * 0.5, hr * 0.1]); for (let i = 0; i < 1 + stage; i++) b.m(g, G.oct, ctx.hornM, [sx * hr * 0.15, L * (0.3 + i * 0.25), 0], [hr * 0.06, L * 0.25, hr * 0.06], [0, 0, -sx * 0.8]); continue; }
+    b.m(g, taperTube([V(0, 0, 0), V(0, L * 0.5, -L * 0.1), V(sx * L * 0.15, L, -L * 0.2)], hr * 0.07, hr * 0.025), ctx.hornM);
+    for (let i = 0; i < 1 + stage; i++) { const y = L * (0.35 + i * 0.25); b.m(g, taperTube([V(0, y, -L * 0.07), V(sx * L * 0.25, y + L * 0.2, -L * 0.02)], hr * 0.045, hr * 0.02), ctx.hornM); }
+    if (el === 'planta') b.m(g, SHAPES.leaf, mat('#6fbf3a'), [sx * L * 0.15, L, -L * 0.2], hr * 0.35, [0, 0, -sx * 0.6]);
+  }
+}
+function mane(ctx, head, hr) {
+  const { b } = ctx;
+  const g = b.g(head, [0, 0, -hr * 0.25]);
+  const n = 10 + ctx.stage * 3;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2; const f = b.m(g, SHAPES.flame, mat(i % 2 ? '#ffb347' : '#ff6a2a', { glow: 1.2, emis: i % 2 ? '#ffb347' : '#ff5a1a' }), [Math.cos(a) * hr * 0.85, Math.sin(a) * hr * 0.85, 0], hr * (0.5 + ctx.stage * 0.1), [0, 0, a - Math.PI / 2]);
+    f.castShadow = false; ctx.anim.flames.push(f);
+  }
+}
+function wings(ctx, parent, at, kind, s) {
+  const { b } = ctx;
+  for (const sx of [1, -1]) {
+    const g = b.g(parent, [at.x + sx * 0.18, at.y, at.z], [0, 0, 0]);
+    if (kind === 'membrana') {
+      const mm = mat(shade(ctx.c2, 0, 0, -0.05), { rough: 0.6, op: 0.95 });
+      const w = b.m(g, SHAPES.membrane, mm, [0, 0, 0], [sx * s, s, s], [Math.PI / 2 - 0.2, 0, 0]);
+      b.limb(g, ctx.skinM, V(0, 0, 0), V(sx * 1.2 * s, 0.05, -0.62 * s), 0.035 * s);
+    } else {
+      const fm = mat(ctx.c1, { kind: 'pena', c2: ctx.c2, seed: 9, rough: 0.8 });
+      for (let i = 0; i < 7; i++) { const a = -0.1 + i * 0.13; b.m(g, SHAPES.feather, i < 2 ? ctx.secM : fm, [sx * (0.15 + i * 0.14) * s, 0.02, -0.05 * i * s], [0.6 * s, (0.8 + i * 0.05) * s, s], [Math.PI / 2 + 0.25, 0, sx * (-1.2 - a)]); }
+    }
+    ctx.anim.wings.push({ g, sx });
+  }
+}
+
+// ---------- corpo de 2 patas ----------
+function buildBiped(ctx) {
+  const { b, stage, arch } = ctx; const st = stage;
+  const s0 = st === 0;
+  let height = 1.6, head, hr, top, back = [], tailTip = null, footR = 0.7;
+  if (arch === 'sapo') {
+    const by = 0.42; b.m(ctx.body, G.sph, ctx.skinM, [0, by, 0], [0.62, 0.42, 0.55]);
+    b.m(ctx.body, G.sph, ctx.secM, [0, by - 0.1, 0.25], [0.5, 0.3, 0.35]);
+    for (const sx of [1, -1]) { // pernas dobradas e mãos
+      const hip = b.g(ctx.body, [sx * 0.45, 0.25, -0.1]); b.m(hip, G.sph, ctx.skinM, [0, 0, 0], [0.22, 0.24, 0.34]); b.m(hip, G.sph, ctx.darkM, [sx * 0.08, -0.2, 0.25], [0.18, 0.05, 0.22]); ctx.anim.legs.push({ g: hip, ph: sx > 0 ? 0 : Math.PI });
+      b.limb(ctx.body, ctx.skinM, V(sx * 0.35, 0.4, 0.3), V(sx * 0.4, 0.06, 0.45), 0.07); b.m(ctx.body, G.sph, ctx.darkM, [sx * 0.4, 0.03, 0.5], [0.1, 0.04, 0.12]);
+    }
+    head = b.g(ctx.body, [0, by + 0.35, 0.18]); hr = 0.46; ctx.anim.head = head;
+    b.m(head, G.sph, ctx.skinM, [0, 0, 0], [hr * 1.15, hr * 0.7, hr]);
+    b.m(head, G.cyl, mat('#2a1a24'), [0, -hr * 0.2, hr * 0.85], [hr * 0.7, 0.012, 0.02], [0, 0, Math.PI / 2]);
+    for (const sx of [1, -1]) b.m(head, G.sph, ctx.skinM, [sx * hr * 0.55, hr * 0.5, hr * 0.25], hr * 0.32);
+    eyes(ctx, head, hr, { x: hr * 0.55, y: hr * 0.55, z: hr * 0.45, size: hr * 0.24, slit: false, color: ctx.el ? ctx.glow : '#6b4a2b', fierce: 0.25, yaw: 0.35 });
+    height = by + 0.35 + hr; top = V(0, hr * 0.75, -hr * 0.1); back = [V(0, by + 0.38, -0.15), V(0, by + 0.3, -0.35)]; footR = 0.75;
+  } else if (arch === 'pinguim') {
+    const by = 0.68; b.m(ctx.body, G.sph, ctx.skinM, [0, by, 0], [0.45, 0.62, 0.42]);
+    b.m(ctx.body, G.sph, ctx.secM, [0, by - 0.05, 0.12], [0.36, 0.52, 0.34]);
+    for (const sx of [1, -1]) { const f = b.g(ctx.body, [sx * 0.42, by + 0.15, 0]); b.m(f, G.sph, ctx.skinM, [sx * 0.05, -0.25, 0], [0.08, 0.36, 0.18], [0, 0, sx * 0.25]); ctx.anim.wings.push({ g: f, sx, flap: 0.3 });
+      const ft = b.g(ctx.body, [sx * 0.18, 0.06, 0.12]); b.m(ft, G.sph, mat('#f0a020'), [0, 0, 0], [0.12, 0.05, 0.18]); ctx.anim.legs.push({ g: ft, ph: sx > 0 ? 0 : Math.PI }); }
+    head = b.g(ctx.body, [0, by + 0.62, 0.02]); hr = s0 ? 0.36 : 0.3; ctx.anim.head = head;
+    b.m(head, G.sph, ctx.skinM, [0, 0, 0], hr);
+    b.m(head, G.cone, mat('#f0a020', { rough: 0.4 }), [0, -hr * 0.15, hr * 1.05], [hr * 0.22, hr * 0.6, hr * 0.18], [Math.PI / 2, 0, 0]);
+    b.m(head, G.sph, ctx.secM, [0, -hr * 0.1, hr * 0.55], [hr * 0.7, hr * 0.6, hr * 0.5]);
+    eyes(ctx, head, hr, { x: hr * 0.4, y: hr * 0.2, z: hr * 0.78, size: hr * 0.2, color: ctx.el ? ctx.glow : '#3a2a1b', fierce: 0.45 });
+    if (st >= 1) for (const sx of [1, -1]) b.m(head, SHAPES.feather, mat('#ffd23f', { rough: 0.6 }), [sx * hr * 0.5, hr * 0.45, hr * 0.3], [hr * 0.9, hr * 0.7, hr], [0, sx * 0.5, -sx * 1.1]);
+    height = by + 0.62 + hr; top = V(0, hr, 0); back = [V(0, by + 0.4, -0.38), V(0, by, -0.42)]; footR = 0.55;
+  } else if (arch === 'macaco') {
+    const by = 0.75; b.m(ctx.body, G.sph, ctx.skinM, [0, by, 0], [0.55, 0.5, 0.45]);
+    b.m(ctx.body, G.sph, ctx.skinM, [0, by + 0.3, 0.05], [0.62, 0.38, 0.45]);
+    b.m(ctx.body, G.sph, ctx.secM, [0, by + 0.05, 0.3], [0.38, 0.38, 0.22]);
+    for (const sx of [1, -1]) { // braços longos até o chão
+      const sh = b.g(ctx.body, [sx * 0.6, by + 0.45, 0.05]);
+      b.limb(sh, ctx.skinM, V(0, 0, 0), V(sx * 0.18, -0.55, 0.15), 0.15); b.limb(sh, ctx.skinM, V(sx * 0.18, -0.55, 0.15), V(sx * 0.12, -by - 0.35, 0.3), 0.13);
+      b.m(sh, G.sph, ctx.darkM, [sx * 0.12, -by - 0.38, 0.32], [0.17, 0.12, 0.2]); ctx.anim.wings.push({ g: sh, sx, flap: 0.12, axisX: true });
+      const hip = b.g(ctx.body, [sx * 0.28, by - 0.3, -0.05]); b.limb(hip, ctx.skinM, V(0, 0, 0), V(0, -by + 0.36, 0.05), 0.14); b.m(hip, G.sph, ctx.darkM, [0, -by + 0.33, 0.12], [0.15, 0.08, 0.22]); ctx.anim.legs.push({ g: hip, ph: sx > 0 ? 0 : Math.PI });
+    }
+    head = b.g(ctx.body, [0, by + 0.72, 0.18]); hr = s0 ? 0.4 : 0.32; ctx.anim.head = head;
+    b.m(head, G.sph, ctx.skinM, [0, 0, 0], [hr, hr * 0.95, hr]);
+    b.m(head, G.sph, ctx.secM, [0, -hr * 0.25, hr * 0.62], [hr * 0.7, hr * 0.55, hr * 0.45]);
+    b.m(head, G.box, ctx.darkM, [0, hr * 0.32, hr * 0.72], [hr * 1.3, hr * 0.18, hr * 0.3], [0.2, 0, 0]);
+    b.m(head, G.sph, mat('#1c1620'), [0, -hr * 0.12, hr * 1.02], [hr * 0.18, hr * 0.1, hr * 0.08]);
+    for (const sx of [1, -1]) b.m(head, G.sph, ctx.secM, [sx * hr * 0.95, 0, 0], [hr * 0.18, hr * 0.24, hr * 0.12]);
+    eyes(ctx, head, hr, { x: hr * 0.36, y: hr * 0.1, z: hr * 0.78, size: hr * 0.17, color: ctx.el ? ctx.glow : '#6b4a2b', fierce: 0.15 });
+    height = by + 0.72 + hr; top = V(0, hr * 0.95, 0); back = [V(0, by + 0.6, -0.3), V(0, by + 0.3, -0.42), V(0, by, -0.42)]; footR = 0.8;
+  } else if (arch === 'golem') {
+    const by = 0.85; const chunk = (p, s, r) => b.m(ctx.body, G.dode, ctx.skinM, p, s, r);
+    chunk([0, by, 0], [0.62, 0.55, 0.45], [0.2, 0.3, 0]); chunk([0, by + 0.45, 0], [0.8, 0.4, 0.5], [0, 0.6, 0.1]);
+    b.m(ctx.body, G.oct, ctx.glowM, [0, by + 0.25, 0.42], [0.14, 0.18, 0.08]); // núcleo brilhante no peito
+    for (const sx of [1, -1]) {
+      const sh = b.g(ctx.body, [sx * 0.8, by + 0.5, 0]); chunk; b.m(sh, G.dode, ctx.skinM, [0, 0, 0], 0.26);
+      b.m(sh, G.dode, ctx.skinM, [sx * 0.08, -0.42, 0.05], [0.2, 0.28, 0.2]); b.m(sh, G.dode, ctx.skinM, [sx * 0.1, -0.85, 0.12], [0.3, 0.26, 0.3], [0.5, 0.2, 0]); // punho
+      ctx.anim.wings.push({ g: sh, sx, flap: 0.1, axisX: true });
+      const hip = b.g(ctx.body, [sx * 0.3, by - 0.4, 0]); b.m(hip, G.dode, ctx.skinM, [0, -0.2, 0], [0.22, 0.25, 0.22]); b.m(hip, G.dode, ctx.skinM, [0, -by + 0.5, 0.05], [0.26, 0.15, 0.3]); ctx.anim.legs.push({ g: hip, ph: sx > 0 ? 0 : Math.PI });
+    }
+    head = b.g(ctx.body, [0, by + 0.82, 0.05]); hr = s0 ? 0.32 : 0.26; ctx.anim.head = head;
+    b.m(head, G.dode, ctx.skinM, [0, 0, 0], [hr * 1.1, hr, hr]);
+    for (const sx of [1, -1]) b.m(head, G.sph, ctx.glowM, [sx * hr * 0.4, hr * 0.05, hr * 0.85], [hr * 0.17, hr * 0.1, hr * 0.06], [0, 0, sx * 0.3]);
+    ctx.anim.eyes.push(head);
+    height = by + 0.82 + hr; top = V(0, hr * 0.9, 0); back = [V(0, by + 0.75, -0.35), V(-0.4, by + 0.65, -0.3), V(0.4, by + 0.65, -0.3), V(0, by + 0.3, -0.45)]; footR = 0.95;
+  } else { // dino (T-rex amigável)
+    const hipY = 0.75; const body = b.g(ctx.body, [0, 0, 0], [0, 0, 0]);
+    b.m(body, G.sph, ctx.skinM, [0, hipY + 0.2, 0], [0.42, 0.48, 0.6], [-0.5, 0, 0]);
+    b.m(body, G.sph, ctx.secM, [0, hipY + 0.15, 0.28], [0.3, 0.36, 0.3], [-0.5, 0, 0]);
+    for (const sx of [1, -1]) {
+      const hip = b.g(body, [sx * 0.32, hipY, -0.1]);
+      b.m(hip, G.sph, ctx.skinM, [0, -0.05, 0], [0.2, 0.32, 0.28]);
+      b.limb(hip, ctx.skinM, V(0, -0.15, 0.05), V(0, -hipY + 0.12, -0.08), 0.11);
+      b.m(hip, G.sph, ctx.darkM, [0, -hipY + 0.06, 0.08], [0.14, 0.07, 0.24]);
+      for (const cx of [-1, 0, 1]) b.m(hip, G.cone, ctx.hornM, [cx * 0.07, -hipY + 0.05, 0.3], [0.025, 0.08, 0.025], [Math.PI / 2, 0, 0]);
+      ctx.anim.legs.push({ g: hip, ph: sx > 0 ? 0 : Math.PI });
+      b.limb(body, ctx.skinM, V(sx * 0.25, hipY + 0.45, 0.35), V(sx * 0.3, hipY + 0.25, 0.5), 0.045); // bracinhos
+    }
+    head = b.g(body, [0, hipY + 0.82, 0.48]); hr = s0 ? 0.38 : 0.3; ctx.anim.head = head;
+    b.m(head, G.sph, ctx.skinM, [0, 0, 0], [hr, hr * 0.85, hr * 1.1]);
+    b.m(head, G.sph, ctx.skinM, [0, -hr * 0.15, hr * 0.85], [hr * 0.75, hr * 0.55, hr * 0.75]);
+    b.m(head, G.sph, ctx.secM, [0, -hr * 0.45, hr * 0.75], [hr * 0.65, hr * 0.22, hr * 0.7]);
+    for (let i = 0; i < 4; i++) for (const sx of [1, -1]) b.m(head, G.cone, mat('#ffffff', { rough: 0.3 }), [sx * hr * (0.45 - i * 0.04), -hr * 0.38, hr * (0.55 + i * 0.22)], [hr * 0.04, hr * 0.11, hr * 0.04], [Math.PI, 0, 0]);
+    eyes(ctx, head, hr, { x: hr * 0.5, y: hr * 0.25, z: hr * 0.55, size: hr * 0.17, slit: true, color: ctx.glow, fierce: 0.45, yaw: 0.6 });
+    const pts = [V(0, 0, 0), V(0, -0.1, -0.45), V(0.05, -0.25, -0.9), V(0, -0.4, -1.35 - st * 0.2)];
+    const tg = b.g(body, [0, hipY + 0.15, -0.45]); b.m(tg, taperTube(pts, 0.3, 0.03), ctx.skinM); ctx.anim.tails.push(tg); tailTip = V(0, hipY - 0.25, -1.8);
+    ctx.tailPts = pts.map((p) => p.clone().add(V(0, hipY + 0.15, -0.45)));
+    height = hipY + 0.82 + hr; top = V(0, hr * 0.85, -hr * 0.1); back = [V(0, hipY + 0.68, 0.15), V(0, hipY + 0.6, -0.1), V(0, hipY + 0.45, -0.35), V(0, hipY + 0.25, -0.6)]; footR = 1.0;
+    for (const p of back) b.m(body, G.cone, ctx.hornM, [p.x, p.y, p.z], [0.06, 0.2 + st * 0.06, 0.06], [-0.4, 0, 0]);
+  }
+  return { height, head, headR: hr, top, back, backParent: ctx.body, tailTip, tailParent: ctx.body, footR };
+}
+
+// ---------- aves e morcegos (voam sobre o chão) ----------
+function buildBird(ctx) {
+  const { b, stage, arch } = ctx; const bat = arch === 'morcego';
+  ctx.anim.float = 0.75 + stage * 0.15;
+  const body = b.g(ctx.body, [0, 0, 0]);
+  b.m(body, G.sph, ctx.skinM, [0, 0, 0], [0.32, 0.36, 0.5], [0.25, 0, 0]);
+  b.m(body, G.sph, ctx.secM, [0, -0.08, 0.15], [0.24, 0.26, 0.32], [0.25, 0, 0]);
+  const head = b.g(body, [0, 0.32, 0.38]); const hr = stage === 0 ? 0.32 : 0.26; ctx.anim.head = head;
+  b.m(head, G.sph, ctx.skinM, [0, 0, 0], hr);
+  if (bat) {
+    for (const sx of [1, -1]) b.m(head, SHAPES.ear, ctx.skinM, [sx * hr * 0.55, hr * 0.7, -hr * 0.1], [hr * 0.55, hr * 1.1, hr], [-0.2, sx * 0.3, -sx * 0.35]);
+    b.m(head, G.sph, mat('#1c1620'), [0, -hr * 0.05, hr * 0.95], [hr * 0.14, hr * 0.1, hr * 0.08]);
+    for (const sx of [1, -1]) b.m(head, G.cone, mat('#ffffff'), [sx * hr * 0.15, -hr * 0.42, hr * 0.82], [hr * 0.05, hr * 0.14, hr * 0.05], [Math.PI, 0, 0]);
+  } else {
+    const beakC = ctx.el === 'eletrico' ? '#3a3550' : '#e8b23a';
+    b.m(head, G.cone, mat(beakC, { rough: 0.35 }), [0, -hr * 0.12, hr * 1.0], [hr * 0.25, hr * 0.65, hr * 0.28], [Math.PI / 2 + 0.3, 0, 0]);
+    for (let i = 0; i < 3; i++) b.m(head, SHAPES.feather, ctx.skinM, [0, hr * 0.8, -hr * (0.1 + i * 0.25)], [hr * 0.9, hr * (1.1 - i * 0.2), hr], [-0.9 - i * 0.3, 0, 0]);
+  }
+  eyes(ctx, head, hr, { x: hr * 0.45, y: hr * 0.15, z: hr * 0.72, size: hr * 0.2, color: ctx.glow, fierce: 0.55 });
+  wings(ctx, body, V(0, 0.15, 0.05), bat ? 'membrana' : 'penas', 0.8 + stage * 0.35);
+  // cauda de penas e garras
+  if (!bat) for (let i = 0; i < 5; i++) b.m(body, SHAPES.feather, i % 2 ? ctx.secM : ctx.skinM, [(i - 2) * 0.06, -0.05, -0.45], [0.35, 0.6 + stage * 0.15, 0.5], [-Math.PI / 2 - 0.3, 0, (i - 2) * 0.35]);
+  for (const sx of [1, -1]) { const leg = b.g(body, [sx * 0.12, -0.3, 0.05]); b.limb(leg, mat('#e8b23a'), V(0, 0, 0), V(0, -0.18, 0.05), 0.035); for (const cx of [-1, 0, 1]) b.m(leg, G.cone, ctx.hornM, [cx * 0.04, -0.22, 0.1], [0.018, 0.08, 0.018], [Math.PI / 2, 0, 0]); ctx.anim.legs.push({ g: leg, ph: 0, tucked: true }); }
+  const lift = ctx.anim.float;
+  return { height: lift + 0.6, head, headR: hr, top: V(0, hr, 0), back: [V(0, 0.3, -0.05), V(0, 0.25, -0.3)], backParent: body, tailTip: V(0, -0.1, -0.7), tailParent: body, footR: 0.7 };
+}
+
+// ---------- peixes e arraias ----------
+function buildFish(ctx) {
+  const { b, stage, arch } = ctx; ctx.anim.float = 0.7 + stage * 0.1;
+  const body = b.g(ctx.body, [0, 0, 0]);
+  const finM = mat(ctx.c2, { rough: 0.4, op: 0.9, glow: 0.15, emis: ctx.glow });
+  let head, hr;
+  if (arch === 'arraia') {
+    const w = 0.9 + stage * 0.25;
+    b.m(body, G.sph, ctx.skinM, [0, 0, 0], [0.35, 0.12, 0.45]);
+    for (const sx of [1, -1]) { const g = b.g(body, [sx * 0.2, 0, 0]); b.m(g, G.sph, ctx.skinM, [sx * w * 0.42, 0, -0.05], [w * 0.5, 0.05, 0.4], [0, sx * 0.25, 0]); ctx.anim.wings.push({ g, sx, flap: 0.35, slow: true }); }
+    b.m(body, G.sph, ctx.secM, [0, -0.05, 0.05], [0.3, 0.06, 0.38]);
+    const tail = b.g(body, [0, 0, -0.42]); b.m(tail, taperTube([V(0, 0, 0), V(0, 0.05, -0.4), V(0, 0.15, -0.9 - stage * 0.3)], 0.05, 0.01), ctx.skinM); ctx.anim.tails.push(tail);
+    head = b.g(body, [0, 0.04, 0.4]); hr = 0.2; ctx.anim.head = head;
+    eyes(ctx, head, hr, { x: hr * 0.6, y: hr * 0.25, z: 0, size: hr * 0.3, color: ctx.glow, fierce: 0.4, yaw: 0.9 });
+    for (const sx of [1, -1]) b.m(head, G.cone, ctx.skinM, [sx * 0.12, 0, 0.12], [0.05, 0.2, 0.04], [Math.PI / 2, 0, -sx * 0.3]);
+    return { height: ctx.anim.float + 0.3, head, headR: hr, top: V(0, hr, 0), back: [V(0, 0.12, 0), V(0, 0.1, -0.2)], backParent: body, tailTip: V(0, 0.15, -1.4), tailParent: body, footR: w * 0.9 };
+  }
+  const L = 0.6 + stage * 0.08;
+  b.m(body, G.sph, ctx.skinM, [0, 0, 0], [0.3, 0.38, L]);
+  b.m(body, G.sph, ctx.secM, [0, -0.12, 0.05], [0.24, 0.24, L * 0.8]);
+  b.m(body, SHAPES.fin, finM, [0, 0.3, 0.1], [0.5 + stage * 0.15, 0.5 + stage * 0.15, 1], [0, Math.PI / 2, 0]);
+  for (const sx of [1, -1]) { const g = b.g(body, [sx * 0.27, -0.1, 0.15]); b.m(g, SHAPES.fin, finM, [0, 0, 0], 0.35, [0, sx * 1.2, -sx * 0.6]); ctx.anim.wings.push({ g, sx, flap: 0.4 }); }
+  const tail = b.g(body, [0, 0, -L * 0.95]); ctx.anim.tails.push(tail);
+  for (const sy of [1, -1]) b.m(tail, SHAPES.fin, finM, [0, 0, -0.05], [0.55 + stage * 0.2, sy * (0.55 + stage * 0.2), 1], [0, -Math.PI / 2, 0]);
+  head = b.g(body, [0, 0.05, L * 0.55]); hr = 0.28; ctx.anim.head = head;
+  eyes(ctx, head, hr, { x: hr * 0.75, y: hr * 0.2, z: hr * 0.35, size: hr * 0.25, color: ctx.glow, fierce: 0.4, yaw: 0.9 });
+  b.m(head, G.sph, darkLip(ctx), [0, -hr * 0.2, hr * 0.9], [hr * 0.3, hr * 0.12, hr * 0.1]);
+  if (stage === 2) for (const sx of [1, -1]) b.m(head, G.cone, ctx.hornM, [sx * hr * 0.4, hr * 0.5, hr * 0.2], [0.04, 0.22, 0.04], [-0.4, 0, -sx * 0.4]);
+  return { height: ctx.anim.float + 0.55, head, headR: hr, top: V(0, hr * 0.9, 0), back: [V(0, 0.35, 0), V(0, 0.32, -0.25)], backParent: body, tailTip: V(0, 0, -L - 0.3), tailParent: body, footR: 0.75 };
+}
+const darkLip = (ctx) => mat(shade(ctx.c1, 0, 0, -0.3));
+
+// ---------- serpentes e enguias (corpo ondulando) ----------
+function buildSerpent(ctx) {
+  const { b, stage, arch } = ctx; ctx.anim.float = 0.35 + stage * 0.1;
+  const n = 14 + stage * 4; const segs = [];
+  const body = b.g(ctx.body, [0, 0, 0]);
+  for (let i = 0; i < n; i++) {
+    const k = i / (n - 1); const r = (0.27 + stage * 0.03) * (1 - k * 0.72);
+    const L = 1.5 + stage * 0.45;
+    const m = b.m(body, G.sph, i % 3 === 0 ? ctx.secM : ctx.skinM, [Math.sin(k * 3.4) * 0.32 * k, 0.5 * (1 - k) * (1 - k), -k * L * 0.8], [r, r * 0.92, r * 1.25]);
+    if (i % 3 === 0 && i > 1 && arch === 'serpente') { const f = b.m(m, SHAPES.fin, mat(ctx.c2, { op: 0.9, glow: 0.2, emis: ctx.glow }), [0, 0.7, 0], [0.9, 0.9, 1], [0, Math.PI / 2, 0]); }
+    segs.push({ m, k, z: m.position.z });
+  }
+  ctx.anim.wave = segs;
+  const head = b.g(body, [0, 0.62, 0.22]); const hr = 0.3 + stage * 0.03; ctx.anim.head = head;
+  b.m(head, G.sph, ctx.skinM, [0, 0, 0], [hr, hr * 0.8, hr * 1.15]);
+  b.m(head, G.sph, ctx.skinM, [0, -hr * 0.12, hr * 0.8], [hr * 0.6, hr * 0.45, hr * 0.6]);
+  eyes(ctx, head, hr, { x: hr * 0.55, y: hr * 0.3, z: hr * 0.55, size: hr * 0.2, slit: true, color: ctx.glow, fierce: 0.5, yaw: 0.6 });
+  if (arch === 'serpente') { // bigodes e chifres de dragão oriental
+    for (const sx of [1, -1]) { b.m(head, taperTube([V(0, 0, 0), V(sx * 0.2, -0.05, 0.1), V(sx * 0.45, -0.2, -0.05)], 0.02, 0.008), ctx.hornM, [sx * hr * 0.3, -hr * 0.2, hr * 1.1]); b.m(head, taperTube([V(0, 0, 0), V(sx * 0.08, 0.2, -0.15), V(sx * 0.12, 0.35 + stage * 0.15, -0.4)], hr * 0.08, 0.01), ctx.hornM, [sx * hr * 0.35, hr * 0.55, -hr * 0.2]); }
+  } else for (const sx of [1, -1]) b.m(head, SHAPES.fin, mat(ctx.c2, { glow: 0.3, emis: ctx.glow }), [sx * hr * 0.7, 0, -hr * 0.4], 0.3, [0, sx * 1.4, 0]);
+  return { height: ctx.anim.float + 1.0, head, headR: hr, top: V(0, hr * 0.8, 0), back: segs.filter((s, i) => i % 4 === 2).map((s) => V(s.m.position.x, s.m.position.y + 0.2, s.z)), backParent: body, tailTip: V(0, 0, segs[n - 1].z - 0.1), tailParent: body, footR: 1.0, segs };
+}
+
+// ---------- insetos ----------
+function buildInsect(ctx) {
+  const { b, stage, arch } = ctx;
+  if (arch === 'mariposa') {
+    ctx.anim.float = 0.8;
+    const body = b.g(ctx.body, [0, 0, 0]);
+    b.m(body, G.sph, ctx.skinM, [0, 0, 0], [0.16, 0.18, 0.45]);
+    b.m(body, G.sph, ctx.secM, [0, 0.05, 0.3], [0.2, 0.2, 0.2]);
+    const head = b.g(body, [0, 0.08, 0.5]); const hr = 0.2; ctx.anim.head = head;
+    b.m(head, G.sph, ctx.skinM, [0, 0, 0], hr);
+    eyes(ctx, head, hr, { x: hr * 0.6, y: hr * 0.1, z: hr * 0.5, size: hr * 0.38, color: ctx.glow, fierce: 0.15, yaw: 0.8, glowEyes: true });
+    for (const sx of [1, -1]) { const a = b.g(head, [sx * hr * 0.3, hr * 0.8, hr * 0.2]); b.m(a, taperTube([V(0, 0, 0), V(sx * 0.1, 0.25, 0.08), V(sx * 0.25, 0.4, 0)], 0.015, 0.008), ctx.darkM); for (let i = 0; i < 5; i++) b.m(a, SHAPES.feather, ctx.secM, [sx * (0.05 + i * 0.04), 0.15 + i * 0.05, 0.06], [0.12, 0.18, 0.2], [0, 0, -sx * 1.3]); }
+    const wingM = mat(ctx.c1, { kind: 'pele', c2: ctx.c2, over: ctx.el === 'cosmo' ? 'cosmo' : null, pat: 'manchas', seed: 21, rough: 0.5, op: 0.95 });
+    const s = 0.85 + stage * 0.35;
+    for (const sx of [1, -1]) {
+      const g = b.g(body, [sx * 0.1, 0.12, 0.15]);
+      b.m(g, SHAPES.mothWing, wingM, [0, 0, 0], [sx * s, s, s], [0.25, -sx * 0.2, 0]);
+      b.m(g, SHAPES.mothWing2, wingM, [0, -0.02, -0.03], [sx * s * 0.9, s * 0.9, s], [0.25, -sx * 0.2, 0]);
+      b.m(g, G.sph, ctx.glowM, [sx * 0.6 * s, 0.5 * s, 0.03], [0.08 * s, 0.08 * s, 0.02]);
+      ctx.anim.wings.push({ g, sx, flap: 0.5, axisZ: true });
+    }
+    return { height: 1.4, head, headR: hr, top: V(0, hr, 0), back: [V(0, 0.18, 0)], backParent: body, tailTip: V(0, 0, -0.5), tailParent: body, footR: 0.9 };
+  }
+  // besouro (chifre de rinoceronte)
+  const body = b.g(ctx.body, [0, 0, 0]); const L = 0.62 + stage * 0.08; const y = 0.42;
+  b.m(body, G.sph, ctx.darkM, [0, y - 0.05, 0], [0.42, 0.25, L]);
+  const shellM = ctx.skinM;
+  for (const sx of [1, -1]) { const e = b.g(body, [sx * 0.005, y + 0.02, -0.08]); b.m(e, G.dome, shellM, [0, 0, 0], [0.24, 0.42 + stage * 0.05, L * 0.95], [0, 0, 0]).position.x = sx * 0.2; ctx.anim.wings.push({ g: e, sx, flap: 0.05, axisZ: true }); }
+  b.m(body, G.sph, ctx.skinM, [0, y + 0.05, L * 0.62], [0.32, 0.22, 0.22]);
+  for (const sx of [1, -1]) for (const z of [-0.25, 0.05, 0.35]) { const leg = b.g(body, [sx * 0.32, y - 0.1, z * L]); b.limb(leg, ctx.darkM, V(0, 0, 0), V(sx * 0.25, 0.05, 0.05), 0.035); b.limb(leg, ctx.darkM, V(sx * 0.25, 0.05, 0.05), V(sx * 0.38, -y + 0.12, 0.1), 0.03); ctx.anim.legs.push({ g: leg, ph: (sx > 0 ? 0 : Math.PI) + z * 4 }); }
+  const head = b.g(body, [0, y, L * 0.85]); const hr = 0.2; ctx.anim.head = head;
+  b.m(head, G.sph, ctx.darkM, [0, 0, 0], hr);
+  b.m(head, taperTube([V(0, 0, 0), V(0, 0.15, 0.2), V(0, 0.45 + stage * 0.2, 0.25), V(0, 0.6 + stage * 0.25, 0.05)], 0.07, 0.015), ctx.hornM, [0, hr * 0.3, hr * 0.5]);
+  if (stage >= 1) b.m(body, taperTube([V(0, 0, 0), V(0, 0.15, 0.15), V(0, 0.25, 0.3)], 0.05, 0.01), ctx.hornM, [0, y + 0.22, L * 0.6]);
+  eyes(ctx, head, hr, { x: hr * 0.62, y: hr * 0.15, z: hr * 0.6, size: hr * 0.25, color: ctx.glow, fierce: 0.3, yaw: 0.7, glowEyes: true });
+  return { height: y + 0.6 + stage * 0.2, head, headR: hr, top: V(0, hr, 0), back: [V(0, y + 0.42, 0), V(-0.2, y + 0.38, -0.2), V(0.2, y + 0.38, -0.2)], backParent: body, tailTip: V(0, y, -L), tailParent: body, footR: 0.85 };
+}
+
+// ---------- espírito (água-viva) ----------
+function buildSpirit(ctx) {
+  const { b, stage } = ctx; ctx.anim.float = 0.9;
+  const body = b.g(ctx.body, [0, 0, 0]);
+  const R0 = 0.45 + stage * 0.1;
+  b.m(body, G.dome, ctx.skinM, [0, 0, 0], [R0, R0 * 0.85, R0]);
+  b.m(body, G.sph, ctx.glowM, [0, R0 * 0.2, 0], R0 * 0.35);
+  const head = b.g(body, [0, R0 * 0.3, R0 * 0.7]); ctx.anim.head = head;
+  eyes(ctx, head, R0, { x: R0 * 0.28, y: 0, z: 0, size: R0 * 0.14, color: ctx.glow, fierce: 0.2, yaw: 0.3, glowEyes: true });
+  const tents = [];
+  const n = 6 + stage * 2;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2; const g = b.g(body, [Math.cos(a) * R0 * 0.7, 0, Math.sin(a) * R0 * 0.7]);
+    b.m(g, taperTube([V(0, 0, 0), V(Math.cos(a) * 0.05, -0.3, Math.sin(a) * 0.05), V(0, -0.6 - stage * 0.15, 0), V(Math.cos(a) * 0.08, -0.9 - stage * 0.25, Math.sin(a) * 0.08)], 0.05, 0.01), mat(ctx.c2, { op: 0.75, glow: 0.5, emis: ctx.glow }));
+    tents.push({ g, ph: i });
+  }
+  ctx.anim.tentacles = tents;
+  b.m(body, G.ring, ctx.glowM, [0, 0.02, 0], [R0 * 1.01, R0 * 1.01, 1], [Math.PI / 2, 0, 0]);
+  return { height: 0.9 + R0, head: body, headR: R0, top: V(0, R0 * 0.85, 0), back: [V(0, R0 * 0.8, 0)], backParent: body, tailTip: null, footR: R0 * 1.3 };
+}
+
+// ---------- peças do elemento ----------
+function orbit(ctx, parent, n, y, radius, fn, speed = 0.8) {
+  const g = ctx.b.g(parent, [0, y, 0]);
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; const c = ctx.b.g(g, [Math.cos(a) * radius, Math.sin(i * 2.1) * 0.12, Math.sin(a) * radius]); fn(c, i); }
+  ctx.anim.spin.push({ g, speed, axis: 'y' });
+}
+function elementParts(ctx, R) {
+  const { b, el, stage } = ctx; const head = R.head, hr = R.headR; const backP = R.backParent;
+  const top = R.top.toArray();
+  const nb = Math.min(R.back.length, 2 + stage);
+  const backs = R.back.slice(0, nb);
+  switch (el) {
+    case 'planta': {
+      const lm = mat('#6fbf3a', { rough: 0.6 }); const lm2 = mat('#4f9d3a', { rough: 0.6 });
+      const g = b.g(head, top); for (const sx of [1, -1]) b.m(g, SHAPES.leaf, sx > 0 ? lm : lm2, [0, 0, 0], hr * (0.6 + stage * 0.2), [0, 0, -sx * 0.5]);
+      ctx.anim.spin.push({ g, wob: true });
+      for (const p of backs) { const lg = b.g(backP, p.toArray()); for (let i = 0; i < 3; i++) b.m(lg, SHAPES.leaf, i % 2 ? lm : lm2, [0, 0, 0], 0.25 + stage * 0.1, [-0.6, (i / 3) * Math.PI * 2, 0.6]); }
+      if (stage === 2) { const f = b.g(head, [hr * 0.5, hr * 0.6, hr * 0.2]); for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; b.m(f, G.sph, mat('#ffd34d'), [Math.cos(a) * 0.07, Math.sin(a) * 0.07, 0], [0.06, 0.06, 0.02]); } }
+      break; }
+    case 'agua': {
+      const fm = mat('#9fe0ff', { rough: 0.3, op: 0.85, glow: 0.3, emis: '#6ff0ff' });
+      if (!['peixe', 'arraia', 'serpente', 'enguia'].includes(ctx.arch)) { b.m(head, SHAPES.fin, fm, [0, hr * 0.7, -hr * 0.2], [hr * 1.1, hr * 1.1, 1], [0, Math.PI / 2, 0.3]); for (const p of backs) b.m(backP, SHAPES.fin, fm, p.toArray(), [0.35 + stage * 0.1, 0.35 + stage * 0.1, 1], [0, Math.PI / 2, 0]); }
+      if (stage === 2) orbit(ctx, ctx.body, 5, R.height * 0.5, R.footR, (g, i) => b.m(g, G.sph, mat('#cdf3ff', { op: 0.5, rough: 0.1 }), [0, 0, 0], 0.06 + (i % 2) * 0.03));
+      break; }
+    case 'fogo': {
+      const tip = R.tailTip;
+      if (tip && R.tailParent) { const fg = b.g(R.tailParent, tip.toArray()); for (let i = 0; i < 3; i++) { const f = b.m(fg, SHAPES.flame, mat(i ? '#ffcc33' : '#ff5a1a', { glow: 1.6, emis: i ? '#ffcc33' : '#ff5a1a' }), [0, 0, 0], 0.25 + stage * 0.08 - i * 0.05, [0, i * 1.1, 0]); f.castShadow = false; ctx.anim.flames.push(f); } }
+      if (!(ctx.arch === 'felino')) { const fg = b.g(head, top); for (let i = 0; i < 2 + stage; i++) { const f = b.m(fg, SHAPES.flame, mat(i % 2 ? '#ffcc33' : '#ff6a2a', { glow: 1.6, emis: '#ff7a1a' }), [(i - (1 + stage) / 2) * hr * 0.25, 0, -i * 0.03], hr * (0.6 + stage * 0.15), [0, 0, (i - (1 + stage) / 2) * 0.3]); f.castShadow = false; ctx.anim.flames.push(f); } }
+      break; }
+    case 'vento': {
+      const wm = mat('#ffffff', { rough: 0.9 });
+      for (const p of backs) { const c = b.g(backP, p.toArray()); for (let i = 0; i < 3; i++) b.m(c, G.sph, wm, [i * 0.1 - 0.1, 0.05, Math.sin(i) * 0.05], 0.1 + stage * 0.03); }
+      if (!['ave', 'morcego', 'dragao', 'grifo', 'mariposa'].includes(ctx.arch)) for (const sx of [1, -1]) b.m(head, SHAPES.feather, wm, [sx * hr * 0.45, hr * 0.55, -hr * 0.2], [hr * 0.8, hr, hr], [-0.5, 0, -sx * 0.6]);
+      if (stage >= 1) { const ring = b.m(ctx.body, G.ring, mat('#e8f7ff', { op: 0.5 }), [0, R.height * 0.45, 0], [R.footR * 0.9, R.footR * 0.9, 1], [Math.PI / 2.2, 0, 0]); ring.castShadow = false; ctx.anim.spin.push({ g: ring, speed: 1.4, axis: 'z' }); }
+      break; }
+    case 'gelo': {
+      const im = mat('#dffaff', { rough: 0.1, op: 0.85, glow: 0.25, emis: '#b8f4ff' });
+      for (const p of backs) { const g = b.g(backP, p.toArray()); for (let i = 0; i < 2 + stage; i++) b.m(g, G.oct, im, [(i - 1) * 0.08, 0.1, (i % 2) * 0.05], [0.06 + stage * 0.02, 0.18 + stage * 0.08, 0.06 + stage * 0.02], [0, 0, (i - 1) * 0.35]); }
+      if (!ctx.arch.match(/cervo|golem/)) b.m(head, G.oct, im, top, [hr * 0.14, hr * (0.45 + stage * 0.2), hr * 0.14]);
+      break; }
+    case 'pedra': {
+      const rm = mat(ctx.c2, { kind: 'pedra', seed: 7, rough: 0.9, flat: true });
+      const gm = mat(ctx.glow, { glow: 0.7, rough: 0.2 });
+      for (const p of backs) b.m(backP, G.dode, rm, [p.x, p.y + 0.03, p.z], [0.12 + stage * 0.04, 0.09 + stage * 0.03, 0.14 + stage * 0.04], [p.z * 3, p.z * 2, 0]);
+      if (stage >= 1) b.m(head, G.oct, gm, [0, hr * 0.55, hr * 0.7], [hr * 0.12, hr * 0.16, hr * 0.08]);
+      if (stage === 2 && backs[0]) b.m(backP, G.oct, gm, [backs[0].x, backs[0].y + 0.2, backs[0].z], [0.07, 0.2, 0.07]);
+      break; }
+    case 'eletrico': {
+      const bm = mat('#fff27a', { glow: 1.4, emis: '#ffe23a', rough: 0.3 });
+      const bg = b.g(head, top, [0, Math.PI / 2, 0]);
+      const bolt = b.m(bg, SHAPES.bolt, bm, [0, hr * (0.25 + stage * 0.08), 0], hr * (0.35 + stage * 0.12)); bolt.castShadow = false;
+      if (R.tailTip && R.tailParent) { const t = b.m(R.tailParent, SHAPES.bolt, bm, R.tailTip.toArray(), 0.22 + stage * 0.08, [0, Math.PI / 2, 0.6]); t.castShadow = false; ctx.anim.spin.push({ g: t, wob: true }); }
+      ctx.sparks = true;
+      break; }
+    case 'cosmo': {
+      const sm = mat('#fff6d6', { glow: 2 });
+      orbit(ctx, ctx.body, 3 + stage * 2, R.height * 0.8, R.footR * 0.75, (g) => { const s = b.m(g, SHAPES.star, sm, [0, 0, 0], 0.05 + stage * 0.015); s.castShadow = false; }, 0.6);
+      if (stage >= 1) { const ring = b.m(head, G.ring, mat('#c9b6ff', { glow: 0.8, op: 0.8 }), [0, hr * 0.2, 0], [hr * 1.5, hr * 1.5, 1], [Math.PI / 2 - 0.35, 0, 0.2]); ring.castShadow = false; }
+      break; }
+    case 'trovao': {
+      const bm = mat('#7df9ff', { glow: 1.6, emis: '#7df9ff' });
+      const g = b.g(head, top, [0, Math.PI / 2, 0]); for (let i = -1; i <= 1; i++) { const s = b.m(g, SHAPES.bolt, bm, [0, hr * 0.3, i * hr * 0.35], hr * (0.3 + stage * 0.1) * (i ? 0.7 : 1), [i * 0.3, 0, 0]); s.castShadow = false; }
+      for (const p of backs) { const s = b.m(backP, SHAPES.bolt, bm, [p.x, p.y + 0.1, p.z], 0.14 + stage * 0.06, [0, Math.PI / 2, 0]); s.castShadow = false; }
+      orbit(ctx, ctx.body, 4, R.height * 0.6, R.footR, (gg) => { const s = b.m(gg, SHAPES.bolt, bm, [0, 0, 0], 0.08); s.castShadow = false; }, 1.2);
+      ctx.sparks = true;
+      break; }
+  }
+}
+
+function hat(b, head, R, kind) {
+  const t = R * 0.85;
+  const m = (c) => mat(c, { rough: 0.7 });
   switch (kind) {
-    case 'palha': B.part(head, G.cyl, '#f3d27a', [0, t, -0.02], [R * 1.05, 0.04, R * 1.05], [-0.1, 0, 0], { outline: 0.05 }); B.part(head, G.cyl, '#f3d27a', [0, t + 0.12, -0.04], [R * 0.55, 0.22, R * 0.55], [-0.1, 0, 0], { outline: 0.05 }); B.part(head, G.cyl, '#ff8fa8', [0, t + 0.05, -0.03], [R * 0.57, 0.06, R * 0.57], [-0.1, 0, 0]); flower(B, head, [R * 0.5, t + 0.08, R * 0.25], R * 0.13, '#ff8fa8'); break;
-    case 'marinheiro': B.part(head, G.cyl, '#ffffff', [0, t + 0.04, 0], [R * 0.62, 0.16, R * 0.62], [-0.15, 0, 0], { outline: 0.06 }); B.part(head, G.cyl, '#3b6fd1', [0, t, 0], [R * 0.64, 0.05, R * 0.64], [-0.15, 0, 0]); B.part(head, G.cyl, '#2b3550', [0, t - 0.02, R * 0.4], [R * 0.4, 0.03, R * 0.25], [0.2, 0, 0]); break;
-    case 'bone': B.part(head, G.sph, '#ff6f6f', [0, t - 0.02, 0], [R * 0.7, R * 0.4, R * 0.7], [0, 0, 0], { outline: 0.06 }); B.part(head, G.cyl, '#ff6f6f', [0, t - 0.08, R * 0.6], [R * 0.4, 0.03, R * 0.3], [0.15, 0, 0], { outline: 0.1 }); break;
-    case 'touca': case 'gorro': {
-      const c = kind === 'gorro' ? '#ff7b9c' : '#7ec8ff';
-      B.part(head, G.sph, c, [0, t - 0.04, -0.03], [R * 0.78, R * 0.5, R * 0.78], [0, 0, 0], { outline: 0.06 });
-      B.part(head, G.cyl, '#ffffff', [0, t - 0.2, -0.02], [R * 0.8, 0.08, R * 0.8]);
-      B.part(head, G.sph, '#ffffff', [0, t + R * 0.42, -0.05], R * 0.16, [0, 0, 0], { outline: 0.1 }); break; }
-    case 'capacete': B.part(head, G.sph, '#ffd23f', [0, t - 0.05, 0], [R * 0.8, R * 0.5, R * 0.8], [0, 0, 0], { outline: 0.06 }); B.part(head, G.cyl, '#fff6c2', [0, t + 0.02, R * 0.7], [0.08, 0.05, 0.08], [Math.PI / 2, 0, 0], { glow: 0.9 }); break;
-    case 'dormir': B.part(head, G.cone, '#9fb4ff', [0, t + 0.2, -0.12], [R * 0.62, R * 0.9, R * 0.62], [-0.5, 0, 0.3], { outline: 0.06 }); B.part(head, G.sph, '#ffffff', [R * 0.32, t + 0.48, -0.55], R * 0.16, [0, 0, 0], { outline: 0.1 }); break;
-    case 'estrela': B.part(head, G.star, '#ffe066', [0, t + 0.2, 0], R * 0.32, [0, 0, 0], { outline: 0.1, glow: 0.6 }); break;
+    case 'palha': b.m(head, G.cyl, m('#e8c46a'), [0, t, 0], [R * 1.2, 0.03, R * 1.2], [-0.1, 0, 0]); b.m(head, G.cyl, m('#e8c46a'), [0, t + 0.1, 0], [R * 0.6, 0.2, R * 0.6], [-0.1, 0, 0]); b.m(head, G.cyl, m('#c0392b'), [0, t + 0.04, 0], [R * 0.62, 0.05, R * 0.62], [-0.1, 0, 0]); break;
+    case 'marinheiro': b.m(head, G.cyl, m('#ffffff'), [0, t + 0.04, 0], [R * 0.65, 0.16, R * 0.65], [-0.15, 0, 0]); b.m(head, G.cyl, m('#2b3550'), [0, t, R * 0.4], [R * 0.45, 0.03, R * 0.3], [0.2, 0, 0]); break;
+    case 'bone': b.m(head, G.dome, m('#d9534f'), [0, t - 0.08, 0], [R * 0.78, R * 0.55, R * 0.78]); b.m(head, G.cyl, m('#d9534f'), [0, t - 0.08, R * 0.7], [R * 0.45, 0.03, R * 0.35], [0.1, 0, 0]); break;
+    case 'touca': b.m(head, G.dome, m('#7a5a3a'), [0, t - 0.1, 0], [R * 0.85, R * 0.6, R * 0.85]); for (const sx of [1, -1]) b.m(head, G.sph, m('#3a5a7a'), [sx * R * 0.4, t + 0.05, R * 0.55], [R * 0.2, R * 0.12, R * 0.08]); break;
+    case 'gorro': b.m(head, G.dome, m('#3a6fd1'), [0, t - 0.1, 0], [R * 0.85, R * 0.75, R * 0.85]); b.m(head, G.sph, m('#ffffff'), [0, t + R * 0.62, 0], R * 0.18); break;
+    case 'capacete': b.m(head, G.dome, mat('#f2c21b', { rough: 0.35, metal: 0.3 }), [0, t - 0.1, 0], [R * 0.88, R * 0.6, R * 0.88]); b.m(head, G.cyl, mat('#fff6c2', { glow: 2 }), [0, t + 0.05, R * 0.78], [0.07, 0.05, 0.07], [Math.PI / 2, 0, 0]); break;
+    case 'estrela': b.m(head, G.sph, mat('#cfe8ff', { op: 0.35, rough: 0.05 }), [0, 0, 0], R * 1.35); break;
   }
 }
 
 // ---------- animação ----------
-function makeController(root, body, anim, A, height) {
-  const ph = Math.random() * 10;
+function controller(ctx, plan) {
+  const A = ctx.anim; const ph = Math.random() * 10;
   let blinkT = 1 + Math.random() * 3, jumpT = -1, happyT = -1, walking = 0;
+  const legBase = A.legs.map((l) => l.g.rotation.x);
+  const wingBase = A.wings.map((w) => ({ x: w.g.rotation.x, y: w.g.rotation.y, z: w.g.rotation.z }));
+  const segBase = (A.wave || []).map((s) => s.m.position.clone());
+  const flameBase = A.flames.map((f) => f.scale.clone());
   return {
-    height,
-    jump() { jumpT = 0; },
-    happy() { happyT = 0; },
-    setWalking(v) { walking = v; },
+    jump() { jumpT = 0; }, happy() { happyT = 0; }, setWalking(v) { walking = v; },
     update(t, dt) {
       const tt = t + ph;
-      const f = walking ? 9 : 2.2;
-      let y = (A.float ? Math.sin(tt * 1.6) * 0.08 + 0.35 : 0) + Math.abs(Math.sin(tt * f * 0.5)) * (walking ? 0.12 : 0) ;
-      let sq = 1 + Math.sin(tt * f) * (walking ? 0.03 : 0.025);
-      if (jumpT >= 0) { jumpT += dt; const k = jumpT / 0.6; if (k >= 1) jumpT = -1; else { y += Math.sin(k * Math.PI) * 0.7; sq *= 1 + Math.sin(k * Math.PI * 2) * 0.08; } }
-      let spin = 0;
-      if (happyT >= 0) { happyT += dt; const k = happyT / 1.1; if (k >= 1) happyT = -1; else { y += Math.abs(Math.sin(k * Math.PI * 2)) * 0.45; spin = k * Math.PI * 2; } }
-      body.position.y = y; body.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq)); body.rotation.y = spin;
-      if (anim.shadow) anim.shadow.scale.setScalar((1 - Math.min(0.5, y * 0.6)) * anim.shadow.userData.base);
-      if (anim.head) { anim.head.rotation.z = Math.sin(tt * 1.3) * 0.06; anim.head.rotation.x = Math.sin(tt * 0.9) * 0.04; }
-      blinkT -= dt; let eyeS = 1;
-      if (blinkT < 0.12) eyeS = Math.max(0.1, Math.abs(blinkT - 0.06) / 0.06);
-      if (blinkT < 0) blinkT = 2 + Math.random() * 3.5;
-      for (const e of anim.eyes) e.scale.y = eyeS;
-      for (const e of anim.ears) e.g.rotation.x = Math.sin(tt * 2.5 + e.sx) * 0.08;
-      for (const g of anim.tails) g.rotation.y = Math.sin(tt * (walking ? 6 : 3)) * 0.35;
-      for (const w of anim.wings) {
-        const fl = Math.sin(tt * (walking ? 14 : 5)) * w.amp;
-        if (w.axis === 'y') w.m.rotation.y = w.baseY + fl * w.sx; else w.m.rotation.z = w.base + fl * w.sx;
-      }
-      for (const s of anim.spin) {
-        if (s.wob) s.g.rotation.z = Math.sin(tt * 2) * 0.15;
-        else s.g.rotation[s.axis] += dt * s.speed;
-      }
+      let y = A.float ? A.float + Math.sin(tt * 1.6) * 0.08 : 0;
+      if (jumpT >= 0) { jumpT += dt; const k = jumpT / 0.6; if (k >= 1) jumpT = -1; else y += Math.sin(k * Math.PI) * 0.55; }
+      let spin = 0; if (happyT >= 0) { happyT += dt; const k = happyT / 1.2; if (k >= 1) happyT = -1; else { y += Math.abs(Math.sin(k * Math.PI * 2)) * 0.35; spin = k * Math.PI * 2; } }
+      const breath = 1 + Math.sin(tt * 2.2) * 0.018;
+      ctx.body.position.y = y; ctx.body.scale.set(1, breath, 1); ctx.body.rotation.y = spin;
+      if (A.shadow) A.shadow.scale.setScalar(A.shadow.userData.base * (1 - Math.min(0.5, (y - (A.float || 0)) * 0.5)) * (A.float ? 0.7 : 1));
+      if (A.head) { A.head.rotation.y = Math.sin(tt * 0.7) * 0.25; A.head.rotation.x = Math.sin(tt * 1.1) * 0.06; }
+      blinkT -= dt; let eyeS = 1; if (blinkT < 0.12) eyeS = Math.max(0.1, Math.abs(blinkT - 0.06) / 0.06); if (blinkT < 0) blinkT = 2 + Math.random() * 3.5;
+      for (const e of A.eyes) e.scale.y = eyeS;
+      const wf = walking ? 7 : 0;
+      A.legs.forEach((l, i) => { l.g.rotation.x = legBase[i] + (l.tucked ? 0.6 : Math.sin(tt * wf + l.ph) * (walking ? 0.5 : 0)); });
+      for (const g of A.tails) g.rotation.y = Math.sin(tt * (walking ? 5 : 2)) * 0.3;
+      A.wings.forEach((w, i) => {
+        const b0 = wingBase[i]; const amp = w.flap ?? (plan === 'bird' ? 0.7 : 0.25); const sp = w.slow ? 2 : plan === 'bird' || plan === 'insect' ? 9 : 3;
+        const f = Math.sin(tt * sp) * amp;
+        if (w.axisX) w.g.rotation.x = b0.x + f * (walking ? 3 : 1);
+        else if (w.axisZ) w.g.rotation.y = b0.y + f * w.sx;
+        else w.g.rotation.z = b0.z + f * w.sx;
+      });
+      if (A.wave && A.wave.length) A.wave.forEach((s, i) => { const k = s.k; s.m.position.x = segBase[i].x + Math.sin(tt * 3 - k * 6) * 0.22 * k; s.m.position.y = segBase[i].y + Math.sin(tt * 2 - k * 4) * 0.08 * k; });
+      if (A.tentacles) A.tentacles.forEach((te) => { te.g.rotation.x = Math.sin(tt * 2 + te.ph) * 0.25; te.g.rotation.z = Math.cos(tt * 1.7 + te.ph) * 0.2; });
+      A.flames.forEach((f, i) => { const s = 1 + Math.sin(tt * 12 + i * 1.7) * 0.12; f.scale.set(flameBase[i].x * (2 - s), flameBase[i].y * s, flameBase[i].z); });
+      for (const s of A.spin) { if (s.wob) s.g.rotation.z = Math.sin(tt * 2) * 0.15; else s.g.rotation[s.axis] += dt * s.speed; }
     },
   };
 }
 
-// ---------- ovo ----------
+// ---------- núcleo (o "ovo" que sai da forja) ----------
 export function buildEgg(el, rar) {
-  const B = new Builder(false); const root = new THREE.Group(); const g = B.group(root);
-  const cores = el ? ELEMENTS[el].cores : ['#ffffff', '#ffffff', '#ff9ad5'];
-  const base = rar === 'mitico' || el === 'arco' ? '#fff4fb' : shade(cores[1], 0, 0.1, -0.03);
-  B.part(g, G.sph, base, [0, 0.75, 0], [0.55, 0.75, 0.55], [0, 0, 0], { outline: 0.05 });
-  for (let i = 0; i < 7; i++) {
-    const a = i * 2.4, yy = 0.45 + (i % 3) * 0.28;
-    const dir = new THREE.Vector3(Math.cos(a) * 0.55, (yy - 0.75) / 0.75 * 0.75, Math.sin(a) * 0.55);
-    const m = B.part(g, G.sph, el === 'arco' || rar === 'mitico' ? RAINBOW[i % 6] : i % 2 ? cores[0] : cores[2], [Math.cos(a) * 0.5, yy, Math.sin(a) * 0.5], [0.13, 0.13, 0.04]);
-    m.lookAt(m.position.clone().multiplyScalar(2).setY(yy));
-  }
-  const sh = new THREE.Mesh(new THREE.CircleGeometry(0.55, 24), new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.15, depthWrite: false }));
-  sh.rotation.x = -Math.PI / 2; sh.position.y = 0.01; root.add(sh);
+  const b = new B(false); const root = new THREE.Group(); const g = b.g(root);
+  const c = el ? ELEMENTS[el].cores : ['#2b3a5c', '#e6ecff', '#7df9ff'];
+  const rc = { comum: '#8fd46b', incomum: '#4fc3f7', raro: '#b18cff', epico: '#ff6fb5', lendario: '#ffc22e', mitico: '#7df9ff' }[rar] || '#ffffff';
+  const crystalM = mat(c[0], { rough: 0.15, metal: 0.2, glow: 0.25, emis: c[2] });
+  b.m(g, G.oct, crystalM, [0, 0.8, 0], [0.42, 0.78, 0.42]);
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; b.m(g, G.oct, crystalM, [Math.cos(a) * 0.32, 0.38, Math.sin(a) * 0.32], [0.14, 0.32, 0.14], [Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4]); }
+  b.m(g, G.sph, mat(rc, { glow: 2.2 }), [0, 0.8, 0], 0.18);
+  const rock = mat('#4a4458', { kind: 'pedra', seed: 3, rough: 0.9, flat: true });
+  b.m(g, G.dode, rock, [0, 0.12, 0], [0.55, 0.2, 0.55]);
   root.userData.shell = g;
   return root;
 }
@@ -566,9 +760,10 @@ export function itemTexture(emoji, ring = '#ffffff') {
   const k = emoji + ring;
   if (spriteCache.has(k)) return spriteCache.get(k);
   const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
-  x.fillStyle = 'rgba(255,255,255,0.92)'; x.beginPath(); x.arc(64, 64, 58, 0, Math.PI * 2); x.fill();
-  x.lineWidth = 8; x.strokeStyle = ring; x.stroke();
-  x.font = '72px "Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  const g = x.createRadialGradient(64, 50, 10, 64, 64, 60); g.addColorStop(0, 'rgba(70,64,96,0.95)'); g.addColorStop(1, 'rgba(30,26,46,0.95)');
+  x.fillStyle = g; x.beginPath(); x.arc(64, 64, 58, 0, Math.PI * 2); x.fill();
+  x.lineWidth = 7; x.strokeStyle = ring; x.stroke();
+  x.font = '68px "Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
   x.fillText(emoji, 64, 70);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; spriteCache.set(k, t); return t;
 }
@@ -584,4 +779,4 @@ export function sparkleTexture() {
   x.fillStyle = 'white'; x.beginPath(); x.moveTo(32, 2); x.lineTo(36, 28); x.lineTo(62, 32); x.lineTo(36, 36); x.lineTo(32, 62); x.lineTo(28, 36); x.lineTo(2, 32); x.lineTo(28, 28); x.fill();
   const t = new THREE.CanvasTexture(c); spriteCache.set('spark', t); return t;
 }
-export { G as GEO, shade, RAINBOW, Builder };
+export { G as GEO, SHAPES, mat, B as Builder, taperTube, skin };

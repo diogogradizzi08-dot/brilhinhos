@@ -1,6 +1,6 @@
-// Brilhinhos — as telas: Mapa, Ninho Arco-íris, Fazendinha, Amigos, Códice e Pedidos.
+// Brilhinhos — as telas: Mapa, Forja do Trovão, Fazendinha, Equipe, Códice e Pedidos.
 import * as G from './game.js';
-import { ITEMS, RARITIES, RARITY_ORDER, ELEMENTS, ELEMENT_ORDER, FAMILIES, SPECIES, REGIONS, ACHIEVEMENTS, EVOLVE_AT, EVOLVE_COST, GROW_ITEM, EL_ITEMS } from './data.js';
+import { ITEMS, RARITIES, RARITY_ORDER, ELEMENTS, ELEMENT_ORDER, FAMILIES, SPECIES, REGIONS, ACHIEVEMENTS, EVOLVE_AT, EVOLVE_COST, GROW_ITEM, EL_ITEMS, GUIDE_SPECIES } from './data.js';
 import { initStage, setScene, nestScene, farmScene, showcaseScene, thumb, rayAt, toScreen } from './stage3d.js';
 import { play, setMusic, setSfx, unlockAudio } from './audio.js';
 
@@ -17,7 +17,7 @@ function h(tag, props = {}, ...kids) {
   return el;
 }
 const S = () => G.S;
-const rarColor = (r) => (r === 'mitico' ? '#ff9bf0' : RARITIES[r].cor);
+const rarColor = (r) => RARITIES[r].cor;
 const stars = (r) => '★'.repeat(RARITIES[r].estrelas);
 const rarBadge = (r) => h('span', { class: 'rar-badge' + (r === 'mitico' ? ' rar-mitico' : ''), style: `background:${rarColor(r)}` }, RARITIES[r].nome);
 const elChip = (el) => h('span', { class: 'chip' }, ELEMENTS[el].icone, ' ', ELEMENTS[el].nome);
@@ -77,7 +77,7 @@ function updateHud() {
 }
 function flushNotices() {
   for (const n of G.takeNotices()) {
-    if (n.tipo === 'nivel') modal((box, close) => { play('fanfare'); box.append(h('div', { class: 'big' }, '🎉'), h('h2', {}, `Nível ${n.nivel}!`), h('p', {}, 'Você está ficando um ótimo cuidador!'), h('p', { class: 'muted' }, n.premio), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Oba!'))); });
+    if (n.tipo === 'nivel') modal((box, close) => { play('fanfare'); box.append(h('div', { class: 'big' }, '🎉'), h('h2', {}, `Nível ${n.nivel}!`), h('p', {}, 'Você está ficando um grande mestre da forja!'), h('p', { class: 'muted' }, n.premio), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Oba!'))); });
     if (n.tipo === 'conquista') modal((box, close) => { play('fanfare'); box.append(h('div', { class: 'big' }, n.a.icone), h('h2', {}, 'Medalha nova!'), h('p', {}, h('b', {}, n.a.nome)), h('p', { class: 'muted' }, n.a.desc + ' · +10 🪙'), h('div', { class: 'actions' }, h('button', { class: 'btn gold', onclick: close }, 'Uhuu!'))); });
     if (n.tipo === 'codice') modal((box, close) => { play('hatch', 3); box.append(h('div', { class: 'big' }, '📖'), h('h2', {}, `${n.meta} espécies no Códice!`), h('p', {}, 'Presente da coleção: ', h('b', {}, n.premio)), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Que legal!'))); });
   }
@@ -85,11 +85,11 @@ function flushNotices() {
 }
 
 // ---------- navegação ----------
-let screen = '', farmRid = 'prado', cleanup = null;
+let screen = '', farmRid = 'floresta', cleanup = null;
 const NO3D = new Set(['mapa', 'codice', 'amigos', 'pedidos']);
 function go(name, arg) {
   if (cleanup) { cleanup(); cleanup = null; }
-  $('#sky').style.background = '';
+  $('#sky').style.background = name === 'ninho' ? 'linear-gradient(180deg, #0e1228 0%, #2b2a52 55%, #6a3a3a 100%)' : name === 'perfil' ? 'radial-gradient(circle at 50% 40%, #3d5a8f, #141c38)' : '';
   screen = name;
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.go === name || (name === 'perfil' && b.dataset.go === 'amigos')));
   document.body.classList.toggle('no3d', NO3D.has(name));
@@ -101,7 +101,7 @@ function go(name, arg) {
 
 // =========================== MAPA ===========================
 function renderMapa(sc) {
-  sc.append(h('div', { class: 'title' }, '🗺️ Vale dos Brilhinhos', h('small', {}, 'toque numa região')));
+  sc.append(h('div', { class: 'title' }, '🗺️ Vale das Feras', h('small', {}, 'toque numa região')));
   const grid = h('div', { class: 'map' });
   REGIONS.forEach((r, i) => {
     const g = S().regioes[r.id];
@@ -111,12 +111,12 @@ function renderMapa(sc) {
       h('img', { class: 'mascot', src: thumb(fam.id * 3, { size: 200 }), alt: '' }));
     const info = h('div', { class: 'info' });
     if (g.aberta) {
-      info.append(h('span', { class: 'chip' }, `🏡 Fazendinha nível ${g.fazenda}`), h('span', { class: 'chip' }, `💞 ${G.amigosEm(r.id).length}/${G.farmSlots(r.id)} amigos`));
+      info.append(h('span', { class: 'chip' }, `🏡 Fazendinha nível ${g.fazenda}`), h('span', { class: 'chip' }, `🐾 ${G.amigosEm(r.id).length}/${G.farmSlots(r.id)} companheiros`));
       info.append(g.salvo ? h('span', { class: 'badge-ok' }, `✓ ${r.resgate.quem} salv${r.resgate.g}`) : h('span', { class: 'badge-help' }, `Socorro! ${r.resgate.quem}`));
       card.onclick = () => { play('tap'); farmRid = r.id; go('fazenda'); };
     } else {
       const b = G.bridgeState(r.id);
-      info.append(h('span', { class: 'lockico' }, '🌈'), h('span', { class: 'chip' }, b.ok ? '✨ Pronta para abrir!' : 'Ponte Arco-íris quebrada'));
+      info.append(h('span', { class: 'lockico' }, '🔒'), h('span', { class: 'chip' }, b.ok ? '✨ Pronta para abrir!' : 'Ponte rúnica quebrada'));
       card.onclick = () => { play('tap'); bridgeModal(r); };
       if (b.ok) card.classList.add('pointing');
     }
@@ -128,24 +128,23 @@ function reqRow(ok, ...txt) { return h('div', { class: 'r ' + (ok ? 'ok' : 'no')
 function bridgeModal(r) {
   modal((box, close) => {
     const b = G.bridgeState(r.id); const p = b.ponte; const s = S();
-    box.append(h('div', { class: 'big' }, '🌈'), h('h2', {}, `Ponte para ${r.nome}`), h('p', {}, 'Para consertar a ponte arco-íris, precisamos de:'));
+    box.append(h('div', { class: 'big' }, '🌉'), h('h2', {}, `Ponte para ${r.nome}`), h('p', {}, 'Para consertar a ponte de pedras rúnicas, precisamos de:'));
     const req = h('div', { class: 'req' },
       reqRow(b.prevSalvo, `Salvar ${b.prev.resgate.quem} (${b.prev.nome})`),
-      reqRow(s.amigos.length >= p.amigos, `💞 ${s.amigos.length}/${p.amigos} amigos`),
+      reqRow(s.amigos.length >= p.amigos, `🐾 ${s.amigos.length}/${p.amigos} companheiros`),
       reqRow(s.moedas >= p.moedas, `🪙 ${s.moedas}/${p.moedas}`),
       ...Object.entries(p.itens).map(([id, n]) => reqRow(G.has(id, n), `${ITEMS[id].emoji} ${s.itens[id] || 0}/${n} ${ITEMS[id].nome}`)));
     box.append(req, h('div', { class: 'actions' },
       h('button', { class: 'btn ghost', onclick: close }, 'Depois'),
       h('button', { class: 'btn green', disabled: !b.ok, onclick: () => {
         if (!G.openBridge(r.id)) return; play('fanfare'); close();
-        modal((bx, cl) => { bx.append(h('div', { class: 'big' }, '🌈✨'), h('h2', {}, 'Ponte consertada!'), h('p', {}, `Agora você pode visitar ${r.nome}! Lá tem itens novos e alguém precisando de ajuda.`), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { cl(); farmRid = r.id; go('fazenda'); } }, 'Vamos lá!'))); });
+        modal((bx, cl) => { bx.append(h('div', { class: 'big' }, '🌉⚡'), h('h2', {}, 'Ponte consertada!'), h('p', {}, `Agora você pode visitar ${r.nome}! Lá tem itens novos e alguém precisando de ajuda.`), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { cl(); farmRid = r.id; go('fazenda'); } }, 'Vamos lá!'))); });
         flushNotices(); if (screen === 'mapa') go('mapa');
       } }, 'Consertar!')));
   });
 }
 
 // =========================== NINHO ===========================
-let pendingFesta = false;
 function renderNinho(sc, arg) {
   const nest = nestScene(); setScene(nest);
   let chosen = [], phase = 'pick', stirP = 0, eggTaps = 0, result = null;
@@ -157,7 +156,7 @@ function renderNinho(sc, arg) {
   function draw() {
     top.innerHTML = ''; bottom.innerHTML = ''; updateGuide();
     if (phase === 'pick') {
-      top.append(h('div', { class: 'nest-hint' }, chosen.length ? 'Coloque até ' + G.nestSlots() + ' itens e toque em Misturar!' : 'Toque nos itens para jogar no Ninho Arco-íris'));
+      top.append(h('div', { class: 'nest-hint' }, chosen.length ? 'Coloque até ' + G.nestSlots() + ' itens e toque em Forjar!' : 'Toque nos itens para colocar na bigorna da Forja'));
       const slots = h('div', { class: 'slots' });
       for (let i = 0; i < G.nestSlots(); i++) {
         const id = chosen[i];
@@ -179,15 +178,15 @@ function renderNinho(sc, arg) {
         if (S().tutorial < 2 && id === 'trevo' && chosen.length < 2) t.classList.add('pointing');
         tray.append(t);
       }
-      const mixBtn = h('button', { class: 'btn', disabled: !chosen.length, onclick: startStir }, '🌈 Misturar!');
+      const mixBtn = h('button', { class: 'btn', disabled: !chosen.length, onclick: startStir }, '🔨 Forjar!');
       if (S().tutorial < 2 && chosen.filter((x) => x === 'trevo').length >= 2) mixBtn.classList.add('pointing');
       bottom.append(h('div', { class: 'row' }, chosen.length ? h('button', { class: 'btn ghost small', onclick: () => { chosen = []; play('pop'); draw(); } }, 'Limpar') : null, mixBtn), tray);
     } else if (phase === 'stir') {
-      top.append(h('div', { class: 'nest-hint' }, '🌀 Gire o dedo em volta do ninho! (ou toque várias vezes)'));
+      top.append(h('div', { class: 'nest-hint' }, `🔨 Bata o martelo na bigorna! Toque ${HITS} vezes`));
       const bar = h('div', { class: 'progress' }, h('i', { style: `width:${stirP * 100}%` }));
       bottom.append(bar);
     } else if (phase === 'egg') {
-      top.append(h('div', { class: 'nest-hint' }, eggTaps ? `Mais ${3 - eggTaps}!` : '🥚 Toque no ovo para ele nascer!'));
+      top.append(h('div', { class: 'nest-hint' }, eggTaps ? `Mais ${3 - eggTaps}!` : '💎 Toque no cristal para quebrar!'));
     } else if (phase === 'reveal') {
       top.append(h('div'));
       bottom.append(revealCard(result));
@@ -197,50 +196,43 @@ function renderNinho(sc, arg) {
     const p = G.previewMix(chosen);
     if (p.exato) {
       const f = FAMILIES[p.fam]; const known = S().descobertos[f.id * 3];
-      return h('div', { class: 'chance' }, '💡', known ? `Receita do ${f.nomes[0]}!` : 'Combinação certinha! Vai nascer um amigo especial!');
+      return h('div', { class: 'chance' }, '💡', known ? `Receita do ${f.nomes[0]}!` : 'Combinação perfeita! Vai sair um companheiro de receita!');
     }
     const ch = p.chances; const good = (ch.raro + ch.epico + ch.lendario) * 100;
     const bar = h('div', { class: 'row', style: 'gap:2px;width:160px' }, ...['comum', 'incomum', 'raro', 'epico', 'lendario'].map((r) => h('i', { style: `width:${Math.max(ch[r] * 100, ch[r] > 0.001 ? 3 : 0)}%;background:${rarColor(r)}` })));
-    return h('div', { class: 'chance' }, '🍀 Sorte:', bar, h('b', {}, good < 5 ? 'pouca' : good < 15 ? 'boa' : good < 30 ? 'ótima' : 'incrível!'));
+    return h('div', { class: 'chance' }, '⚡ Energia:', bar, h('b', {}, good < 5 ? 'fraca' : good < 15 ? 'boa' : good < 30 ? 'forte' : 'máxima!'));
   }
-  // --- mexer ---
-  let zone = null;
+  // --- martelar na bigorna ---
+  let zone = null; const HITS = 6;
   function startStir() {
     if (!chosen.length) return;
     phase = 'stir'; stirP = 0; play('tap'); draw();
-    zone = h('div', { class: 'stirzone' }, h('div', { class: 'stirring' }), h('div', { class: 'stir-hand' }, '👆'));
+    zone = h('div', { class: 'stirzone' }, h('div', { class: 'stir-hand' }, '🔨'));
     document.body.append(zone);
-    let last = null, acc = 0, lastSound = 0;
-    const center = () => { const r = zone.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-    const add = (d) => {
-      stirP = Math.min(1, stirP + d); nest.setStir(stirP); $('.progress i', bottom).style.width = stirP * 100 + '%';
-      if (performance.now() - lastSound > 140) { play('stir'); lastSound = performance.now(); }
-      if (stirP >= 1) finishStir();
+    let busy = false, hits = 0;
+    nest.onHit = () => {
+      hits++; stirP = hits / HITS; nest.setStir(0.3 + stirP * 0.7); play('anvil', hits); const bar = $('.progress i', bottom); if (bar) bar.style.width = stirP * 100 + '%';
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch {}
+      if (hits >= HITS) setTimeout(finishStir, 250);
     };
-    zone.onpointerdown = (e) => { zone.setPointerCapture(e.pointerId); const [cx, cy] = center(); last = Math.atan2(e.clientY - cy, e.clientX - cx); add(0.06); };
-    zone.onpointermove = (e) => {
-      if (last == null) return; const [cx, cy] = center(); const a = Math.atan2(e.clientY - cy, e.clientX - cx);
-      let d = a - last; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; last = a;
-      acc += Math.abs(d); if (acc > 0.05) { add(acc / (Math.PI * 4)); acc = 0; }
-    };
-    zone.onpointerup = () => { last = null; };
+    zone.onpointerdown = () => { if (busy || phase !== 'stir') return; busy = true; nest.strike(); setTimeout(() => { busy = false; }, 380); };
   }
   function finishStir() {
     if (phase !== 'stir') return;
-    zone?.remove(); zone = null;
+    zone?.remove(); zone = null; nest.onHit = null;
     result = G.mix(chosen); chosen = [];
     if (!result) { phase = 'pick'; draw(); return; }
-    toEgg();
+    play('thunder'); toEgg();
   }
   function toEgg() {
     const s = SPECIES[result.amigo.sp];
-    phase = 'egg'; eggTaps = 0; nest.setStir(0.3); nest.showEgg(s.el, s.rar); play('hatch', 1); draw();
+    phase = 'egg'; eggTaps = 0; nest.showEgg(s.el, s.rar); play('hatch', 1); draw();
     nest.onTap = (r) => {
       if (phase !== 'egg') return;
       eggTaps++; nest.tapEgg(); play('wobble');
       if (eggTaps >= 3) {
         const lvl = RARITIES[s.rar].estrelas;
-        nest.reveal(result.amigo.sp, result.amigo.shiny, s.rar); play('hatch', lvl); nest.setStir(0);
+        nest.reveal(result.amigo.sp, result.amigo.shiny, s.rar); play('thunder'); play('hatch', lvl);
         phase = 'reveal'; draw();
         nest.onTap = (rr) => { if (nest.scene) { play('heart'); } };
         setTimeout(flushNotices, 900);
@@ -253,14 +245,14 @@ function renderNinho(sc, arg) {
       h('div', { class: 'row wrap', style: 'justify-content:center' }, res.novo ? h('span', { class: 'tag-new' }, 'NOVO!') : null, rarBadge(s.rar), h('span', { class: 'stars', style: 'font-size:24px' }, stars(s.rar)), a.shiny ? h('span', { class: 'chip' }, '✨ Cintilante!') : null),
       h('div', { class: 'name' }, G.nomeDe(a)),
       h('div', { class: 'row wrap', style: 'justify-content:center' }, elChip(s.el), h('span', { class: 'chip' }, '⚡ ', ELEMENTS[s.el].dom)),
-      res.novo && !res.exato && res.fam.receita ? h('p', { class: 'muted', style: 'margin:6px 0 0' }, 'Que sorte! A receita dele agora está no Códice 📖') : null,
+      res.novo && !res.exato && res.fam.receita ? h('p', { class: 'muted', style: 'margin:6px 0 0' }, 'Descoberta! A receita dele agora está no Códice 📖') : null,
       h('div', { class: 'row wrap', style: 'justify-content:center;margin-top:10px' },
         h('button', { class: 'btn ghost small', onclick: () => renameModal(a, () => draw()) }, '✏️ Dar nome'),
-        h('button', { class: 'btn green small', onclick: () => placeModal(a, (rid) => { farmRid = rid; go('fazenda'); }) }, '🏡 Levar para a fazendinha'),
-        h('button', { class: 'btn small', onclick: () => { nest.clearCreature(); phase = 'pick'; draw(); } }, '🌈 Fazer outro')));
+        h('button', { class: 'btn green small', onclick: () => placeModal(a, (rid) => { farmRid = rid; go('fazenda'); }) }, '🏡 Mandar para a fazendinha'),
+        h('button', { class: 'btn small', onclick: () => { nest.clearCreature(); phase = 'pick'; draw(); } }, '🔨 Forjar outro')));
     return card;
   }
-  if (arg?.festa) { result = G.hatchFesta(); if (result) toEgg(); else draw(); }
+  if (arg?.fusao) { result = G.hatchFusao(); if (result) toEgg(); else draw(); }
   else draw();
   cleanup = () => { zone?.remove(); nest.clearItems(); };
 }
@@ -278,12 +270,12 @@ function renameModal(a, done) {
 function placeModal(a, done) {
   modal((box, close) => {
     const s = SPECIES[a.sp];
-    box.append(h('h2', {}, `Para onde vai ${G.nomeDe(a)}?`), h('p', { class: 'muted' }, 'Na região do mesmo elemento ele colhe 2× mais rápido ⚡'));
+    box.append(h('h2', {}, `Para onde vai ${G.nomeDe(a)}?`), h('p', { class: 'muted' }, 'Na região do mesmo elemento ele trabalha 2× mais rápido ⚡'));
     const list = h('div', { class: 'req', style: 'flex-direction:column' });
     for (const r of REGIONS) {
       const g = S().regioes[r.id]; if (!g.aberta) continue;
       const n = G.amigosEm(r.id).length, cap = G.farmSlots(r.id); const here = a.local === r.id;
-      const match = r.el === s.el || s.el === 'arco';
+      const match = r.el === s.el || s.el === 'trovao';
       list.append(h('button', { class: 'btn ' + (match ? 'gold' : 'ghost'), disabled: !here && n >= cap, onclick: () => {
         if (here) { close(); done?.(r.id); return; }
         if (G.placeAmigo(a, r.id)) { play('collect'); if (S().tutorial < 3) S().tutorial = 3; close(); done?.(r.id); }
@@ -296,7 +288,7 @@ function placeModal(a, done) {
 
 // =========================== FAZENDINHA ===========================
 function renderFazenda(sc) {
-  if (!S().regioes[farmRid]?.aberta) farmRid = 'prado';
+  if (!S().regioes[farmRid]?.aberta) farmRid = 'floresta';
   const r = REGIONS.find((x) => x.id === farmRid); const g = S().regioes[r.id];
   const bubbleEmoji = ITEMS[EL_ITEMS[r.el].comum].emoji;
   const amigos = G.amigosEm(r.id);
@@ -318,7 +310,7 @@ function renderFazenda(sc) {
     const am = G.amigosEm(r.id); const ready = am.reduce((t, a) => t + a.prontos, 0);
     info.append(h('span', { class: 'chip' }, `🏡 Nível ${g.fazenda}`), h('span', { class: 'chip' }, `💞 ${am.length}/${G.farmSlots(r.id)}`), h('span', { class: 'chip' }, `Colhe: ${['comum', 'incomum', 'raro'].map((k) => ITEMS[EL_ITEMS[r.el][k]].emoji).join(' ')}`));
     if (!g.salvo) info.append(h('button', { class: 'rescue-banner', onclick: () => rescueModal(r, farm) }, h('img', { src: thumb(0, { npc: r.resgate, size: 128 }) }), h('b', {}, `Socorro! Ajude ${r.resgate.quem}!`)));
-    const place = h('button', { class: 'btn green', onclick: () => pickAmigoModal(r) }, '➕ Colocar amigo');
+    const place = h('button', { class: 'btn green', onclick: () => pickAmigoModal(r) }, '➕ Colocar companheiro');
     if (S().tutorial === 2 && !am.length) place.classList.add('pointing');
     actions.append(place);
     actions.append(h('button', { class: 'btn gold', disabled: !ready, onclick: collectAll }, `🧺 Colher tudo${ready ? ` (${ready})` : ''}`));
@@ -385,7 +377,7 @@ function amigoMiniModal(a) {
       h('p', {}, `Nível ${a.nivel} · ${s.estagio} · `, h('span', { class: 'stars' }, stars(s.rar))),
       h('p', { class: 'muted' }, a.prontos >= G.farmCap(a.local) ? 'Cestinha cheia! Colha as bolhas 🧺' : `Colhe 1 item a cada ${fmtTime(c)}`),
       h('div', { class: 'actions' },
-        h('button', { class: 'btn ghost small', onclick: () => { close(); go('perfil', a.uid); } }, '👀 Ver amigo'),
+        h('button', { class: 'btn ghost small', onclick: () => { close(); go('perfil', a.uid); } }, '👀 Ver ficha'),
         h('button', { class: 'btn ghost small', onclick: () => { G.placeAmigo(a, null); close(); go('fazenda'); } }, '🏠 Descansar'),
         h('button', { class: 'btn small', onclick: close }, 'OK')));
   });
@@ -394,21 +386,21 @@ function pickAmigoModal(r) {
   modal((box, close) => {
     const n = G.amigosEm(r.id).length, cap = G.farmSlots(r.id);
     box.append(h('h2', {}, `Quem vai para ${r.nome}?`), h('p', { class: 'muted' }, `${n}/${cap} lugares · ⚡ = do mesmo elemento, colhe mais rápido`));
-    if (n >= cap) box.append(h('p', {}, '🏡 A fazendinha está cheia. Toque em 🌱 Aumentar para caber mais amigos!'));
+    if (n >= cap) box.append(h('p', {}, '🏡 A fazendinha está cheia. Toque em 🌱 Aumentar para caber mais companheiros!'));
     const list = S().amigos.filter((a) => a.local !== r.id).sort((a, b) => (SPECIES[b.sp].el === r.el) - (SPECIES[a.sp].el === r.el) || b.nivel - a.nivel);
-    if (!list.length) box.append(h('p', {}, 'Todos os seus amigos já estão aqui. Faça mais amigos no Ninho! 🌈'));
+    if (!list.length) box.append(h('p', {}, 'Todos os seus companheiros já estão aqui. Forje mais na Forja! 🔨'));
     const grid = h('div', { class: 'pickgrid' });
     for (const a of list) grid.append(monCard(a, () => {
       if (n >= cap) { play('sad'); return; }
       if (G.placeAmigo(a, r.id)) { play('collect'); if (S().tutorial < 3) S().tutorial = 3; close(); go('fazenda'); }
-    }, { tag: SPECIES[a.sp].el === r.el || SPECIES[a.sp].el === 'arco' ? '⚡' : a.local ? '🏡' : '' }));
+    }, { tag: SPECIES[a.sp].el === r.el || SPECIES[a.sp].el === 'trovao' ? '⚡' : a.local ? '🏡' : '' }));
     box.append(grid, h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Fechar')));
   });
 }
 function expandModal(r) {
   modal((box, close) => {
     const c = G.expandCost(r.id); const s = S();
-    box.append(h('div', { class: 'big' }, '🌱🏡'), h('h2', {}, 'Aumentar a fazendinha'), h('p', {}, `Nível ${s.regioes[r.id].fazenda} → ${s.regioes[r.id].fazenda + 1}: mais 1 lugar para amigos, a ilha cresce e os itens raros aparecem mais!`),
+    box.append(h('div', { class: 'big' }, '🌱🏡'), h('h2', {}, 'Aumentar a fazendinha'), h('p', {}, `Nível ${s.regioes[r.id].fazenda} → ${s.regioes[r.id].fazenda + 1}: mais 1 lugar para companheiros, a ilha cresce e os itens raros aparecem mais!`),
       h('div', { class: 'req' }, reqRow(s.moedas >= c.moedas, `🪙 ${s.moedas}/${c.moedas}`), ...Object.entries(c.itens).map(([id, n]) => reqRow(G.has(id, n), `${ITEMS[id].emoji} ${s.itens[id] || 0}/${n}`))),
       h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Depois'),
         h('button', { class: 'btn green', disabled: !G.canPay(c), onclick: () => { if (G.expand(r.id)) { play('fanfare'); close(); flushNotices(); go('fazenda'); } } }, 'Aumentar!')));
@@ -421,7 +413,7 @@ function rescueModal(r, farm) {
     box.append(h('img', { src: thumb(0, { npc: res, size: 192 }), style: 'width:150px' }), h('h2', {}, `${res.quem} precisa de ajuda!`), h('p', {}, res.texto), h('p', { class: 'muted' }, '💡 ', res.ajuda));
     const stage = ['Filhote', 'Jovem', 'Adulto'][res.precisa.estagio];
     box.append(h('div', { class: 'req' },
-      reqRow(helpers.length > 0, `${ELEMENTS[res.precisa.el].icone} Amigo de ${ELEMENTS[res.precisa.el].nome}${res.precisa.estagio ? ` (${stage} ou maior)` : ''}`),
+      reqRow(helpers.length > 0, `${ELEMENTS[res.precisa.el].icone} Companheiro de ${ELEMENTS[res.precisa.el].nome}${res.precisa.estagio ? ` (${stage} ou maior)` : ''}`),
       ...Object.entries(res.itens).map(([id, n]) => reqRow(G.has(id, n), `${ITEMS[id].emoji} ${s.itens[id] || 0}/${n} ${ITEMS[id].nome}`))));
     if (helpers.length > 1) {
       const grid = h('div', { class: 'pickgrid' });
@@ -433,8 +425,8 @@ function rescueModal(r, farm) {
         const premio = G.rescue(r.id, chosen); if (!premio) return; close();
         farm?.freeNpc(); play('fanfare'); if (S().tutorial < 5) S().tutorial = 5;
         modal((bx, cl) => {
-          bx.append(h('img', { src: thumb(0, { npc: res, size: 192 }), style: 'width:150px' }), h('h2', {}, `${res.quem} está salv${res.g}! 🎉`), h('p', {}, `“Muito obrigad${res.g}, ${G.nomeDe(chosen)}! Vou te pedir umas coisinhas de vez em quando, tá?”`),
-            h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${premio.moedas}`), h('div', { class: 'r ok' }, '🌟 +1 Brilho de Crescer'), h('div', { class: 'r ok' }, '🌈 +1 Pó de Arco-íris'), premio.coracao ? h('div', { class: 'r ok' }, '💖 +1 Coração de Amizade') : null),
+          bx.append(h('img', { src: thumb(0, { npc: res, size: 192 }), style: 'width:150px' }), h('h2', {}, `${res.quem} está salv${res.g}! 🎉`), h('p', {}, `“Valeu, ${G.nomeDe(chosen)}! Te devo essa. De vez em quando vou te pedir uma ajuda.”`),
+            h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${premio.moedas}`), h('div', { class: 'r ok' }, '🔷 +1 Cristal de Evolução'), h('div', { class: 'r ok' }, '💠 +1 Runa do Trovão'), premio.coroa ? h('div', { class: 'r ok' }, '👑 +1 Coroa do Trovão') : null),
             h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { cl(); go(screen === 'fazenda' ? 'fazenda' : screen); } }, 'Oba!')));
         });
         flushNotices();
@@ -446,19 +438,19 @@ function rescueModal(r, farm) {
 let amigosTab = 'todos';
 function renderAmigos(sc) {
   const s = S();
-  const head = h('div', { class: 'title' }, '💞 Meus amigos', h('small', {}, `${s.amigos.length} amigos`));
-  const festaBtn = h('button', { class: 'btn small ' + (s.festa?.pronta ? 'gold pointing' : 'ghost'), onclick: festaModal }, s.festa?.pronta ? '🎈 Ovo da Festa pronto!' : '🎈 Festa da Amizade');
+  const head = h('div', { class: 'title' }, '🛡️ Minha equipe', h('small', {}, `${s.amigos.length} companheiros`));
+  const festaBtn = h('button', { class: 'btn small ' + (s.fusao?.pronta ? 'gold pointing' : 'ghost'), onclick: festaModal }, s.fusao?.pronta ? '💎 Cristal da Fusão pronto!' : '⚡ Fusão do Trovão');
   sc.append(h('div', { class: 'row wrap' }, head, h('div', { class: 'grow' }), festaBtn));
   const tabs = h('div', { class: 'tabs' });
   const els = [...G.ownedElements()];
-  for (const [k, label] of [['todos', 'Todos'], ['fazenda', '🏡 Trabalhando'], ['livres', '🏠 Descansando'], ...ELEMENT_ORDER.concat('arco').filter((e) => els.includes(e)).map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome])])
+  for (const [k, label] of [['todos', 'Todos'], ['fazenda', '🏡 Trabalhando'], ['livres', '🏠 Descansando'], ...ELEMENT_ORDER.concat('trovao').filter((e) => els.includes(e)).map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome])])
     tabs.append(h('button', { class: 'tab' + (amigosTab === k ? ' on' : ''), onclick: () => { amigosTab = k; play('tap'); go('amigos'); } }, label));
   sc.append(tabs);
   let list = s.amigos.slice();
   if (amigosTab === 'fazenda') list = list.filter((a) => a.local); else if (amigosTab === 'livres') list = list.filter((a) => !a.local); else if (amigosTab !== 'todos') list = list.filter((a) => SPECIES[a.sp].el === amigosTab);
   list.sort((a, b) => RARITY_ORDER.indexOf(SPECIES[b.sp].rar) - RARITY_ORDER.indexOf(SPECIES[a.sp].rar) || b.nivel - a.nivel);
   const grid = h('div', { class: 'grid' });
-  if (!s.amigos.length) grid.append(h('div', { class: 'card' }, 'Você ainda não tem amigos. Vá ao 🌈 Ninho e misture itens para fazer o primeiro!'));
+  if (!s.amigos.length) grid.append(h('div', { class: 'card' }, 'Você ainda não tem companheiros. Vá à 🔨 Forja e forje o primeiro!'));
   for (const a of list) {
     const c = G.canEvolve(a);
     grid.append(monCard(a, () => { play('tap'); go('perfil', a.uid); }, { tag: c.ok ? '🌟 Evoluir!' : '' }));
@@ -482,7 +474,7 @@ function renderPerfil(sc, uid) {
       h('div', { class: 'head' }, h('span', { class: 'name' }, G.nomeDe(a)), h('button', { class: 'btn ghost small', onclick: () => renameModal(a, draw) }, '✏️'), rarBadge(s.rar), h('span', { class: 'stars', style: 'font-size:22px' }, stars(s.rar)), a.shiny ? h('span', { class: 'chip' }, '✨ Cintilante') : null),
       h('div', { class: 'row wrap' }, elChip(s.el), h('span', { class: 'chip' }, '⚡ ', ELEMENTS[s.el].dom), h('span', { class: 'chip' }, `${s.estagio}${a.apelido ? ' · ' + s.nome : ''}`), h('span', { class: 'chip' }, a.local ? `🏡 ${REGIONS.find((r) => r.id === a.local).nome}` : '🏠 Descansando')),
       h('div', { class: 'row' }, h('b', {}, `Nível ${a.nivel}`), h('div', { class: 'bar grow' }, h('i', { style: `width:${a.nivel >= 20 ? 100 : (a.xp / G.amigoXpNeed(a)) * 100}%` })), h('span', { class: 'muted' }, a.nivel >= 20 ? 'máximo' : `${a.xp}/${G.amigoXpNeed(a)}`)),
-      s.stage < 2 ? h('p', { class: 'muted', style: 'margin:0' }, `🌟 Evolui no nível ${EVOLVE_AT[s.stage]} com ${EVOLVE_COST[s.stage]} Brilho de Crescer → vira ${S().descobertos[a.sp + 1] ? SPECIES[a.sp + 1].nome : '???'}`) : h('p', { class: 'muted', style: 'margin:0' }, '🏅 Já é Adulto! Pode ir à Festa da Amizade.'),
+      s.stage < 2 ? h('p', { class: 'muted', style: 'margin:0' }, `🌟 Evolui no nível ${EVOLVE_AT[s.stage]} com ${EVOLVE_COST[s.stage]} Cristal de Evolução → vira ${S().descobertos[a.sp + 1] ? SPECIES[a.sp + 1].nome : '???'}`) : h('p', { class: 'muted', style: 'margin:0' }, '🏅 Já é Adulto! Pode entrar numa Fusão do Trovão.'),
       h('div', { class: 'row wrap' },
         h('button', { class: 'btn ghost small', disabled: petLeft > 0, onclick: () => { if (G.pet(a)) { show.hearts(); show.happy(); play('heart'); draw(); } } }, petLeft > 0 ? `💕 Carinho em ${fmtTime(petLeft)}` : '💕 Fazer carinho'),
         h('button', { class: 'btn green small', onclick: () => placeModal(a, () => draw()) }, '🏡 Fazendinha'),
@@ -499,19 +491,19 @@ function renderPerfil(sc, uid) {
 function festaModal() {
   modal((box, close) => {
     const s = S();
-    box.append(h('div', { class: 'big' }, '🎈🎉'), h('h2', {}, 'Festa da Amizade'));
-    if (!G.festaLiberada()) { box.append(h('p', {}, 'Quando você chegar ao nível 6, dois amigos Adultos poderão fazer uma festa e ganhar um ovo especial!'), h('p', { class: 'muted' }, 'Só na festa nascem os amigos Arco-íris 🌈 e o Mítico 🦄!'), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Entendi'))); return; }
-    if (s.festa) {
-      if (s.festa.pronta) { box.append(h('p', {}, 'A festa acabou e deixou um ovo especial! 🥚'), h('div', { class: 'actions' }, h('button', { class: 'btn gold', onclick: () => { close(); go('ninho', { festa: true }); } }, '🥚 Chocar no Ninho'))); }
-      else box.append(h('p', {}, `A festa está acontecendo! Volte em ${fmtTime(s.festa.ate - Date.now())}.`), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'OK')));
+    box.append(h('div', { class: 'big' }, '⚡🔨'), h('h2', {}, 'Fusão do Trovão'));
+    if (!G.fusaoLiberada()) { box.append(h('p', {}, 'No nível 6 a Forja libera a Fusão: dois companheiros Adultos emprestam energia para forjar um cristal especial.'), h('p', { class: 'muted' }, 'Só pela Fusão saem as feras do Trovão ⚡ e o Mítico!'), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Entendi'))); return; }
+    if (s.fusao) {
+      if (s.fusao.pronta) box.append(h('p', {}, 'A Fusão terminou e deixou um cristal especial! 💎'), h('div', { class: 'actions' }, h('button', { class: 'btn gold', onclick: () => { close(); go('ninho', { fusao: true }); } }, '🔨 Quebrar na Forja')));
+      else box.append(h('p', {}, `A Fusão está carregando! Volte em ${fmtTime(s.fusao.ate - Date.now())}.`), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'OK')));
       return;
     }
-    const cand = G.festaCandidates();
-    box.append(h('p', {}, 'Escolha 2 amigos Adultos. Eles brincam por 1 minuto e deixam um ovo especial! (Eles não vão embora 💞)'), h('p', { class: 'muted' }, 'Elementos diferentes e raros podem fazer nascer um Arco-íris. Dois Lendários... talvez o Mítico!'));
+    const cand = G.fusaoCandidates();
+    box.append(h('p', {}, 'Escolha 2 companheiros Adultos. Eles carregam a Forja por 1 minuto e sai um cristal especial. Eles continuam na sua equipe!'), h('p', { class: 'muted' }, 'Elementos diferentes e raros podem gerar uma fera do Trovão. Dois Lendários... talvez o Mítico!'));
     if (cand.length < 2) { box.append(h('p', {}, `Você tem ${cand.length} Adulto(s) livre(s). Precisa de 2!`), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'OK'))); return; }
     const sel = []; const grid = h('div', { class: 'pickgrid' });
-    const go2 = h('button', { class: 'btn gold', disabled: true, onclick: () => { if (G.startFesta(sel[0], sel[1])) { play('fanfare'); close(); flushNotices(); go('amigos'); } } }, '🎈 Começar a festa!');
-    for (const a of cand) { const c = monCard(a, () => { const i = sel.indexOf(a); if (i >= 0) { sel.splice(i, 1); c.style.outline = ''; } else if (sel.length < 2) { sel.push(a); c.style.outline = '5px solid #ff8fc8'; } go2.disabled = sel.length !== 2; play('tap'); }); grid.append(c); }
+    const go2 = h('button', { class: 'btn gold', disabled: true, onclick: () => { if (G.startFusao(sel[0], sel[1])) { play('thunder'); close(); flushNotices(); go('amigos'); } } }, '⚡ Começar a Fusão!');
+    for (const a of cand) { const c = monCard(a, () => { const i = sel.indexOf(a); if (i >= 0) { sel.splice(i, 1); c.style.outline = ''; } else if (sel.length < 2) { sel.push(a); c.style.outline = '5px solid #7df9ff'; } go2.disabled = sel.length !== 2; play('tap'); }); grid.append(c); }
     box.append(grid, h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Depois'), go2));
   });
 }
@@ -520,12 +512,12 @@ function festaModal() {
 let codexTab = 'todos';
 function renderCodice(sc) {
   const n = G.discoveredCount();
-  sc.append(h('div', { class: 'title' }, '📖 Códice dos Brilhinhos', h('small', {}, `${n}/150 descobertos`)));
+  sc.append(h('div', { class: 'title' }, '📖 Códice das Feras', h('small', {}, `${n}/150 descobertos`)));
   const goals = h('div', { class: 'goals' }, h('div', { class: 'codex-bar' }, h('i', { style: `width:${(n / 150) * 100}%` })));
-  for (const [meta, item, q] of G.codexGoals()) goals.append(h('span', { class: 'goal' + (n >= meta ? ' done' : '') }, `${meta}: ${item === 'brilho' ? '🌟' : ITEMS[item].emoji}×${q}`));
+  for (const [meta, item, q] of G.codexGoals()) goals.append(h('span', { class: 'goal' + (n >= meta ? ' done' : '') }, `${meta}: ${item === 'brilho' ? '🔷' : ITEMS[item].emoji}×${q}`));
   sc.append(goals);
   const tabs = h('div', { class: 'tabs' });
-  for (const [k, label] of [['todos', 'Todos'], ...ELEMENT_ORDER.concat('arco').map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome])]) {
+  for (const [k, label] of [['todos', 'Todos'], ...ELEMENT_ORDER.concat('trovao').map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome])]) {
     const tot = SPECIES.filter((s) => k === 'todos' || s.el === k); const got = tot.filter((s) => S().descobertos[s.id]).length;
     tabs.append(h('button', { class: 'tab' + (codexTab === k ? ' on' : ''), onclick: () => { codexTab = k; play('tap'); go('codice'); } }, `${label} ${got}/${tot.length}`));
   }
@@ -550,7 +542,7 @@ function renderCodice(sc) {
   requestAnimationFrame(step);
 }
 function recipeHint(s, f) {
-  if (f.festa) return h('div', { class: 'sub' }, '🎈 Festa da Amizade');
+  if (f.fusao) return h('div', { class: 'sub' }, '⚡ Fusão do Trovão');
   if (s.stage > 0) return h('div', { class: 'sub' }, `🌟 Evolui no Nv ${EVOLVE_AT[s.stage - 1]}`);
   return h('div', { class: 'recipe' }, ...f.receita.map((id) => h('span', { class: G.has(id) ? '' : 'miss', title: ITEMS[id].nome }, ITEMS[id].emoji)));
 }
@@ -560,10 +552,10 @@ function codexModal(s) {
     const known = !!S().descobertos[s.id]; const f = FAMILIES[s.fam];
     box.append(h('img', { src: thumb(s.id, { silhouette: !known, size: 256 }), style: 'width:200px' }), h('h2', {}, known ? s.nome : '??? (ainda não descoberto)'),
       h('div', { class: 'row wrap', style: 'justify-content:center' }, rarBadge(s.rar), elChip(s.el), h('span', { class: 'chip' }, s.estagio)));
-    if (f.festa) box.append(h('p', {}, '🎈 Este amigo só nasce na Festa da Amizade!'));
+    if (f.fusao) box.append(h('p', {}, '⚡ Esta espécie só sai de uma Fusão do Trovão!'));
     else if (s.stage > 0) box.append(h('p', {}, `🌟 Evolui de ${S().descobertos[s.id - 1] ? SPECIES[s.id - 1].nome : '???'} no nível ${EVOLVE_AT[s.stage - 1]}.`));
     else {
-      box.append(h('p', {}, 'Receita para o Ninho Arco-íris:'), h('div', { class: 'row', style: 'justify-content:center;gap:14px' }, ...f.receita.map((id) => token(id, S().itens[id] || 0, null, G.has(id) ? '' : 'off'))));
+      box.append(h('p', {}, 'Receita para a Forja do Trovão:'), h('div', { class: 'row', style: 'justify-content:center;gap:14px' }, ...f.receita.map((id) => token(id, S().itens[id] || 0, null, G.has(id) ? '' : 'off'))));
       const where = [...new Set(f.receita.map((id) => ITEMS[id].el ? regionOf(ITEMS[id].el).nome : id === 'orvalho' ? 'todo lugar' : 'baús, pedidos e resgates'))];
       box.append(h('p', { class: 'muted' }, '📍 Onde achar: ', where.join(' · ')));
     }
@@ -573,7 +565,7 @@ function codexModal(s) {
 
 // =========================== PEDIDOS ===========================
 function renderPedidos(sc) {
-  sc.append(h('div', { class: 'title' }, '📜 Pedidos dos amigos', h('small', {}, 'ajude e ganhe prêmios')));
+  sc.append(h('div', { class: 'title' }, '📜 Pedidos', h('small', {}, 'ajude e ganhe prêmios')));
   const wrap = h('div', { class: 'scroll grow' });
   if (S().diario.pendente) wrap.append(h('div', { class: 'card row', style: 'margin-bottom:14px' }, h('span', { style: 'font-size:54px' }, '🎁'), h('div', { class: 'grow' }, h('b', { style: 'font-size:22px' }, 'Presente do dia!'), h('div', { class: 'muted' }, `Você veio ${S().diario.serie} dia(s) seguidos 🔥`)), h('button', { class: 'btn gold', onclick: dailyModal }, 'Abrir')));
   G.fillOrders();
@@ -583,13 +575,13 @@ function renderPedidos(sc) {
     const reg = REGIONS.find((r) => r.id === o.regiao);
     let want;
     if (o.tipo === 'itens') want = `Me traz ${o.qtd} ${ITEMS[o.item].emoji} ${ITEMS[o.item].nome}? (você tem ${S().itens[o.item] || 0})`;
-    else if (o.tipo === 'amigo') want = `Um amigo de ${ELEMENTS[o.el].icone} ${ELEMENTS[o.el].nome}${o.estagio ? ' (Jovem ou maior)' : ''} pode me ajudar um pouquinho?`;
+    else if (o.tipo === 'amigo') want = `Um companheiro de ${ELEMENTS[o.el].icone} ${ELEMENTS[o.el].nome}${o.estagio ? ' (Jovem ou maior)' : ''} pode me ajudar um pouquinho?`;
     else want = `Descubra ${o.alvo} espécies no Códice! (agora: ${G.discoveredCount()})`;
     const p = o.premio;
     const ready = G.orderReady(o);
     list.append(h('div', { class: 'card order' }, h('img', { src: thumb(0, { npc: reg.resgate, size: 160 }) }),
       h('div', { class: 'grow' }, h('div', { class: 'who' }, o.quem), h('div', { class: 'want' }, want),
-        h('div', { class: 'prize' }, h('span', { class: 'chip' }, `🪙 ${p.moedas}`), h('span', { class: 'chip' }, `⭐ ${p.xp} xp`), p.brilho ? h('span', { class: 'chip' }, '🌟 1') : null, p.arcoiris ? h('span', { class: 'chip' }, '🌈 1') : null, p.coracao ? h('span', { class: 'chip' }, '💖 1') : null),
+        h('div', { class: 'prize' }, h('span', { class: 'chip' }, `🪙 ${p.moedas}`), h('span', { class: 'chip' }, `⭐ ${p.xp} xp`), p.brilho ? h('span', { class: 'chip' }, '🔷 1') : null, p.runa ? h('span', { class: 'chip' }, '💠 1') : null, p.coroa ? h('span', { class: 'chip' }, '👑 1') : null),
         h('div', { class: 'row', style: 'margin-top:8px' }, h('button', { class: 'btn green small' + (ready ? ' pointing' : ''), disabled: !ready, onclick: () => deliver(o) }, ready ? '🎁 Entregar' : 'Ainda não'), h('button', { class: 'btn ghost small', onclick: () => { G.skipOrder(o); play('pop'); go('pedidos'); } }, '🔄 Trocar')))));
   }
   wrap.append(list); sc.append(wrap);
@@ -597,7 +589,7 @@ function renderPedidos(sc) {
 function deliver(o) {
   const finish = (helper) => {
     const p = G.deliver(o, helper); if (!p) return; play('coin'); play('fanfare');
-    modal((box, close) => { box.append(h('div', { class: 'big' }, '💝'), h('h2', {}, `${o.quem} adorou!`), h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${p.moedas}`), h('div', { class: 'r ok' }, `⭐ +${p.xp}`), p.brilho ? h('div', { class: 'r ok' }, '🌟 +1') : null, p.arcoiris ? h('div', { class: 'r ok' }, '🌈 +1') : null, p.coracao ? h('div', { class: 'r ok' }, '💖 +1') : null), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Oba!'))); });
+    modal((box, close) => { box.append(h('div', { class: 'big' }, '💝'), h('h2', {}, `${o.quem} adorou!`), h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${p.moedas}`), h('div', { class: 'r ok' }, `⭐ +${p.xp}`), p.brilho ? h('div', { class: 'r ok' }, '🔷 +1') : null, p.runa ? h('div', { class: 'r ok' }, '💠 +1') : null, p.coroa ? h('div', { class: 'r ok' }, '👑 +1') : null), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Oba!'))); });
     flushNotices(); go('pedidos');
   };
   if (o.tipo !== 'amigo') return finish();
@@ -613,7 +605,7 @@ function dailyModal() {
   play('fanfare');
   modal((box, close) => {
     box.append(h('div', { class: 'big', style: 'animation:bounce .6s' }, '🎁'), h('h2', {}, 'Presente do dia!'), h('p', {}, `${g.serie} dia(s) seguido(s) 🔥 — volte amanhã para um presente maior!`),
-      h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${g.moedas}`), h('div', { class: 'r ok' }, '🌟 +1'), ...Object.entries(g.itens).map(([id, n]) => h('div', { class: 'r ok' }, `${ITEMS[id].emoji} +${n}`))),
+      h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${g.moedas}`), h('div', { class: 'r ok' }, '🔷 +1'), ...Object.entries(g.itens).map(([id, n]) => h('div', { class: 'r ok' }, `${ITEMS[id].emoji} +${n}`))),
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { close(); if (screen === 'pedidos') go('pedidos'); } }, 'Obrigado!')));
   });
   updateHud();
@@ -646,8 +638,8 @@ function levelModal() {
   modal((box, close) => {
     const s = S();
     box.append(h('div', { class: 'big' }, '⭐'), h('h2', {}, `Nível ${s.nivel}`), h('p', {}, `${s.xp}/${G.playerXpNeed()} de experiência para o próximo nível.`),
-      h('p', { class: 'muted' }, 'Ganhe experiência colhendo, descobrindo espécies, evoluindo, salvando amigos e entregando pedidos.'),
-      h('p', {}, s.nivel < 4 ? '🔓 Nível 4: 4º espaço no Ninho' : s.nivel < 6 ? '🔓 Nível 6: Festa da Amizade' : '🎉 Tudo liberado! Continue subindo para ganhar presentes.'),
+      h('p', { class: 'muted' }, 'Ganhe experiência colhendo, descobrindo espécies, evoluindo, salvando pessoas e entregando pedidos.'),
+      h('p', {}, s.nivel < 4 ? '🔓 Nível 4: 4º espaço na Forja' : s.nivel < 6 ? '🔓 Nível 6: Fusão do Trovão' : '🎉 Tudo liberado! Continue subindo para ganhar presentes.'),
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'OK')));
   });
 }
@@ -657,13 +649,13 @@ function optionsModal() {
     const sfx = h('button', { class: 'btn ' + (s.som ? 'green' : 'ghost'), onclick: () => { s.som = !s.som; setSfx(s.som); G.save(); close(); optionsModal(); } }, s.som ? '🔊 Sons ligados' : '🔈 Sons desligados');
     const mus = h('button', { class: 'btn ' + (s.musica ? 'green' : 'ghost'), onclick: () => { s.musica = !s.musica; setMusic(s.musica); G.save(); close(); optionsModal(); } }, s.musica ? '🎵 Música ligada' : '🎵 Música desligada');
     box.append(h('h2', {}, '⚙️ Ajustes'), h('div', { class: 'actions' }, sfx, mus),
-      h('p', { class: 'muted', style: 'margin-top:20px' }, 'Brilhinhos não tem propaganda nem compras. Tudo se ganha jogando! 💖'),
+      h('p', { class: 'muted', style: 'margin-top:20px' }, 'Brilhinhos não tem propaganda nem compras. Tudo se ganha jogando!'),
       h('div', { class: 'actions' }, h('button', { class: 'btn ghost small', onclick: () => { close(); resetModal(); } }, '🗑️ Começar de novo'), h('button', { class: 'btn', onclick: close }, 'Fechar')));
   });
 }
 function resetModal() {
   modal((box, close) => {
-    box.append(h('div', { class: 'big' }, '⚠️'), h('h2', {}, 'Começar tudo de novo?'), h('p', {}, 'Todos os amigos, itens e o Códice serão apagados. Peça ajuda a um adulto!'),
+    box.append(h('div', { class: 'big' }, '⚠️'), h('h2', {}, 'Começar tudo de novo?'), h('p', {}, 'Todos os companheiros, itens e o Códice serão apagados. Peça ajuda a um adulto!'),
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Não, voltar'), h('button', { class: 'btn ghost', onclick: () => { G.resetGame(); close(); go('mapa'); } }, 'Sim, apagar tudo')));
   });
 }
@@ -674,15 +666,15 @@ function updateGuide() {
   document.querySelectorAll('#nav .pointing').forEach((b) => b.classList.remove('pointing'));
   let text = null, nav = null;
   const placed = s.amigos.some((a) => a.local);
-  if (s.tutorial < 2) { if (screen !== 'ninho') { text = 'Oi! Eu sou o Brilhinho! Vamos criar seu primeiro amigo no Ninho Arco-íris? 🌈'; nav = 'ninho'; } else text = 'Toque em 2 Trevos 🍀 e depois em Misturar!'; }
-  else if (s.tutorial === 2 && !placed) { if (screen !== 'fazenda' && screen !== 'ninho') { text = 'Leve seu amigo para a Fazendinha! 🏡'; nav = 'fazenda'; } else if (screen === 'fazenda') text = 'Toque em ➕ Colocar amigo!'; }
-  else if (s.tutorial <= 3 && placed) { if (screen === 'fazenda') text = 'Seu amigo vai colher itens. Quando aparecer uma bolha em cima dele, toque nela! Os brilhos no chão também dão itens ✨'; else { text = 'Vá até a Fazendinha colher itens! 🧺'; nav = 'fazenda'; } }
-  else if (s.tutorial === 4 && !s.regioes.prado.salvo) { if (screen === 'fazenda') text = 'A Vovó Margarida precisa de ajuda! Junte 3 Trevos e toque nela 🐑'; else { text = 'A Vovó Margarida está pedindo socorro no Prado Florido!'; nav = 'fazenda'; } }
-  else if (s.tutorial === 5) { text = 'Você é um herói! Agora veja os 📜 Pedidos, descubra receitas no 📖 Códice e conserte as pontes 🌈 no Mapa!'; setTimeout(() => { if (S().tutorial === 5) { S().tutorial = 6; G.save(); updateGuide(); } }, 9000); }
+  if (s.tutorial < 2) { if (screen !== 'ninho') { text = 'E aí! Eu sou o Raiozinho ⚡ Vamos forjar seu primeiro companheiro na Forja do Trovão?'; nav = 'ninho'; } else text = 'Coloque 2 Trevos 🍀 na bigorna e toque em Forjar!'; }
+  else if (s.tutorial === 2 && !placed) { if (screen !== 'fazenda' && screen !== 'ninho') { text = 'Mande seu companheiro para a Fazendinha! 🏡'; nav = 'fazenda'; } else if (screen === 'fazenda') text = 'Toque em ➕ Colocar companheiro!'; }
+  else if (s.tutorial <= 3 && placed) { if (screen === 'fazenda') text = 'Seu companheiro vai coletar itens. Quando aparecer uma bolha em cima dele, toque nela! Os brilhos no chão também dão itens ✨'; else { text = 'Vá até a Fazendinha colher itens! 🧺'; nav = 'fazenda'; } }
+  else if (s.tutorial === 4 && !s.regioes.floresta.salvo) { if (screen === 'fazenda') text = 'A Vovó Margarida precisa de ajuda! Junte 3 Trevos e toque nela'; else { text = 'A Vovó Margarida está pedindo socorro na Floresta Viva!'; nav = 'fazenda'; } }
+  else if (s.tutorial === 5) { text = 'Você é um herói! Agora veja os 📜 Pedidos, descubra receitas no 📖 Códice e conserte as pontes 🌉 no Mapa!'; setTimeout(() => { if (S().tutorial === 5) { S().tutorial = 6; G.save(); updateGuide(); } }, 9000); }
   if (modalOpen) text = null;
   document.body.classList.toggle('guiding', !!text);
   if (!text) { gEl.hidden = true; return; }
-  gEl.hidden = false; $('p', gEl).textContent = text; $('img', gEl).src = thumb(126, { size: 128 });
+  gEl.hidden = false; $('p', gEl).textContent = text; $('img', gEl).src = thumb(GUIDE_SPECIES, { size: 128 });
   if (nav) $(`#nav [data-go=${nav}]`).classList.add('pointing');
 }
 

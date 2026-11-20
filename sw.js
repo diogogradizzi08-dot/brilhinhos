@@ -1,6 +1,6 @@
 /* Brilhinhos — funciona sem internet: guarda o jogo inteiro no aparelho.
    Ao publicar uma versão nova, aumente VERSION para os aparelhos atualizarem. */
-const VERSION = 'brilhinhos-v1';
+const VERSION = 'brilhinhos-v2';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css', './fonts/fredoka.woff2',
   './js/app.js', './js/game.js', './js/data.js', './js/creature3d.js', './js/stage3d.js', './js/audio.js', './js/vendor/three.module.js',

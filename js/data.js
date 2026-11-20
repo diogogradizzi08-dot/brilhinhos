@@ -5,126 +5,127 @@ export const RARITIES = {
   comum:    { nome: 'Comum',    cor: '#8fd46b', estrelas: 1, pontos: 1 },
   incomum:  { nome: 'Incomum',  cor: '#4fc3f7', estrelas: 2, pontos: 3 },
   raro:     { nome: 'Raro',     cor: '#b18cff', estrelas: 3, pontos: 8 },
-  epico:    { nome: 'Épico',    cor: '#ff7fc8', estrelas: 4, pontos: 20 },
+  epico:    { nome: 'Épico',    cor: '#ff6fb5', estrelas: 4, pontos: 20 },
   lendario: { nome: 'Lendário', cor: '#ffc22e', estrelas: 5, pontos: 40 },
-  mitico:   { nome: 'Mítico',   cor: '#ff9bf0', estrelas: 6, pontos: 80 },
+  mitico:   { nome: 'Mítico',   cor: '#7df9ff', estrelas: 6, pontos: 80 },
 };
 export const RARITY_ORDER = ['comum', 'incomum', 'raro', 'epico', 'lendario', 'mitico'];
 
-// [cor principal, barriga, detalhe]
+// cores: [principal, secundária (barriga/detalhe), brilho/energia]
 export const ELEMENTS = {
-  planta: { nome: 'Planta', cores: ['#7ed46a', '#effad8', '#ff8fb6'], dom: 'Faz crescer', icone: '🌱' },
-  agua:   { nome: 'Água',   cores: ['#5ab8f6', '#e3f4ff', '#ffd36b'], dom: 'Nada',         icone: '💧' },
-  sol:    { nome: 'Sol',    cores: ['#ffa24a', '#fff1cc', '#ff6f6f'], dom: 'Aquece',       icone: '☀️' },
-  vento:  { nome: 'Vento',  cores: ['#9fd3ff', '#ffffff', '#ffb3d9'], dom: 'Voa',          icone: '🪶' },
-  gelo:   { nome: 'Gelo',   cores: ['#b4eef5', '#ffffff', '#6fc0ea'], dom: 'Esfria',       icone: '❄️' },
-  pedra:  { nome: 'Pedra',  cores: ['#b39a80', '#f2e6d6', '#b57bff'], dom: 'É forte',      icone: '🪨' },
-  sonho:  { nome: 'Sonho',  cores: ['#c6a6f2', '#f7eeff', '#ffd1ec'], dom: 'Acalma',       icone: '🌙' },
-  luz:    { nome: 'Luz',    cores: ['#ffdc5c', '#fffbe8', '#ff9fcf'], dom: 'Ilumina',      icone: '✨' },
-  arco:   { nome: 'Arco-íris', cores: ['#ff9ad5', '#ffffff', '#8be0ff'], dom: 'Ajuda em todo lugar', icone: '🌈' },
+  planta:   { nome: 'Planta',   cores: ['#62b84a', '#d6ec8a', '#ffd34d'], dom: 'Faz crescer', icone: '🌿' },
+  agua:     { nome: 'Água',     cores: ['#3b93e8', '#aee6ff', '#6ff0ff'], dom: 'Nada',         icone: '💧' },
+  fogo:     { nome: 'Fogo',     cores: ['#e35a32', '#ffc06a', '#ffcc33'], dom: 'Esquenta',     icone: '🔥' },
+  vento:    { nome: 'Vento',    cores: ['#8cc2e8', '#f2f8ff', '#bff4ff'], dom: 'Voa',          icone: '🌪️' },
+  gelo:     { nome: 'Gelo',     cores: ['#a3def0', '#f6feff', '#8fe8ff'], dom: 'Congela',      icone: '❄️' },
+  pedra:    { nome: 'Pedra',    cores: ['#9c8770', '#d6c6aa', '#ff9a3c'], dom: 'É forte',      icone: '🪨' },
+  eletrico: { nome: 'Elétrico', cores: ['#f7cf2a', '#4a4560', '#fff66b'], dom: 'Dá choque',    icone: '⚡' },
+  cosmo:    { nome: 'Cósmico',  cores: ['#4d3a96', '#a98cff', '#ff7df2'], dom: 'Viaja no espaço', icone: '🌌' },
+  trovao:   { nome: 'Trovão',   cores: ['#4a6aa8', '#e6ecff', '#7df9ff'], dom: 'Comanda os raios', icone: '🌩️' },
 };
 
-// Itens: rar = raridade do item (vale "pontos de magia" no Ninho).
+// Itens: rar = raridade do item (vale "pontos de energia" na Forja).
 export const ITEMS = {
-  orvalho:  { nome: 'Gota de Orvalho',  emoji: '💧', el: null,     rar: 'comum' },
-  trevo:    { nome: 'Trevo',            emoji: '🍀', el: 'planta', rar: 'comum' },
-  tulipa:   { nome: 'Tulipa',           emoji: '🌷', el: 'planta', rar: 'incomum' },
-  mel:      { nome: 'Mel Dourado',      emoji: '🍯', el: 'planta', rar: 'raro' },
-  concha:   { nome: 'Concha',           emoji: '🐚', el: 'agua',   rar: 'comum' },
-  onda:     { nome: 'Onda Mansa',       emoji: '🌊', el: 'agua',   rar: 'incomum' },
-  lotus:    { nome: 'Flor de Lótus',    emoji: '🪷', el: 'agua',   rar: 'raro' },
-  laranja:  { nome: 'Laranjinha',       emoji: '🍊', el: 'sol',    rar: 'comum' },
-  girassol: { nome: 'Girassol',         emoji: '🌻', el: 'sol',    rar: 'incomum' },
-  raio:     { nome: 'Raio de Sol',      emoji: '☀️', el: 'sol',    rar: 'raro' },
-  pena:     { nome: 'Pena Leve',        emoji: '🪶', el: 'vento',  rar: 'comum' },
-  nuvem:    { nome: 'Algodão de Nuvem', emoji: '☁️', el: 'vento',  rar: 'incomum' },
-  sino:     { nome: 'Sino dos Ventos',  emoji: '🎐', el: 'vento',  rar: 'raro' },
-  floco:    { nome: 'Floco de Neve',    emoji: '❄️', el: 'gelo',   rar: 'comum' },
-  boneco:   { nome: 'Bonequinho de Neve', emoji: '⛄', el: 'gelo', rar: 'incomum' },
-  cristal:  { nome: 'Cristal de Gelo',  emoji: '🧊', el: 'gelo',   rar: 'raro' },
-  seixo:    { nome: 'Pedrinha Lisa',    emoji: '🪨', el: 'pedra',  rar: 'comum' },
-  cogumelo: { nome: 'Cogumelo Brilhante', emoji: '🍄', el: 'pedra', rar: 'incomum' },
-  gema:     { nome: 'Gema Brilhante',   emoji: '💎', el: 'pedra',  rar: 'raro' },
-  petala:   { nome: 'Flor de Sonho',    emoji: '🌸', el: 'sonho',  rar: 'comum' },
-  lua:      { nome: 'Gota de Lua',      emoji: '🌙', el: 'sonho',  rar: 'incomum' },
-  poeira:   { nome: 'Poeira de Sonho',  emoji: '💫', el: 'sonho',  rar: 'raro' },
-  pozinho:  { nome: 'Pozinho Brilhante', emoji: '✨', el: 'luz',   rar: 'comum' },
-  lanterna: { nome: 'Lanterninha',      emoji: '🏮', el: 'luz',    rar: 'incomum' },
-  estrela:  { nome: 'Pedaço de Estrela', emoji: '⭐', el: 'luz',   rar: 'raro' },
-  arcoiris: { nome: 'Pó de Arco-íris',  emoji: '🌈', el: null,     rar: 'epico' },
-  coracao:  { nome: 'Coração de Amizade', emoji: '💖', el: null,   rar: 'lendario' },
+  orvalho:  { nome: 'Gota de Orvalho',  emoji: '💧', el: null,       rar: 'comum' },
+  trevo:    { nome: 'Trevo',            emoji: '🍀', el: 'planta',   rar: 'comum' },
+  cogumelo: { nome: 'Cogumelo da Mata', emoji: '🍄', el: 'planta',   rar: 'incomum' },
+  semente:  { nome: 'Semente Ancestral', emoji: '🌰', el: 'planta',  rar: 'raro' },
+  concha:   { nome: 'Concha',           emoji: '🐚', el: 'agua',     rar: 'comum' },
+  onda:     { nome: 'Onda Brava',       emoji: '🌊', el: 'agua',     rar: 'incomum' },
+  tridente: { nome: 'Tridente das Marés', emoji: '🔱', el: 'agua',   rar: 'raro' },
+  brasa:    { nome: 'Brasa',            emoji: '🔥', el: 'fogo',     rar: 'comum' },
+  pimenta:  { nome: 'Pimenta Ardente',  emoji: '🌶️', el: 'fogo',     rar: 'incomum' },
+  vulcao:   { nome: 'Pedra Vulcânica',  emoji: '🌋', el: 'fogo',     rar: 'raro' },
+  pena:     { nome: 'Pena Veloz',       emoji: '🪶', el: 'vento',    rar: 'comum' },
+  nuvem:    { nome: 'Nuvem Carregada',  emoji: '☁️', el: 'vento',    rar: 'incomum' },
+  tornado:  { nome: 'Mini Tornado',     emoji: '🌪️', el: 'vento',    rar: 'raro' },
+  floco:    { nome: 'Floco de Neve',    emoji: '❄️', el: 'gelo',     rar: 'comum' },
+  neve:     { nome: 'Neve Eterna',      emoji: '🏔️', el: 'gelo',     rar: 'incomum' },
+  cristal:  { nome: 'Cristal de Gelo',  emoji: '🧊', el: 'gelo',     rar: 'raro' },
+  seixo:    { nome: 'Pedregulho',       emoji: '🪨', el: 'pedra',    rar: 'comum' },
+  fossil:   { nome: 'Fóssil',           emoji: '🦴', el: 'pedra',    rar: 'incomum' },
+  gema:     { nome: 'Gema Bruta',       emoji: '💎', el: 'pedra',    rar: 'raro' },
+  faisca:   { nome: 'Faísca',           emoji: '⚡', el: 'eletrico', rar: 'comum' },
+  ima:      { nome: 'Ímã',              emoji: '🧲', el: 'eletrico', rar: 'incomum' },
+  tempestade: { nome: 'Nuvem de Trovão', emoji: '🌩️', el: 'eletrico', rar: 'raro' },
+  poeira:   { nome: 'Poeira Estelar',   emoji: '✨', el: 'cosmo',    rar: 'comum' },
+  lua:      { nome: 'Pedra da Lua',     emoji: '🌙', el: 'cosmo',    rar: 'incomum' },
+  cometa:   { nome: 'Cometa',           emoji: '☄️', el: 'cosmo',    rar: 'raro' },
+  runa:     { nome: 'Runa do Trovão',   emoji: '💠', el: null,       rar: 'epico' },
+  coroa:    { nome: 'Coroa do Trovão',  emoji: '👑', el: null,       rar: 'lendario' },
 };
-// Brilho de Crescer não vai no Ninho: serve para evoluir.
-export const GROW_ITEM = { nome: 'Brilho de Crescer', emoji: '🌟' };
+// Cristal de Evolução não vai na Forja: serve para evoluir.
+export const GROW_ITEM = { nome: 'Cristal de Evolução', emoji: '🔷' };
 
-// itens de cada elemento por raridade
 export const EL_ITEMS = {};
 for (const [id, it] of Object.entries(ITEMS)) {
   if (!it.el) continue;
   (EL_ITEMS[it.el] ||= {})[it.rar] = id;
 }
 
-const ORDER = ['planta', 'agua', 'sol', 'vento', 'gelo', 'pedra', 'sonho', 'luz'];
+const ORDER = ['planta', 'agua', 'fogo', 'vento', 'gelo', 'pedra', 'eletrico', 'cosmo'];
 export const ELEMENT_ORDER = ORDER;
 const next = (el) => ORDER[(ORDER.indexOf(el) + 1) % ORDER.length];
 
 // 50 famílias: [elemento, raridade, arquétipo, nomes dos 3 estágios, molde da receita]
+// arquétipo = o animal de referência; o tipo de corpo sai dele (4 patas, 2 patas, ave,
+// peixe, serpente, inseto, espírito flutuante).
 const LINES = [
-  ['planta', 'comum', 'coelho', 'Brotelho', 'Ramelho', 'Florelho', 'cc'],
-  ['planta', 'comum', 'ourico', 'Espinhim', 'Cactuço', 'Cactuzão', 'co'],
-  ['planta', 'incomum', 'sapo', 'Pingoflor', 'Sapetal', 'Rainhaflor', 'uc'],
-  ['planta', 'incomum', 'cervo', 'Musguinho', 'Musgalho', 'Cervoreal', 'uu'],
-  ['planta', 'raro', 'urso', 'Ursemente', 'Ursilvo', 'Ursequoia', 'ruc'],
-  ['planta', 'epico', 'dragao', 'Dragafolha', 'Dragarvore', 'Florandrago', 'rr*'],
-  ['agua', 'comum', 'peixe', 'Gotelim', 'Gotelão', 'Maregrão', 'cc'],
-  ['agua', 'comum', 'foca', 'Foquinha', 'Focarina', 'Focaçu', 'co'],
-  ['agua', 'incomum', 'tartaruga', 'Tartagota', 'Tartaonda', 'Tartamaré', 'uc'],
-  ['agua', 'incomum', 'axolote', 'Axolinho', 'Axolago', 'Axolírio', 'uu'],
-  ['agua', 'raro', 'raposa', 'Raposágua', 'Rapomaré', 'Rapoceano', 'ruc'],
-  ['agua', 'epico', 'dragao', 'Marinhito', 'Marinhaço', 'Dragamar', 'rr*'],
-  ['sol', 'comum', 'rato', 'Faisquinha', 'Faiscão', 'Faiscolar', 'cc'],
-  ['sol', 'comum', 'passaro', 'Pintossol', 'Pintolume', 'Galossol', 'co'],
-  ['sol', 'incomum', 'raposa', 'Raposol', 'Raposolar', 'Raposolstício', 'uc'],
-  ['sol', 'incomum', 'gato', 'Solgatinho', 'Solgato', 'Solgatarca', 'uu'],
-  ['sol', 'raro', 'carneiro', 'Novelsol', 'Novelouro', 'Novelastro', 'ruc'],
-  ['sol', 'epico', 'dragao', 'Dragolim', 'Dragolar', 'Dragaurora', 'rr*'],
-  ['vento', 'comum', 'passaro', 'Piuzinho', 'Piuvoa', 'Piurrei', 'cc'],
-  ['vento', 'comum', 'esquilo', 'Planinho', 'Planador', 'Planacéu', 'co'],
-  ['vento', 'incomum', 'coruja', 'Coruvinha', 'Coruventa', 'Coruceleste', 'uc'],
-  ['vento', 'incomum', 'coelho', 'Algodinho', 'Algodelho', 'Algodorei', 'uu'],
-  ['vento', 'raro', 'gato', 'Brisinha', 'Brisgata', 'Brisarquesa', 'ruc'],
-  ['vento', 'epico', 'dragao', 'Nimbinho', 'Nimbão', 'Nimbodrago', 'rr*'],
-  ['gelo', 'comum', 'pinguim', 'Gelim', 'Gelinguim', 'Pinguimperador', 'cc'],
-  ['gelo', 'comum', 'foca', 'Floquinho', 'Flocudo', 'Flocorei', 'co'],
-  ['gelo', 'incomum', 'raposa', 'Nevinha', 'Nevarapa', 'Nevarainha', 'uc'],
-  ['gelo', 'incomum', 'urso', 'Polarito', 'Polarão', 'Polaurso', 'uu'],
-  ['gelo', 'raro', 'cervo', 'Renazinha', 'Renagelo', 'Renaurora', 'ruc'],
-  ['gelo', 'epico', 'dragao', 'Glacim', 'Glacirão', 'Glacidrago', 'rr*'],
-  ['pedra', 'comum', 'tartaruga', 'Seixinho', 'Seixudo', 'Seixolosso', 'cc'],
-  ['pedra', 'comum', 'rato', 'Cavinho', 'Cavudo', 'Cavernauta', 'co'],
-  ['pedra', 'incomum', 'ourico', 'Quartzinho', 'Quartzão', 'Quartzorei', 'uc'],
-  ['pedra', 'incomum', 'urso', 'Rochito', 'Rochursso', 'Rochedão', 'uu'],
-  ['pedra', 'raro', 'cervo', 'Gemelim', 'Gemelino', 'Gemelorde', 'ruc'],
-  ['pedra', 'epico', 'dragao', 'Rubinho', 'Rubidrago', 'Rubirrei', 'rr*'],
-  ['sonho', 'comum', 'carneiro', 'Cochilim', 'Cochilã', 'Cochilorde', 'cc'],
-  ['sonho', 'comum', 'gato', 'Miaulua', 'Miauluar', 'Miaucrescente', 'co'],
-  ['sonho', 'incomum', 'coruja', 'Pijaminha', 'Pijamuja', 'Pijamarca', 'uc'],
-  ['sonho', 'raro', 'coelho', 'Lunelho', 'Lunelar', 'Lunelestial', 'ruc'],
-  ['sonho', 'raro', 'panda', 'Pandorminho', 'Pandormente', 'Pandormestre', 'rcc'],
-  ['sonho', 'lendario', 'raposa', 'Nebulinha', 'Nébula', 'Nebulária', 'rL'],
-  ['luz', 'comum', 'passaro', 'Brilhinho', 'Brilhão', 'Brilhastro', 'cc'],
-  ['luz', 'comum', 'esquilo', 'Cintilim', 'Cintilado', 'Cintilorde', 'co'],
-  ['luz', 'incomum', 'cervo', 'Lumi', 'Lumino', 'Luminário', 'uc'],
-  ['luz', 'raro', 'gato', 'Astrogatinho', 'Astrogato', 'Astrogaláctico', 'ruc'],
-  ['luz', 'raro', 'axolote', 'Cometinho', 'Cometote', 'Cometarca', 'rcc'],
-  ['luz', 'lendario', 'dragao', 'Estrelim', 'Estrelaço', 'Estreladrago', 'rL'],
-  ['arco', 'lendario', 'cervo', 'Irizinho', 'Irizado', 'Iridalis', 'festa'],
-  ['arco', 'mitico', 'raposa', 'Encantim', 'Encantado', 'Encantária', 'festa'],
+  ['planta', 'comum', 'besouro', 'Brotoso', 'Folhabesouro', 'Carvalhoplo', 'cc'],
+  ['planta', 'comum', 'sapo', 'Musgapo', 'Sapolodo', 'Pantanorrei', 'co'],
+  ['planta', 'incomum', 'cervo', 'Galhito', 'Ramacervo', 'Bosquerreal', 'uc'],
+  ['planta', 'incomum', 'lagarto', 'Camaleaf', 'Camufolha', 'Selvagarto', 'uu'],
+  ['planta', 'raro', 'urso', 'Ursomusgo', 'Ursilvestre', 'Ursequoia', 'ruc'],
+  ['planta', 'epico', 'dragao', 'Draconeiro', 'Dracofloresta', 'Draquerubim', 'rr*'],
+  ['agua', 'comum', 'peixe', 'Barbatim', 'Barbatanha', 'Mareforte', 'cc'],
+  ['agua', 'comum', 'tartaruga', 'Cascorrente', 'Cascomaré', 'Cascofundo', 'co'],
+  ['agua', 'incomum', 'arraia', 'Arraiinha', 'Arraiazul', 'Abissarraia', 'uc'],
+  ['agua', 'incomum', 'lagarto', 'Axoloto', 'Axolago', 'Axorrei', 'uu'],
+  ['agua', 'raro', 'lobo', 'Lobondas', 'Lobomarinho', 'Lobotsunami', 'ruc'],
+  ['agua', 'epico', 'serpente', 'Serpentágua', 'Leviagua', 'Leviatrom', 'rr*'],
+  ['fogo', 'comum', 'lagarto', 'Brasinha', 'Brasagarto', 'Salamandrax', 'cc'],
+  ['fogo', 'comum', 'javali', 'Javabrasa', 'Javalume', 'Javulcano', 'co'],
+  ['fogo', 'incomum', 'felino', 'Leãozito', 'Leãochama', 'Leonferno', 'uc'],
+  ['fogo', 'incomum', 'ave', 'Fagulhinho', 'Fenixito', 'Fênixar', 'uu'],
+  ['fogo', 'raro', 'rinoceronte', 'Rinolava', 'Rinomagma', 'Rinovulcão', 'ruc'],
+  ['fogo', 'epico', 'dino', 'Tiranito', 'Tiranochama', 'Tiranorrex', 'rr*'],
+  ['vento', 'comum', 'ave', 'Ventinho', 'Falcavento', 'Falcorrajada', 'cc'],
+  ['vento', 'comum', 'mariposa', 'Brisaposa', 'Mariventa', 'Mariciclone', 'co'],
+  ['vento', 'incomum', 'morcego', 'Morcevento', 'Morceguilho', 'Morcetufão', 'uc'],
+  ['vento', 'incomum', 'felino', 'Linceleve', 'Linceágil', 'Lincefuracão', 'uu'],
+  ['vento', 'raro', 'serpente', 'Serpenuvem', 'Nimbosserpe', 'Celestinguin', 'ruc'],
+  ['vento', 'epico', 'dragao', 'Draguinho', 'Dragoventos', 'Dragotufão', 'rr*'],
+  ['gelo', 'comum', 'pinguim', 'Pinguelo', 'Pinguerreiro', 'Pinguimperador', 'cc'],
+  ['gelo', 'comum', 'raposa', 'Raponeve', 'Raponevasca', 'Raporártica', 'co'],
+  ['gelo', 'incomum', 'urso', 'Polarito', 'Polarão', 'Polartitã', 'uc'],
+  ['gelo', 'incomum', 'aguaviva', 'Geleia', 'Geleiaviva', 'Glaciomedusa', 'uu'],
+  ['gelo', 'raro', 'cervo', 'Renagelo', 'Renaglacial', 'Renaurora', 'ruc'],
+  ['gelo', 'epico', 'mamute', 'Mamutinho', 'Mamutelo', 'Mamutundra', 'rr*'],
+  ['pedra', 'comum', 'tartaruga', 'Tatupedra', 'Tatumuralha', 'Tatufortaleza', 'cc'],
+  ['pedra', 'comum', 'besouro', 'Rochibesouro', 'Chifrerocha', 'Titanbesouro', 'co'],
+  ['pedra', 'incomum', 'macaco', 'Gorilito', 'Gorirocha', 'Gorilavalanche', 'uc'],
+  ['pedra', 'incomum', 'lagarto', 'Quartzagarto', 'Geodragarto', 'Cristalossauro', 'uu'],
+  ['pedra', 'raro', 'rinoceronte', 'Rinorrocha', 'Rinogranito', 'Rinomonólito', 'ruc'],
+  ['pedra', 'epico', 'golem', 'Golemzinho', 'Golemuro', 'Golemontanha', 'rr*'],
+  ['eletrico', 'comum', 'enguia', 'Choquinho', 'Enguivolt', 'Enguitrovão', 'cc'],
+  ['eletrico', 'comum', 'raposa', 'Faiscaposa', 'Raposvolt', 'Raposcurto', 'co'],
+  ['eletrico', 'incomum', 'lagarto', 'Voltagarto', 'Dinamagarto', 'Megavolt', 'uc'],
+  ['eletrico', 'raro', 'lobo', 'Lobovolt', 'Lobotrovão', 'Lobotempestade', 'ruc'],
+  ['eletrico', 'raro', 'ave', 'Trovinho', 'Falcotrom', 'Pássaro-Trovão', 'rcc'],
+  ['eletrico', 'lendario', 'dragao', 'Raiozinho', 'Raiodrago', 'Fulminatrix', 'rL'],
+  ['cosmo', 'comum', 'aguaviva', 'Nebulim', 'Nebulosa', 'Supernova', 'cc'],
+  ['cosmo', 'comum', 'macaco', 'Astromico', 'Astronauto', 'Galactogorila', 'co'],
+  ['cosmo', 'incomum', 'mariposa', 'Lunaposa', 'Eclipsosa', 'Mariposideral', 'uc'],
+  ['cosmo', 'raro', 'felino', 'Pantestrela', 'Pantegaláxia', 'Panterástro', 'ruc'],
+  ['cosmo', 'raro', 'arraia', 'Cometarraia', 'Orbitarraia', 'Arraiacósmica', 'rcc'],
+  ['cosmo', 'lendario', 'serpente', 'Orbitim', 'Orbiserpente', 'Constelaçon', 'rL'],
+  ['trovao', 'lendario', 'grifo', 'Grifinho', 'Grifotrom', 'Grifo-Tempestade', 'fusao'],
+  ['trovao', 'mitico', 'dragao', 'Trovãozinho', 'Trovardrago', 'Ragnatrovão', 'fusao'],
 ];
 
 const STAGE_NAMES = ['Filhote', 'Jovem', 'Adulto'];
 export const EVOLVE_AT = [5, 12];   // nível para virar Jovem e Adulto
-export const EVOLVE_COST = [1, 2];  // Brilhos de Crescer
+export const EVOLVE_COST = [1, 2];  // Cristais de Evolução
 
 function recipeFor(el, mold) {
   const I = EL_ITEMS[el] || {};
@@ -135,18 +136,17 @@ function recipeFor(el, mold) {
     case 'uu': return [I.incomum, I.incomum];
     case 'ruc': return [I.raro, I.incomum, I.comum];
     case 'rcc': return [I.raro, I.comum, I.comum];
-    case 'rr*': return [I.raro, EL_ITEMS[next(el)].raro, 'arcoiris'];
-    case 'rL': return [I.raro, 'coracao', 'arcoiris'];
-    default: return null; // só na Festa da Amizade
+    case 'rr*': return [I.raro, EL_ITEMS[next(el)].raro, 'runa'];
+    case 'rL': return [I.raro, 'coroa', 'runa'];
+    default: return null; // só na Fusão do Trovão
   }
 }
 
 export const FAMILIES = LINES.map((l, i) => ({
   id: i, el: l[0], rar: l[1], arch: l[2], nomes: [l[3], l[4], l[5]],
-  receita: recipeFor(l[0], l[6]), festa: l[6] === 'festa',
+  receita: recipeFor(l[0], l[6]), fusao: l[6] === 'fusao',
 }));
 
-// 150 espécies: id = família*3 + estágio
 export const SPECIES = [];
 for (const f of FAMILIES) {
   for (let s = 0; s < 3; s++) {
@@ -156,68 +156,70 @@ for (const f of FAMILIES) {
 export const recipeKey = (items) => [...items].sort().join('+');
 export const RECIPE_INDEX = {};
 for (const f of FAMILIES) if (f.receita) RECIPE_INDEX[recipeKey(f.receita)] = f.id;
+// espécie que o guia mostra (o raio-filhote)
+export const GUIDE_SPECIES = FAMILIES.find((f) => f.nomes[0] === 'Raiozinho').id * 3;
 
-// Regiões: cada uma tem uma fazendinha, uma ponte arco-íris para abrir e alguém para salvar.
+// Regiões: cada uma tem uma fazendinha, uma ponte de pedra rúnica para abrir e alguém para salvar.
 export const REGIONS = [
-  { id: 'prado', el: 'planta', nome: 'Prado Florido', chao: '#8fdc6e', ceu: ['#bff1ff', '#e9fff0'],
+  { id: 'floresta', el: 'planta', nome: 'Floresta Viva', chao: '#5f9e3f', ceu: ['#8fc9e8', '#e3f3d8'],
     ponte: null,
-    resgate: { quem: 'Vovó Margarida', g: 'a', arch: 'carneiro', cor: '#fff6ea', chapeu: 'palha', armadilha: 'ilha',
-      texto: 'A ponte de flores murchou e a Vovó Margarida ficou sozinha do outro lado do riacho!',
-      ajuda: 'Um amigo de Planta faz as flores da ponte crescerem de novo.', precisa: { el: 'planta', estagio: 0 }, itens: { trevo: 3 } } },
-  { id: 'lago', el: 'agua', nome: 'Lago Cristalino', chao: '#7fd6c0', ceu: ['#a8e4ff', '#e8f8ff'],
+    resgate: { quem: 'Vovó Margarida', g: 'a', arch: 'sapo', cor: '#e8d7c0', chapeu: 'palha', armadilha: 'ilha',
+      texto: 'A ponte de cipós arrebentou e a Vovó Margarida ficou ilhada do outro lado do riacho!',
+      ajuda: 'Um companheiro de Planta faz os cipós crescerem e refaz a ponte.', precisa: { el: 'planta', estagio: 0 }, itens: { trevo: 3 } } },
+  { id: 'lago', el: 'agua', nome: 'Lago Profundo', chao: '#5aa68a', ceu: ['#6fb3e0', '#d8eefa'],
     ponte: { moedas: 30, itens: { trevo: 4, orvalho: 2 }, amigos: 2 },
-    resgate: { quem: 'Capitão Bigodinho', g: 'o', arch: 'foca', cor: '#9fb5c9', chapeu: 'marinheiro', armadilha: 'redemoinho',
-      texto: 'O barquinho do Capitão Bigodinho ficou girando num redemoinho!',
-      ajuda: 'Um amigo de Água nada até lá e empurra o barquinho.', precisa: { el: 'agua', estagio: 0 }, itens: { concha: 3 } } },
-  { id: 'sol', el: 'sol', nome: 'Vale do Sol', chao: '#f6d77a', ceu: ['#ffe3b3', '#fff6e0'],
+    resgate: { quem: 'Capitão Bigode', g: 'o', arch: 'macaco', cor: '#9fb5c9', chapeu: 'marinheiro', armadilha: 'redemoinho',
+      texto: 'O barco do Capitão Bigode ficou preso girando num redemoinho!',
+      ajuda: 'Um companheiro de Água nada até lá e empurra o barco.', precisa: { el: 'agua', estagio: 0 }, itens: { concha: 3 } } },
+  { id: 'vulcao', el: 'fogo', nome: 'Vulcão Rubro', chao: '#3b2b2b', ceu: ['#d9763f', '#3b2238'],
     ponte: { moedas: 80, itens: { concha: 5, onda: 1 }, amigos: 4 },
-    resgate: { quem: 'Pipoca', g: 'o', arch: 'passaro', cor: '#ffe36b', chapeu: 'bone', armadilha: 'nuvem',
-      texto: 'Uma nuvem de chuva parou em cima do Pipoca e ele está todo molhadinho e com frio!',
-      ajuda: 'Um amigo de Sol aquece e seca o Pipoca.', precisa: { el: 'sol', estagio: 0 }, itens: { laranja: 4 } } },
-  { id: 'vento', el: 'vento', nome: 'Ilhas das Nuvens', chao: '#cdeeff', ceu: ['#c9e6ff', '#ffffff'],
-    ponte: { moedas: 160, itens: { laranja: 6, girassol: 2 }, amigos: 6 },
-    resgate: { quem: 'Tia Brisa', g: 'a', arch: 'coruja', cor: '#d9c2a3', chapeu: 'touca', armadilha: 'alto',
-      texto: 'O balão da Tia Brisa enroscou lá no alto da Torre das Nuvens!',
-      ajuda: 'Um amigo de Vento (Jovem ou maior) voa até lá e solta o balão.', precisa: { el: 'vento', estagio: 1 }, itens: { pena: 5, nuvem: 1 } } },
-  { id: 'gelo', el: 'gelo', nome: 'Montanha Nevada', chao: '#eefbff', ceu: ['#d6f2ff', '#f7fdff'],
+    resgate: { quem: 'Ferreiro Tito', g: 'o', arch: 'urso', cor: '#8a5a3a', chapeu: 'capacete', armadilha: 'nuvem',
+      texto: 'Uma nuvem de chuva apagou a fornalha do Ferreiro Tito, o mestre da Forja do Trovão!',
+      ajuda: 'Um companheiro de Fogo reacende a fornalha.', precisa: { el: 'fogo', estagio: 0 }, itens: { brasa: 4 } } },
+  { id: 'picos', el: 'vento', nome: 'Picos dos Ventos', chao: '#8aa39a', ceu: ['#7ab4e6', '#f2f7ff'],
+    ponte: { moedas: 160, itens: { brasa: 6, pimenta: 2 }, amigos: 6 },
+    resgate: { quem: 'Aviadora Brisa', g: 'a', arch: 'raposa', cor: '#d9a36a', chapeu: 'touca', armadilha: 'alto',
+      texto: 'O balão da Aviadora Brisa enroscou lá no alto do pico mais alto!',
+      ajuda: 'Um companheiro de Vento (Jovem ou maior) voa até lá e solta o balão.', precisa: { el: 'vento', estagio: 1 }, itens: { pena: 5, nuvem: 1 } } },
+  { id: 'geleira', el: 'gelo', nome: 'Geleira Eterna', chao: '#e4f2f7', ceu: ['#9cc9e8', '#eef8ff'],
     ponte: { moedas: 260, itens: { pena: 6, nuvem: 2, orvalho: 4 }, amigos: 8 },
-    resgate: { quem: 'Pingo', g: 'o', arch: 'pinguim', cor: '#4a5a7a', chapeu: 'gorro', armadilha: 'gelo',
-      texto: 'O Pingo escorregou e ficou preso dentro de um bloco de gelo!',
-      ajuda: 'Um amigo de Sol (Jovem ou maior) derrete o gelo bem devagarinho.', precisa: { el: 'sol', estagio: 1 }, itens: { floco: 5, girassol: 2 } } },
-  { id: 'pedra', el: 'pedra', nome: 'Caverna Brilhante', chao: '#d2c0a6', ceu: ['#e7d9ff', '#fff3e6'],
-    ponte: { moedas: 400, itens: { floco: 8, boneco: 2 }, amigos: 10 },
-    resgate: { quem: 'Mestre Toupeira', g: 'o', arch: 'rato', cor: '#a07a5a', chapeu: 'capacete', armadilha: 'pedras',
-      texto: 'Pedras rolaram e fecharam a saída da casinha do Mestre Toupeira!',
-      ajuda: 'Um amigo de Pedra (Jovem ou maior) é forte e tira as pedras do caminho.', precisa: { el: 'pedra', estagio: 1 }, itens: { seixo: 6, cogumelo: 2 } } },
-  { id: 'sonho', el: 'sonho', nome: 'Bosque da Lua', chao: '#c7b8ee', ceu: ['#b8b0f0', '#f3e6ff'],
-    ponte: { moedas: 600, itens: { seixo: 8, cogumelo: 3, gema: 1 }, amigos: 12 },
-    resgate: { quem: 'Bebê Coala', g: 'o', arch: 'urso', cor: '#b5b9c4', chapeu: 'dormir', armadilha: 'nevoa',
-      texto: 'O Bebê Coala se perdeu no meio de uma névoa fofinha e não acha o caminho de casa!',
-      ajuda: 'Um amigo de Vento (Jovem ou maior) sopra a névoa para longe.', precisa: { el: 'vento', estagio: 1 }, itens: { petala: 6, lua: 2 } } },
-  { id: 'luz', el: 'luz', nome: 'Jardim das Estrelas', chao: '#fff0b8', ceu: ['#ffd9f2', '#fffbe0'],
-    ponte: { moedas: 900, itens: { petala: 8, lua: 3, poeira: 1 }, amigos: 14 },
-    resgate: { quem: 'Estrelinha', g: 'a', arch: 'gato', cor: '#ffe680', chapeu: 'estrela', armadilha: 'bolha',
-      texto: 'A Estrelinha caiu do céu, ficou com medo e se escondeu dentro de uma bolha!',
-      ajuda: 'Um amigo de Sonho Adulto canta uma canção de ninar e acalma a Estrelinha.', precisa: { el: 'sonho', estagio: 2 }, itens: { pozinho: 6, lanterna: 2, coracao: 1 } } },
+    resgate: { quem: 'Explorador Pingo', g: 'o', arch: 'pinguim', cor: '#4a5a7a', chapeu: 'gorro', armadilha: 'gelo',
+      texto: 'O Explorador Pingo escorregou e ficou congelado dentro de um bloco de gelo!',
+      ajuda: 'Um companheiro de Fogo (Jovem ou maior) derrete o gelo com cuidado.', precisa: { el: 'fogo', estagio: 1 }, itens: { floco: 5, pimenta: 2 } } },
+  { id: 'canion', el: 'pedra', nome: 'Cânion de Pedra', chao: '#b0784a', ceu: ['#e8a86a', '#fbe6c8'],
+    ponte: { moedas: 400, itens: { floco: 8, neve: 2 }, amigos: 10 },
+    resgate: { quem: 'Mestre Toupeira', g: 'o', arch: 'macaco', cor: '#a07a5a', chapeu: 'capacete', armadilha: 'pedras',
+      texto: 'Um deslizamento fechou a entrada da mina do Mestre Toupeira!',
+      ajuda: 'Um companheiro de Pedra (Jovem ou maior) é forte e tira as pedras.', precisa: { el: 'pedra', estagio: 1 }, itens: { seixo: 6, fossil: 2 } } },
+  { id: 'raios', el: 'eletrico', nome: 'Planalto dos Raios', chao: '#4a4f63', ceu: ['#2c3458', '#6a6f9a'],
+    ponte: { moedas: 600, itens: { seixo: 8, fossil: 3, gema: 1 }, amigos: 12 },
+    resgate: { quem: 'Engenheira Volta', g: 'a', arch: 'raposa', cor: '#e0c060', chapeu: 'bone', armadilha: 'nevoa',
+      texto: 'Uma tempestade enorme cobriu a torre da Engenheira Volta e ela não consegue sair!',
+      ajuda: 'Um companheiro de Vento (Jovem ou maior) sopra a tempestade para longe.', precisa: { el: 'vento', estagio: 1 }, itens: { faisca: 6, ima: 2 } } },
+  { id: 'cosmo', el: 'cosmo', nome: 'Cratera Cósmica', chao: '#2e2650', ceu: ['#0f0b2e', '#4a2d7a'],
+    ponte: { moedas: 900, itens: { faisca: 8, ima: 3, tempestade: 1 }, amigos: 14 },
+    resgate: { quem: 'Astronauta Estela', g: 'a', arch: 'macaco', cor: '#f0f0f8', chapeu: 'estrela', armadilha: 'bolha',
+      texto: 'A nave da Astronauta Estela caiu na cratera e ficou sem energia!',
+      ajuda: 'Um companheiro Elétrico Adulto carrega a bateria da nave.', precisa: { el: 'eletrico', estagio: 2 }, itens: { poeira: 6, lua: 2, coroa: 1 } } },
 ];
 export const REGION_BY_EL = Object.fromEntries(REGIONS.map((r) => [r.el, r]));
 
 // Conquistas (medalhas)
 export const ACHIEVEMENTS = [
-  { id: 'primeiro', nome: 'Primeiro Amigo', desc: 'Faça nascer seu primeiro Brilhinho', icone: '🥚' },
-  { id: 'dez', nome: 'Turminha', desc: 'Tenha 10 amigos', icone: '👫' },
+  { id: 'primeiro', nome: 'Primeira Forja', desc: 'Forje seu primeiro companheiro', icone: '🔨' },
+  { id: 'dez', nome: 'Equipe Formada', desc: 'Tenha 10 companheiros', icone: '🛡️' },
   { id: 'cod25', nome: 'Colecionador', desc: 'Descubra 25 espécies', icone: '📖' },
   { id: 'cod50', nome: 'Explorador', desc: 'Descubra 50 espécies', icone: '🧭' },
-  { id: 'cod100', nome: 'Sábio dos Brilhinhos', desc: 'Descubra 100 espécies', icone: '🎓' },
+  { id: 'cod100', nome: 'Sábio das Feras', desc: 'Descubra 100 espécies', icone: '🎓' },
   { id: 'cod150', nome: 'Mestre do Códice', desc: 'Descubra as 150 espécies', icone: '👑' },
-  { id: 'evo1', nome: 'Crescendo!', desc: 'Evolua um amigo pela primeira vez', icone: '🌟' },
-  { id: 'evo2', nome: 'Tudo Grande!', desc: 'Leve um amigo até Adulto', icone: '🏅' },
-  { id: 'brilhante', nome: 'Que Brilho!', desc: 'Encontre um Brilhinho cintilante', icone: '💎' },
-  { id: 'epico', nome: 'Uau, Épico!', desc: 'Faça nascer um Épico', icone: '🎉' },
-  { id: 'lendario', nome: 'Lenda Viva', desc: 'Faça nascer um Lendário', icone: '🏆' },
-  { id: 'mitico', nome: 'Encantado', desc: 'Faça nascer o Mítico', icone: '🦄' },
-  { id: 'heroi', nome: 'Pequeno Herói', desc: 'Salve alguém em perigo', icone: '🦸' },
-  { id: 'herois', nome: 'Herói de Todos', desc: 'Salve as 8 pessoas', icone: '🌈' },
-  { id: 'mapa', nome: 'Viajante', desc: 'Abra todas as pontes arco-íris', icone: '🗺️' },
-  { id: 'festa', nome: 'Festa da Amizade', desc: 'Faça uma Festa da Amizade', icone: '🎈' },
+  { id: 'evo1', nome: 'Evolução!', desc: 'Evolua um companheiro pela primeira vez', icone: '🔷' },
+  { id: 'evo2', nome: 'Forma Final', desc: 'Leve um companheiro até Adulto', icone: '🏅' },
+  { id: 'brilhante', nome: 'Raro de Verdade', desc: 'Encontre um companheiro cintilante', icone: '💎' },
+  { id: 'epico', nome: 'Épico!', desc: 'Forje um Épico', icone: '🎉' },
+  { id: 'lendario', nome: 'Lenda Viva', desc: 'Forje um Lendário', icone: '🏆' },
+  { id: 'mitico', nome: 'Senhor do Trovão', desc: 'Forje o Mítico', icone: '🌩️' },
+  { id: 'heroi', nome: 'Herói', desc: 'Salve alguém em perigo', icone: '🦸' },
+  { id: 'herois', nome: 'Herói do Vale', desc: 'Salve as 8 pessoas', icone: '🛡️' },
+  { id: 'mapa', nome: 'Desbravador', desc: 'Abra todas as pontes rúnicas', icone: '🗺️' },
+  { id: 'fusao', nome: 'Fusão do Trovão', desc: 'Faça uma fusão na Forja', icone: '⚡' },
 ];

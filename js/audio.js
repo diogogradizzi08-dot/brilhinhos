@@ -15,6 +15,12 @@ function tone(freq, t0, dur, { type = 'sine', vol = 0.3, slide = 0, out = null }
   g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(out || master); o.start(t0); o.stop(t0 + dur + 0.02);
 }
+function noise(t0, dur, vol, cutoff) {
+  const c = ac(); const len = Math.floor(c.sampleRate * dur); const buf = c.createBuffer(1, len, c.sampleRate); const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const src = c.createBufferSource(); src.buffer = buf; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff;
+  const g = c.createGain(); g.gain.value = vol; src.connect(f); f.connect(g); g.connect(master); src.start(t0);
+}
 const N = (n) => 440 * Math.pow(2, (n - 69) / 12);
 export const SFX = {
   tap() { const t = ac().currentTime; tone(880, t, 0.08, { type: 'triangle', vol: 0.18 }); },
@@ -32,6 +38,14 @@ export const SFX = {
   },
   fanfare() { const t = ac().currentTime; [[72, 0], [76, 0.12], [79, 0.24], [84, 0.36], [79, 0.55], [84, 0.68]].forEach(([n, d]) => { tone(N(n), t + d, 0.35, { type: 'triangle', vol: 0.22 }); tone(N(n - 12), t + d, 0.35, { vol: 0.1 }); }); },
   sad() { const t = ac().currentTime; tone(N(67), t, 0.2, { type: 'triangle', vol: 0.15 }); tone(N(64), t + 0.18, 0.3, { type: 'triangle', vol: 0.15 }); },
+  anvil(n = 1) { // martelada metálica
+    const c = ac(), t = c.currentTime;
+    [1, 2.76, 5.4, 8.93].forEach((m, i) => tone(520 * m * (1 + n * 0.02), t, 0.6 - i * 0.1, { type: 'sine', vol: 0.18 / (i + 1) }));
+    noise(t, 0.08, 0.35, 2500);
+  },
+  thunder() { // trovão: ruído grave que rola
+    const c = ac(), t = c.currentTime; noise(t, 1.6, 0.7, 400); noise(t + 0.05, 0.25, 0.5, 3000);
+  },
   heart() { const t = ac().currentTime; tone(N(79), t, 0.12, { vol: 0.2 }); tone(N(83), t + 0.1, 0.2, { vol: 0.2 }); },
 };
 export function play(name, ...a) { if (!sfxOn) return; try { SFX[name]?.(...a); } catch {} }

@@ -13,15 +13,15 @@ const S = G.S;
 const r = G.mix(['trevo', 'trevo']); ok(r && r.exato && r.amigo.sp === 0, 'receita exata dá Brotelho');
 // chances com itens simples x raros
 const p = (it) => Object.fromEntries(Object.entries(G.rarityChances(it)).map(([k, v]) => [k, (v * 100).toFixed(1) + '%']));
-console.log('2 comuns', p(['trevo', 'orvalho'])); console.log('3 incomuns', p(['tulipa', 'onda', 'girassol'])); console.log('3 raros+arco', p(['mel', 'gema', 'estrela', 'arcoiris']));
+console.log('2 comuns', p(['trevo', 'orvalho'])); console.log('3 incomuns', p(['cogumelo', 'onda', 'pimenta'])); console.log('3 raros+runa', p(['semente', 'gema', 'cometa', 'runa']));
 // sorteio aleatório: distribuição
 S.itens = { orvalho: 99999, trevo: 99999 }; S.nivel = 1;
 const dist = {}; for (let i = 0; i < 20000; i++) { const m = G.mix(['trevo', 'orvalho', 'orvalho']); dist[D.SPECIES[m.amigo.sp].rar] = (dist[D.SPECIES[m.amigo.sp].rar] || 0) + 1; }
 console.log('20 mil misturas trevo+orvalho+orvalho', dist);
 // fazendinha
 G.setState(G.newState()); G.mix(['trevo', 'trevo']); const a = G.S.amigos[0];
-G.placeAmigo(a, 'prado'); a.desde -= 60000; G.tick(); ok(a.prontos >= 2, 'produziu na fazendinha: ' + a.prontos);
+G.placeAmigo(a, 'floresta'); a.desde -= 60000; G.tick(); ok(a.prontos >= 2, 'produziu na fazendinha: ' + a.prontos);
 const it = G.collect(a); ok(!!it, 'coletou ' + it);
-G.addItem('trevo', 5); ok(G.canRescue('prado'), 'pode resgatar Vovó');
-ok(!!G.rescue('prado', a), 'resgate'); ok(G.S.pedidos.length > 0, 'pedidos surgem: ' + G.S.pedidos.length);
+G.addItem('trevo', 5); ok(G.canRescue('floresta'), 'pode resgatar Vovó');
+ok(!!G.rescue('floresta', a), 'resgate'); ok(G.S.pedidos.length > 0, 'pedidos surgem: ' + G.S.pedidos.length);
 console.log(fail ? `${fail} FALHA(S)` : 'tudo certo');

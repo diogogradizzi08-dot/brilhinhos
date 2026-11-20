@@ -7,11 +7,11 @@ import { SPECIES } from '../js/data.js';
 import { buildCreature } from '../js/creature3d.js';
 const q = new URLSearchParams(location.search); document.getElementById("g").style.setProperty("--c", q.get("cols")||15); const from = +(q.get('from')||0), to = +(q.get('to')||150);
 const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true }); r.setSize(320, 320);
-const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#b9d8ff', 1.6)); const dl = new THREE.DirectionalLight('#fff', 1.6); dl.position.set(2, 4, 3); sc.add(dl);
+const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#8a7a9a', 1.3)); const dl = new THREE.DirectionalLight('#fff', 2.2); dl.position.set(2, 4, 3); sc.add(dl);
 const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
 for (let i = from; i < to; i++) {
   const c = buildCreature({ sp: i }, { shiny: q.get('shiny')==='1', silhouette: q.get('sil')==='1' }); sc.add(c);
-  const h = c.userData.height; cam.position.set(0, h * 0.6, h * 2.6 + 1.4); cam.lookAt(0, h * 0.48, 0); c.rotation.y = +(q.get("rot")||0.55);
+  c.rotation.y = +(q.get('rot')||0.6); c.userData.ctrl.update(0.3, 0.016); c.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(c); const sz = bb.getSize(new THREE.Vector3()), ct = bb.getCenter(new THREE.Vector3()); const R = Math.max(sz.x, sz.y, sz.z) * 0.62; const d = R / Math.tan(15 * Math.PI / 180) * 0.95; cam.position.set(ct.x, ct.y + d * 0.28, ct.z + d); cam.lookAt(ct);
   c.userData.ctrl.update(0.3, 0.016); r.render(sc, cam);
   const f = document.createElement('figure'); f.innerHTML = `<img src="${r.domElement.toDataURL()}"><figcaption>${SPECIES[i].nome}</figcaption>`; document.getElementById('g').append(f);
   sc.remove(c);

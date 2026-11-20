@@ -4,15 +4,16 @@
 <script type="module">
 import * as THREE from '../js/vendor/three.module.js';
 import { buildCreature } from '../js/creature3d.js';
+import { GUIDE_SPECIES } from '../js/data.js';
 const q = new URLSearchParams(location.search); const S = +(q.get('s') || 512), pad = q.get('mask') ? 0.72 : 0.86;
 const c = document.getElementById('c'); const x = c.getContext('2d'); c.width = c.height = S;
-const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0, '#bfe9ff'); g.addColorStop(1, '#ffd6f0'); x.fillStyle = g;
+const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0, '#121a36'); g.addColorStop(1, '#3d5a8f'); x.fillStyle = g;
 if (q.get('mask')) x.fillRect(0, 0, S, S); else { x.beginPath(); x.roundRect(0, 0, S, S, S * 0.22); x.fill(); }
-const cols = ['#ff7b9c', '#ffb36b', '#ffe36b', '#8ce07a', '#6fc8ff', '#b59cff'];
+const cols = ['#7df9ff', '#4fc3f7', '#fff27a'];
 cols.forEach((col, i) => { x.strokeStyle = col; x.lineWidth = S * 0.035; x.beginPath(); x.arc(S / 2, S * 0.78, S * (0.42 - i * 0.035) * pad, Math.PI, 0); x.stroke(); });
-const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); r.setSize(S, S); r.outputColorSpace = THREE.SRGBColorSpace;
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); r.setSize(S, S); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping;
 const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#fff', '#b9d8ff', 1.6)); const d = new THREE.DirectionalLight('#fff', 1.6); d.position.set(2, 4, 3); sc.add(d);
-const m = buildCreature({ sp: 126 }); sc.add(m); m.rotation.y = 0.3; m.userData.ctrl.update(0.3, 0.016);
+const m = buildCreature({ sp: GUIDE_SPECIES + 1 }); sc.add(m); m.rotation.y = 0.3; m.userData.ctrl.update(0.3, 0.016);
 const h = m.userData.height; const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50); cam.position.set(0, h * 0.55, (h * 2.1 + 1.2) / pad); cam.lookAt(0, h * 0.5, 0);
 r.render(sc, cam); x.drawImage(r.domElement, 0, S * 0.02);
 document.title = 'pronto';

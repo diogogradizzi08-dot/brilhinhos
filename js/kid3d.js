@@ -4,6 +4,8 @@
 // (cortar, minerar, colher, plantar, regar, carinho, construir, pegar, comemorar e acenar).
 import * as THREE from './vendor/three.module.js';
 import { GEO, mat, Builder, shade } from './creature3d.js';
+import { strawTex } from './nature3d.js';
+import { PRINTS } from './kidlook.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const V2 = (x, y) => new THREE.Vector2(x, y);
@@ -33,6 +35,19 @@ function patternTex(color, pat) {
       case 'camuflado': x.globalAlpha = 0.5; for (let i = 0; i < 18; i++) { x.fillStyle = [shade(color, 0, 0, -0.2), shade(color, 0.05, 0, 0.12), shade(color, -0.05, 0, -0.35)][i % 3]; x.beginPath(); x.ellipse((i * 37) % w, (i * 53) % h, 18, 11, i, 0, 7); x.fill(); } break;
     }
   }, 2);
+}
+// telinha do boné, emblema redondo e o desenho da camiseta
+const meshTex = () => canvasTex('tela', 64, 64, (x, w, h) => { x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h); x.fillStyle = '#c8ccd4'; for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) { x.beginPath(); x.arc(i * 8 + (j % 2) * 4 + 2, j * 8 + 4, 2.2, 0, 7); x.fill(); } }, 4);
+const emojiTex = (e, bg) => canvasTex('em|' + e + bg, 128, 128, (x) => { x.fillStyle = bg; x.beginPath(); x.arc(64, 64, 62, 0, 7); x.fill(); x.strokeStyle = '#2b2f3a'; x.lineWidth = 6; x.stroke(); x.font = '78px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(e, 64, 70); });
+const printTex = (e) => { const t = canvasTex('print2|' + e, 160, 128, (x) => { x.clearRect(0, 0, 160, 128); x.font = '116px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(e, 80, 70); }); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; };
+function starShape(r = 1) { const sh = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr); } return sh; }
+function heartShape() { const sh = new THREE.Shape(); sh.moveTo(0, -0.95); sh.bezierCurveTo(-0.6, -0.45, -1.15, 0.0, -0.95, 0.5); sh.bezierCurveTo(-0.75, 1.0, -0.15, 1.0, 0, 0.55); sh.bezierCurveTo(0.15, 1.0, 0.75, 1.0, 0.95, 0.5); sh.bezierCurveTo(1.15, 0.0, 0.6, -0.45, 0, -0.95); return sh; }
+function lensShape(kind) {
+  if (kind === 'coracao') return heartShape();
+  if (kind === 'estrela') return starShape(1.15);
+  const sh = new THREE.Shape();
+  if (kind === 'gatinho') { sh.moveTo(-1, 0.25); sh.bezierCurveTo(-1, -0.6, -0.3, -0.85, 0.2, -0.75); sh.bezierCurveTo(0.8, -0.6, 1.05, -0.1, 1.15, 0.8); sh.bezierCurveTo(0.6, 0.62, 0, 0.62, -0.5, 0.6); sh.bezierCurveTo(-0.85, 0.58, -1, 0.5, -1, 0.25); return sh; }
+  const w = 1, hh = 0.82, r = 0.3; sh.moveTo(-w + r, -hh); sh.lineTo(w - r, -hh); sh.quadraticCurveTo(w, -hh, w, -hh + r); sh.lineTo(w, hh - r); sh.quadraticCurveTo(w, hh, w - r, hh); sh.lineTo(-w + r, hh); sh.quadraticCurveTo(-w, hh, -w, hh - r); sh.lineTo(-w, -hh + r); sh.quadraticCurveTo(-w, -hh, -w + r, -hh); return sh;
 }
 // tecido: um pouco de "fiapo" na textura para não parecer plástico
 const matCache = new Map();
@@ -121,7 +136,8 @@ function eyeTex(color, big) {
 export function buildKid(look, opts = {}) {
   const sk = skinMat(look.pele);
   const hairM = new THREE.MeshStandardMaterial({ color: look.cabelo.cor, roughness: 0.48, emissive: new THREE.Color(look.cabelo.cor).multiplyScalar(0.05) });
-  const top = look.topo, bot = look.baixo, sh = look.calcado, A = look.acess || {};
+  const top = look.topo, sh = look.calcado, A = look.acess || {};
+  const bot = top.tipo === 'vestido' ? { tipo: 'saia', cor: top.cor, estampa: top.estampa, vestido: true } : look.baixo;
   const topM = clothMat(top.cor, top.estampa), botM = clothMat(bot.cor, bot.estampa);
   const trimC = lum(top.cor) > 0.72 ? shade(top.cor, 0, 0, -0.12) : shade(top.cor, 0, -0.05, 0.12);
   const trimM = clothMat(trimC);
@@ -152,7 +168,8 @@ export function buildKid(look, opts = {}) {
       mesh(foot, SPH, soleM, [0, -0.028, 0.03], [0.064, 0.024, 0.112]);
       mesh(foot, SPH, soleM, [0, -0.008, 0.095], [0.048, 0.03, 0.04]);
       mesh(foot, torus(1, 0.3), soleM, [0, 0.035, -0.005], [0.044, 0.044, 0.044], [Math.PI / 2, 0, 0]);
-      for (let i = 0; i < 2; i++) mesh(foot, roundBox(0.05, 0.008, 0.012, 0.004), soleM, [0, 0.038 - i * 0.006, 0.05 + i * 0.02], 1, [0.5, 0, 0]);
+      for (let i = 0; i < 3; i++) for (const sg of [1, -1]) mesh(foot, roundBox(0.046, 0.006, 0.009, 0.003), soleM, [0, 0.043 - i * 0.006, 0.03 + i * 0.022], 1, [0.5, sg * 0.45, 0]);
+      for (const sg of [1, -1]) mesh(foot, torus(1, 0.3, 16), soleM, [sg * 0.013, 0.05, 0.02], [0.011, 0.009, 0.011], [0.6, sg * 0.5, 0]);
     } else if (sh.tipo === 'bota') {
       mesh(foot, limbGeo(0.14, 0.052, 0.054), shoeM, [0, 0.12, 0]);
       mesh(foot, SPH, shoeM, [0, 0.0, 0.03], [0.058, 0.05, 0.095]);
@@ -176,9 +193,11 @@ export function buildKid(look, opts = {}) {
     }
   }
   // ---------- quadril (parte de baixo) ----------
-  if (bot.tipo === 'saia') mesh(J.pelvis, lathe('saia', [[0, 0.06], [0.14, 0.06], [0.15, 0.02], [0.18, -0.06], [0.2, -0.13], [0.19, -0.145], [0, -0.14]]), botM, [0, 0, 0], [1, 1, 0.86]);
+  if (bot.vestido) mesh(J.pelvis, lathe('vestido', [[0, 0.1], [0.14, 0.1], [0.15, 0.04], [0.19, -0.05], [0.23, -0.15], [0.22, -0.165], [0, -0.16]]), topM, [0, 0, 0], [1, 1, 0.88]);
+  else if (bot.tipo === 'saia') mesh(J.pelvis, lathe('saia', [[0, 0.06], [0.14, 0.06], [0.15, 0.02], [0.18, -0.06], [0.2, -0.13], [0.19, -0.145], [0, -0.14]]), botM, [0, 0, 0], [1, 1, 0.86]);
   else mesh(J.pelvis, lathe('quadril', [[0, 0.07], [0.135, 0.07], [0.148, 0.02], [0.152, -0.04], [0.13, -0.085], [0.07, -0.1], [0, -0.1]]), botM, [0, 0, 0], [1, 1, 0.82]);
-  mesh(J.pelvis, torus(1, 0.1), clothMat(shade(bot.cor, 0, 0, -0.1)), [0, 0.065, 0], [0.138, 0.138, 0.138 * 0.82 / 0.82], [Math.PI / 2, 0, 0]).scale.set(0.138, 0.113, 0.1);
+  if (!bot.vestido) mesh(J.pelvis, torus(1, 0.1), clothMat(shade(bot.cor, 0, 0, -0.1)), [0, 0.065, 0], [0.138, 0.138, 0.138 * 0.82 / 0.82], [Math.PI / 2, 0, 0]).scale.set(0.138, 0.113, 0.1);
+  if (bot.tipo !== 'saia' && !bot.vestido) { const cord = soft('#ffffff', { rough: 0.8 }); for (const sx of [1, -1]) { const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(sx * 0.008, 0.062, 0.112), V(sx * 0.018, 0.03, 0.117), V(sx * 0.02, 0.0, 0.116)]), 12, 0.0035, 6), cord); J.pelvis.add(t); mesh(J.pelvis, SPHm, cord, [sx * 0.02, -0.003, 0.116], 0.006); } if (bot.tipo !== 'calca') for (const sx of [1, -1]) mesh(J.pelvis, torus(1, 0.06, 20, Math.PI * 0.6), clothMat(shade(bot.cor, 0, 0, -0.18)), [sx * 0.105, 0.03, 0.075], [0.035, 0.035, 0.035], [0, sx * 0.9, sx > 0 ? -2.2 : -0.95]); }
   // ---------- tronco ----------
   J.torso = grp(body, [0, hipY + 0.035, 0]);
   const puff = top.tipo === 'moletom' ? 1.06 : 1;
@@ -197,6 +216,10 @@ export function buildKid(look, opts = {}) {
     mesh(J.torso, torus(1, 0.12), clothMat(shade(top.cor, 0, 0, -0.08)), [0, 0.008, 0], [0.13, 0.106, 0.1], [Math.PI / 2, 0, 0]);
   } else if (top.tipo !== 'regata') mesh(J.torso, torus(1, 0.18), trimM, [0, 0.3, 0.004], [0.062, 0.055, 0.062], [Math.PI / 2 - 0.15, 0, 0]); // gola
   if (top.tipo === 'regata') for (const sx of [1, -1]) mesh(J.torso, roundBox(0.035, 0.06, 0.16, 0.014), topM, [sx * 0.075, 0.275, 0], 1, [0, 0, sx * 0.25]);
+  const pr = PRINTS.find((q) => q[0] === top.desenho)?.[2];
+  if (pr && top.tipo !== 'camisa') { // o desenho grande no peito (como camiseta de dinossauro)
+    const dg = mesh(J.torso, cached('print', () => new THREE.CylinderGeometry(0.1585, 0.1585, 0.14, 24, 1, true, -0.55, 1.1)), new THREE.MeshStandardMaterial({ map: printTex(pr), transparent: true, roughness: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), [0, top.tipo === 'moletom' ? 0.185 : 0.155, 0], [puff, 1, 0.8 * puff]); dg.castShadow = false; dg.renderOrder = 2;
+  }
   // ---------- braços ----------
   const longS = top.tipo === 'blusa' || top.tipo === 'moletom';
   for (const sx of [1, -1]) {
@@ -236,34 +259,130 @@ export function buildKid(look, opts = {}) {
     // cílios: um tracinho na pálpebra
     mesh(eg, torus(1, 0.06, 20, Math.PI * 0.8), soft('#2a1a14', { rough: 0.6 }), [0, eyeR * 0.15, eyeR * 0.25], [eyeR * 1.02, eyeR * 1.0, eyeR], [0.35, 0, Math.PI * 0.1]).castShadow = false;
   }
-  hair(J.head, HR, look.cabelo.estilo, hairM, sk);
+  const n0 = J.head.children.length; hair(J.head, HR, look.cabelo.estilo, hairM, sk);
+  if (on('bone') || on('chapeu')) { // por baixo do boné ou do chapéu: só o cabelo dos lados e de trás aparece
+    for (const o of J.head.children.slice(n0)) { if ((o.geometry && o.geometry === geoCache.get('hcap')) || (o.position.y > HR * 0.45 && Math.abs(o.position.x) < HR * 0.6 && o.position.z > -HR * 0.4)) J.head.remove(o); }
+  }
   // ---------- acessórios ----------
-  if (on('bone')) { const m = soft(acC('bone', '#e2403a'), { rough: 0.7 }); const g = grp(J.head, [0, HR * 0.1, -HR * 0.02], [-0.5, 0, 0]); mesh(g, cached('capdome', () => new THREE.SphereGeometry(1, 40, 20, 0, Math.PI * 2, 0, Math.PI * 0.52)), m, [0, 0, 0], [HR * 1.08, HR * 0.86, HR * 1.06]); mesh(g, SPH, m, [0, HR * 0.12, HR * 1.0], [HR * 0.62, HR * 0.06, HR * 0.52], [0.4, 0, 0]); mesh(g, SPHm, soft('#ffffff'), [0, HR * 0.86, 0], HR * 0.07); }
-  if (on('chapeu')) { const m = soft(acC('chapeu', '#f2d27a'), { rough: 0.8 }); const g = grp(J.head, [0, HR * 0.42, 0], [-0.1, 0, 0]); mesh(g, lathe('aba', [[0, 0.005], [0.2, 0.004], [0.32, 0.012], [0.345, 0.03], [0.34, 0.035], [0.3, 0.018], [0.2, 0.014], [0, 0.016]], 40), m, [0, 0, 0], [HR / 0.205, 1, HR / 0.205]); mesh(g, lathe('copa', [[0, 0.14], [0.11, 0.135], [0.17, 0.1], [0.19, 0.02], [0.19, 0], [0, 0]], 40), m, [0, 0, 0], [HR / 0.205, 1, HR / 0.205]); mesh(g, torus(1, 0.1), soft('#e2403a', { rough: 0.6 }), [0, 0.03, 0], [0.192, 0.192, 0.3], [Math.PI / 2, 0, 0]); }
-  if (on('fones')) { const m = soft(acC('fones', '#2b2f3a'), { rough: 0.4 }); mesh(J.head, torus(1, 0.06, 40, Math.PI), m, [0, 0.01, -0.01], [HR * 1.12, HR * 1.12, HR * 1.12]); for (const sx of [1, -1]) { mesh(J.head, SPH, m, [sx * HR * 1.04, -0.02, 0], [0.022, 0.05, 0.048]); mesh(J.head, torus(1, 0.3), soft('#f4f4f4', { rough: 0.9 }), [sx * HR * 1.0, -0.02, 0], [0.036, 0.036, 0.036], [0, Math.PI / 2, 0]); } }
-  if (on('laco')) { const m = soft(acC('laco', '#ff7ab8'), { rough: 0.5 }); const g = grp(J.head, [HR * 0.5, HR * 0.82, HR * 0.05], [0.2, 0, -0.45]); for (const sx of [1, -1]) mesh(g, SPH, m, [sx * 0.042, 0, 0], [0.042, 0.03, 0.016], [0, 0, sx * 0.35]); mesh(g, SPH, m, [0, 0, 0.004], [0.016, 0.018, 0.016]); }
+  // ---------- acessórios (cada um com modelos, cor e, nos de tecido, estampa) ----------
+  const st = (id, def) => A[id]?.estilo || def;
+  const accM = (id, def, o = {}) => (A[id]?.estampa && A[id].estampa !== 'liso' ? clothMat(acC(id, def), A[id].estampa) : soft(acC(id, def), o));
+  const tubeM = (parent, pts, rad, m, closed = false) => { const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((q) => V(...q)), closed), 48, rad, 8, closed), m); t.castShadow = true; parent.add(t); return t; };
+  if (on('bone')) {
+    const s = st('bone', 'classico'); const m = accM('bone', '#e2403a', { rough: 0.7 });
+    const g = grp(J.head, [0, HR * 0.1, -HR * 0.02], [-0.5, s === 'virado' ? Math.PI : 0, 0]);
+    mesh(g, cached('capdome', () => new THREE.SphereGeometry(1, 40, 20, 0, Math.PI * 2, 0, Math.PI * 0.52)), m, [0, 0, 0], [HR * 1.12, HR * 0.92, HR * 1.1]);
+    if (s === 'tela') { // boné de caminhoneiro: a parte de trás é uma telinha branca e na frente um emblema
+      mesh(g, cached('capback', () => new THREE.SphereGeometry(1, 30, 16, Math.PI, Math.PI, 0, Math.PI * 0.52)), new THREE.MeshStandardMaterial({ map: meshTex(), color: '#ffffff', roughness: 0.9 }), [0, 0, 0], [HR * 1.135, HR * 0.935, HR * 1.115]);
+      const badge = mesh(g, cached('badge', () => new THREE.CircleGeometry(1, 28)), new THREE.MeshStandardMaterial({ map: emojiTex('⭐', '#ffffff'), roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }), [0, HR * 0.42, HR * 0.97], HR * 0.28, [-0.5, 0, 0]); badge.castShadow = false;
+    }
+    if (s === 'aba_reta') mesh(g, roundBox(HR * 1.3, HR * 0.07, HR * 1.0, HR * 0.05), m, [0, HR * 0.12, HR * 1.05], 1, [0.5, 0, 0]);
+    else mesh(g, SPH, m, [0, HR * 0.12, HR * 1.0], [HR * 0.62, HR * 0.06, HR * 0.52], [0.4, 0, 0]);
+    mesh(g, SPHm, soft(s === 'tela' ? '#ffffff' : shade(acC('bone', '#e2403a'), 0, 0, -0.15)), [0, HR * 0.86, 0], HR * 0.07);
+  }
+  if (on('chapeu')) {
+    const s = st('chapeu', 'sol'); const palha = s === 'palha';
+    const m = palha ? new THREE.MeshStandardMaterial({ map: strawTex(acC('chapeu', '#f2d27a')), roughness: 0.95, side: THREE.DoubleSide }) : accM('chapeu', '#f2d27a', { rough: 0.8 });
+    const k = HR / 0.205; const g = grp(J.head, [0, HR * (s === 'pescador' ? 0.52 : 0.42), 0], [-0.1, 0, 0]);
+    if (s === 'pescador') {
+      mesh(g, lathe('pcopa', [[0, 0.13], [0.12, 0.128], [0.18, 0.09], [0.2, 0.02], [0.2, 0], [0, 0]], 40), m, [0, 0, 0], [k, 1, k]);
+      mesh(g, lathe('paba', [[0.19, 0.015], [0.25, -0.03], [0.29, -0.06], [0.285, -0.07], [0.24, -0.04], [0.19, 0.0]], 40), m, [0, 0, 0], [k, 1, k]);
+      for (let i = 0; i < 3; i++) mesh(g, torus(1, 0.04, 40), soft(shade(acC('chapeu', '#f2d27a'), 0, 0, -0.15)), [0, 0.04 + i * 0.03, 0], [0.198 * k - i * 0.004, 0.198 * k - i * 0.004, 0.3], [Math.PI / 2, 0, 0]);
+    } else if (s === 'vaqueiro') {
+      mesh(g, lathe('vaba', [[0, 0.01], [0.22, 0.008], [0.3, 0.03], [0.35, 0.085], [0.345, 0.09], [0.29, 0.04], [0.2, 0.02], [0, 0.02]], 40), m, [0, 0, 0], [k, 1, k * 0.82]);
+      mesh(g, lathe('vcopa', [[0, 0.17], [0.07, 0.15], [0.12, 0.175], [0.17, 0.14], [0.18, 0.02], [0.18, 0], [0, 0]], 40), m, [0, 0, 0], [k, 1, k * 0.9]);
+      mesh(g, torus(1, 0.08), soft('#5a3a22', { rough: 0.6 }), [0, 0.035, 0], [0.183 * k, 0.183 * k * 0.9, 0.3], [Math.PI / 2, 0, 0]);
+    } else {
+      const big = palha ? 1.12 : 1;
+      mesh(g, lathe('aba', [[0, 0.005], [0.2, 0.004], [0.32, 0.012], [0.345, 0.03], [0.34, 0.035], [0.3, 0.018], [0.2, 0.014], [0, 0.016]], 40), m, [0, 0, 0], [k * big, 1, k * big]);
+      mesh(g, lathe('copa', [[0, 0.14], [0.11, 0.135], [0.17, 0.1], [0.19, 0.02], [0.19, 0], [0, 0]], 40), m, [0, 0, 0], [k, 1, k]);
+      mesh(g, torus(1, 0.1), soft(palha ? '#e2403a' : '#ff7ab8', { rough: 0.6 }), [0, 0.03, 0], [0.192, 0.192, 0.3], [Math.PI / 2, 0, 0]);
+      if (palha) for (const sx of [1, -1]) mesh(g, SPHm, soft('#ffd34d'), [sx * 0.05 + 0.13, 0.05, 0.1], 0.025); // florzinhas na fita
+    }
+  }
+  if (on('fones')) {
+    const m = soft(acC('fones', '#2b2f3a'), { rough: 0.4 }); mesh(J.head, torus(1, 0.06, 40, Math.PI), m, [0, 0.01, -0.01], [HR * 1.12, HR * 1.12, HR * 1.12]);
+    for (const sx of [1, -1]) { mesh(J.head, SPH, m, [sx * HR * 1.04, -0.02, 0], [0.022, 0.05, 0.048]); mesh(J.head, torus(1, 0.3), soft('#f4f4f4', { rough: 0.9 }), [sx * HR * 1.0, -0.02, 0], [0.036, 0.036, 0.036], [0, Math.PI / 2, 0]); }
+    if (st('fones', 'grande') === 'gatinho') for (const sx of [1, -1]) { const e = grp(J.head, [sx * HR * 0.62, HR * 0.98, -0.01], [0, 0, -sx * 0.5]); mesh(e, GEO.cone, m, [0, 0.035, 0], [0.045, 0.08, 0.025]); mesh(e, GEO.cone, soft('#ff9ac8', { rough: 0.6 }), [0, 0.03, 0.012], [0.028, 0.055, 0.01]); }
+  }
+  if (on('laco')) {
+    const s = st('laco', 'laco'); const m = accM('laco', '#ff7ab8', { rough: 0.5 });
+    if (s === 'tiara') { const tg = grp(J.head, [0, 0, 0.02], [0.3, 0, 0]); mesh(tg, torus(1, 0.06, 40, Math.PI), m, [0, 0, 0], [HR * 1.14, HR * 1.14, HR * 1.14]); for (let i = 0; i < 5; i++) { const a = 0.6 + i * 0.48; mesh(tg, SPHm, soft('#ffffff', { rough: 0.3 }), [Math.cos(a) * HR * 1.18, Math.sin(a) * HR * 1.18, 0.012], 0.016); } }
+    else if (s === 'flor') { const g = grp(J.head, [HR * 0.86, HR * 0.66, HR * 0.38], [0.1, 0.9, -0.4]); g.scale.setScalar(1.3); for (let i = 0; i < 5; i++) { const a = (i / 5) * 6.28; mesh(g, SPH, m, [Math.cos(a) * 0.028, Math.sin(a) * 0.028, 0], [0.024, 0.024, 0.01]); } mesh(g, SPH, soft('#ffd34d'), [0, 0, 0.008], 0.016); }
+    else { const g = grp(J.head, [HR * 0.58, HR * 0.98, HR * 0.18], [0.2, 0, -0.45]); g.scale.setScalar(1.25); for (const sx of [1, -1]) mesh(g, SPH, m, [sx * 0.042, 0, 0], [0.042, 0.03, 0.016], [0, 0, sx * 0.35]); mesh(g, SPH, m, [0, 0, 0.004], [0.016, 0.018, 0.016]); }
+  }
   if (on('oculos') || on('oculos_sol')) {
-    const sol = on('oculos_sol'); const fm = soft(sol ? acC('oculos_sol', '#2b2f3a') : acC('oculos', '#3f63e0'), { rough: 0.3 });
-    const g = grp(J.head, [0, -HR * 0.02, HR * 0.86]);
+    const sol = on('oculos_sol'); const id = sol ? 'oculos_sol' : 'oculos'; const s = st(id, 'redondo');
+    const fm = soft(sol ? acC('oculos_sol', '#2b2f3a') : acC('oculos', '#3f63e0'), { rough: 0.3 });
+    const lensM = sol ? soft(s === 'coracao' || s === 'estrela' ? '#3a1a3a' : '#141820', { rough: 0.1, metal: 0.3, op: 0.88 }) : soft('#dff0ff', { rough: 0.05, op: 0.22 });
+    const g = grp(J.head, [0, -HR * 0.02, HR * 1.0]);
     for (const sx of [1, -1]) {
       const rr = sol ? 0.05 : 0.046;
-      mesh(g, torus(1, sol ? 0.12 : 0.08, 40), fm, [sx * 0.072, 0, 0], [rr, rr * (sol ? 0.86 : 0.95), rr]).castShadow = false; // aro fino
-      mesh(g, cached('lens', () => new THREE.CircleGeometry(1, 32)), sol ? soft('#141820', { rough: 0.1, metal: 0.3, op: 0.88 }) : soft('#dff0ff', { rough: 0.05, op: 0.22 }), [sx * 0.072, 0, 0.002], [rr * 0.94, rr * (sol ? 0.8 : 0.9), 1]).castShadow = false;
-      mesh(g, limbGeo(0.15, 0.0045, 0.0045), fm, [sx * 0.118, 0.005, -0.075], 1, [Math.PI / 2, 0, 0]).castShadow = false; // haste até a orelha
+      if (s === 'redondo') {
+        mesh(g, torus(1, sol ? 0.12 : 0.08, 40), fm, [sx * 0.072, 0, 0], [rr, rr * (sol ? 0.86 : 0.95), rr]).castShadow = false;
+        mesh(g, cached('lens', () => new THREE.CircleGeometry(1, 32)), lensM, [sx * 0.072, 0, 0.002], [rr * 0.94, rr * (sol ? 0.8 : 0.9), 1]).castShadow = false;
+      } else { // aro com o formato escolhido (quadrado, gatinho, coração, estrela) e a lente por dentro
+        const shp = lensShape(s); const flip = s === 'gatinho' ? -sx : 1;
+        mesh(g, cached('lf' + s, () => new THREE.ExtrudeGeometry(shp, { depth: 0.12, bevelEnabled: false, curveSegments: 20 })), fm, [sx * 0.072, 0, -0.004], [rr * 1.12 * flip, rr * 1.12, rr]).castShadow = false;
+        mesh(g, cached('ll' + s, () => new THREE.ShapeGeometry(shp, 20)), lensM, [sx * 0.072, 0, rr * 0.13], [rr * 0.9 * flip, rr * 0.9, 1]).castShadow = false;
+      }
+      mesh(g, limbGeo(0.18, 0.0045, 0.0045), fm, [sx * 0.122, 0.005, -0.09], 1, [Math.PI / 2, 0, 0]).castShadow = false; // haste até a orelha
     }
     mesh(g, torus(1, 0.18, 16, Math.PI), fm, [0, 0.006, 0.002], [0.022, 0.016, 0.022]).castShadow = false; // ponte
   }
-  if (on('mochila')) { const c = acC('mochila', '#ff8a2a'); const m = soft(c, { rough: 0.7 }), m2 = soft(shade(c, 0, 0, -0.14), { rough: 0.7 }); mesh(J.torso, roundBox(0.22, 0.25, 0.1, 0.04), m, [0, 0.15, -0.165]); mesh(J.torso, roundBox(0.16, 0.1, 0.04, 0.02), m2, [0, 0.09, -0.225]); mesh(J.torso, roundBox(0.012, 0.012, 0.03, 0.005), soft('#d8d8d8', { metal: 0.6, rough: 0.3 }), [0.05, 0.13, -0.245]); for (const sx of [1, -1]) mesh(J.torso, torus(1, 0.1, 24, Math.PI * 1.1), soft('#3a3a44', { rough: 0.7 }), [sx * 0.085, 0.18, -0.03], [0.13, 0.12, 0.13], [0, Math.PI / 2, -0.55]); }
-  if (on('colar')) {
-    const m = soft(acC('colar', '#ffd34d'), { rough: 0.25, metal: 0.6 }); const k = top.tipo === 'moletom' ? 1.06 : 1;
-    const pts = [[0, 0.312, -0.06], [0.06, 0.305, -0.035], [0.09, 0.292, 0.012], [0.075, 0.27, 0.07], [0.04, 0.245, 0.108], [0, 0.236, 0.122], [-0.04, 0.245, 0.108], [-0.075, 0.27, 0.07], [-0.09, 0.292, 0.012], [-0.06, 0.305, -0.035]].map(([x, y, z]) => V(x * k, y, z * k));
-    const chain = new THREE.Mesh(cached('colar' + k, () => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 80, 0.0042, 6, true)), m); chain.castShadow = false; J.torso.add(chain);
-    for (let i = 0; i < 18; i++) { const q = new THREE.CatmullRomCurve3(pts, true).getPointAt(i / 18); mesh(J.torso, SPHm, m, [q.x, q.y, q.z], 0.0058).castShadow = false; } // os elos
-    const pend = grp(J.torso, [0, 0.222, 0.124 * k], [-0.25, 0, 0]); mesh(pend, cached('star', () => { const sh = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 0.45 : 1; const fn = i ? 'lineTo' : 'moveTo'; sh[fn](Math.cos(a) * rr, -Math.sin(a) * rr); } return new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.12, bevelSegments: 2 }); }), m, [0, 0, 0], 0.017).castShadow = false;
+  if (on('mochila')) {
+    const s = st('mochila', 'classica'); const c = acC('mochila', '#ff8a2a'); const m = accM('mochila', '#ff8a2a', { rough: 0.7 }), m2 = soft(shade(c, 0, 0, -0.14), { rough: 0.7 });
+    const strapM = soft(shade(c, 0, -0.1, -0.3), { rough: 0.7 }); const k = top.tipo === 'moletom' ? 1.06 : 1;
+    const sc = (pts, sx = 1) => pts.map(([x, y, z]) => [x * sx * k, y, z * k]);
+    if (s === 'bolsinha') { // bolsinha de lado com a alça atravessando o peito
+      mesh(J.torso, roundBox(0.1, 0.09, 0.05, 0.022), m, [0.168 * k, 0.045, 0.03], 1, [0, 0.35, -0.1]); mesh(J.torso, roundBox(0.1, 0.04, 0.054, 0.016), m2, [0.168 * k, 0.07, 0.032], 1, [0, 0.35, -0.1]);
+      tubeM(J.torso, sc([[-0.088, 0.302, -0.01], [-0.09, 0.29, 0.045], [-0.06, 0.24, 0.113], [0, 0.18, 0.135], [0.07, 0.12, 0.123], [0.13, 0.075, 0.075], [0.16, 0.06, 0.035]]), 0.007, strapM);
+      tubeM(J.torso, sc([[-0.088, 0.302, -0.01], [-0.08, 0.29, -0.07], [-0.03, 0.23, -0.12], [0.05, 0.15, -0.132], [0.12, 0.085, -0.1], [0.165, 0.06, -0.01]]), 0.007, strapM);
+    } else {
+      mesh(J.torso, roundBox(0.22, 0.25, 0.1, 0.04), m, [0, 0.15, -0.165]);
+      mesh(J.torso, roundBox(0.16, 0.1, 0.04, 0.02), m2, [0, 0.09, -0.225]);
+      mesh(J.torso, roundBox(0.012, 0.012, 0.03, 0.005), soft('#d8d8d8', { metal: 0.6, rough: 0.3 }), [0.05, 0.13, -0.245]);
+      // as alças: saem de cima da mochila, passam pelo ombro, descem pela frente e voltam por baixo do braço
+      for (const sx of [1, -1]) tubeM(J.torso, sc([[0.07, 0.265, -0.118], [0.08, 0.292, -0.068], [0.088, 0.302, -0.01], [0.09, 0.29, 0.045], [0.092, 0.25, 0.093], [0.097, 0.2, 0.109], [0.12, 0.16, 0.088], [0.145, 0.155, 0.02], [0.13, 0.15, -0.07], [0.105, 0.14, -0.115]], sx), 0.0085, strapM);
+      if (s === 'bolsos') { for (const sx of [1, -1]) mesh(J.torso, roundBox(0.04, 0.1, 0.07, 0.016), m2, [sx * 0.118, 0.1, -0.165]); mesh(J.torso, torus(1, 0.18, 20, Math.PI), strapM, [0, 0.28, -0.165], [0.04, 0.03, 0.04]); mesh(J.torso, roundBox(0.16, 0.01, 0.01, 0.004), soft('#f4f4f4'), [0, 0.135, -0.246]); }
+      if (s === 'bichinho') { // mochila de bichinho: orelhas, olhinhos e focinho
+        for (const sx of [1, -1]) { mesh(J.torso, SPH, m, [sx * 0.075, 0.282, -0.165], [0.038, 0.038, 0.022]); mesh(J.torso, SPH, soft('#ffb0c8'), [sx * 0.075, 0.282, -0.15], [0.02, 0.02, 0.01]); mesh(J.torso, SPHm, soft('#1a1a1a', { rough: 0.2 }), [sx * 0.045, 0.2, -0.217], 0.013); mesh(J.torso, SPHm, soft('#ffffff'), [sx * 0.045 + 0.004, 0.205, -0.226], 0.004); }
+        mesh(J.torso, SPHm, soft('#3a2a2a'), [0, 0.165, -0.222], [0.014, 0.01, 0.008]);
+      }
+    }
   }
-  if (on('cachecol')) { const m = clothMat(acC('cachecol', '#e2403a')); mesh(J.torso, torus(1, 0.32), m, [0, 0.3, 0.005], [0.075, 0.068, 0.075], [Math.PI / 2 - 0.1, 0, 0]); mesh(J.torso, roundBox(0.05, 0.15, 0.022, 0.01), m, [0.045, 0.21, 0.115], 1, [0.12, 0, 0.12]); mesh(J.torso, roundBox(0.052, 0.012, 0.024, 0.005), clothMat('#ffffff'), [0.047, 0.15, 0.122], 1, [0.12, 0, 0.12]); }
-  if (on('relogio')) { const m = soft(acC('relogio', '#2b2f3a'), { rough: 0.5 }); mesh(J.handL, torus(1, 0.18), m, [0, 0.03, 0], [0.04, 0.04, 0.04], [Math.PI / 2, 0, 0]); mesh(J.handL, cached('wf', () => new THREE.CylinderGeometry(1, 1, 1, 24)), soft('#ffffff', { rough: 0.2 }), [0, 0.03, 0.042], [0.016, 0.006, 0.016], [Math.PI / 2, 0, 0]); }
-  if (on('pulseira')) { const m = soft(acC('pulseira', '#ff7ab8'), { rough: 0.3 }); mesh(J.handR, torus(1, 0.14), m, [0, 0.035, 0], [0.04, 0.04, 0.04], [Math.PI / 2, 0, 0]); for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.28; mesh(J.handR, SPHm, soft(['#ffffff', acC('pulseira', '#ff7ab8')][i % 2]), [Math.cos(a) * 0.04, 0.035, Math.sin(a) * 0.04], 0.007).castShadow = false; } }
+  if (on('colar')) {
+    const s = st('colar', 'estrela'); const m = soft(acC('colar', '#ffd34d'), { rough: 0.25, metal: s === 'contas' ? 0 : 0.6 }); const k = top.tipo === 'moletom' ? 1.06 : 1;
+    const pts = [[0, 0.312, -0.06], [0.06, 0.305, -0.035], [0.09, 0.292, 0.012], [0.075, 0.27, 0.07], [0.04, 0.245, 0.108], [0, 0.236, 0.122], [-0.04, 0.245, 0.108], [-0.075, 0.27, 0.07], [-0.09, 0.292, 0.012], [-0.06, 0.305, -0.035]].map(([x, y, z]) => V(x * k, y, z * k));
+    const curve = new THREE.CatmullRomCurve3(pts, true);
+    if (s === 'contas') { const cols = [acC('colar', '#ffd34d'), '#ffffff', '#ff7ab8', '#4fc3f7']; for (let i = 0; i < 22; i++) { const q = curve.getPointAt(i / 22); mesh(J.torso, SPHm, soft(cols[i % 4], { rough: 0.3 }), [q.x, q.y, q.z], 0.011).castShadow = false; } }
+    else {
+      const chain = new THREE.Mesh(cached('colar' + k, () => new THREE.TubeGeometry(curve, 80, 0.0042, 6, true)), m); chain.castShadow = false; J.torso.add(chain);
+      for (let i = 0; i < 18; i++) { const q = curve.getPointAt(i / 18); mesh(J.torso, SPHm, m, [q.x, q.y, q.z], 0.0058).castShadow = false; }
+      const pend = grp(J.torso, [0, 0.222, 0.124 * k], [-0.25, 0, 0]);
+      if (s === 'concha') { mesh(pend, cached('concha', () => new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), soft('#ffe0d0', { rough: 0.4 }), [0, -0.008, 0], [0.02, 0.008, 0.02], [Math.PI / 2, 0, 0]); for (let i = 0; i < 5; i++) mesh(pend, limbGeo(0.02, 0.0015, 0.0015), soft('#e8a090'), [(i - 2) * 0.007, 0.004, 0.006], 1, [0, 0, (i - 2) * 0.3]); }
+      else mesh(pend, cached(s === 'coracao' ? 'heart3' : 'star', () => new THREE.ExtrudeGeometry(s === 'coracao' ? heartShape() : starShape(), { depth: 0.3, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.12, bevelSegments: 2 })), s === 'coracao' ? soft('#ff5a8a', { rough: 0.25, metal: 0.3 }) : m, [0, 0, 0], 0.017).castShadow = false;
+    }
+  }
+  if (on('cachecol')) {
+    const m = accM('cachecol', '#e2403a'); const tm = A.cachecol?.estampa && A.cachecol.estampa !== 'liso' ? m : clothMat(acC('cachecol', '#e2403a'));
+    mesh(J.torso, torus(1, 0.32), tm, [0, 0.3, 0.005], [0.075, 0.068, 0.075], [Math.PI / 2 - 0.1, 0, 0]);
+    const long = st('cachecol', 'curto') === 'comprido';
+    mesh(J.torso, roundBox(0.05, long ? 0.24 : 0.15, 0.022, 0.01), tm, [0.045, long ? 0.165 : 0.21, long ? 0.122 : 0.115], 1, [0.12, 0, 0.12]);
+    if (long) mesh(J.torso, roundBox(0.05, 0.2, 0.022, 0.01), tm, [-0.03, 0.185, 0.126], 1, [0.1, 0, -0.08]);
+    mesh(J.torso, roundBox(0.052, 0.012, 0.024, 0.005), clothMat('#ffffff'), [0.047, long ? 0.05 : 0.15, long ? 0.134 : 0.122], 1, [0.12, 0, 0.12]);
+  }
+  if (on('relogio')) {
+    const m = soft(acC('relogio', '#2b2f3a'), { rough: 0.5 }); mesh(J.handL, torus(1, 0.18), m, [0, 0.03, 0], [0.04, 0.04, 0.04], [Math.PI / 2, 0, 0]);
+    if (st('relogio', 'redondo') === 'digital') { mesh(J.handL, roundBox(0.036, 0.03, 0.014, 0.005), m, [0, 0.03, 0.044]); mesh(J.handL, roundBox(0.026, 0.02, 0.004, 0.002), soft('#7df9a0', { glow: 0.6 }), [0, 0.03, 0.052]); }
+    else mesh(J.handL, cached('wf', () => new THREE.CylinderGeometry(1, 1, 1, 24)), soft('#ffffff', { rough: 0.2 }), [0, 0.03, 0.042], [0.016, 0.006, 0.016], [Math.PI / 2, 0, 0]);
+  }
+  if (on('pulseira')) {
+    const s = st('pulseira', 'contas'); const c = acC('pulseira', '#ff7ab8');
+    if (s === 'fita') { mesh(J.handR, torus(1, 0.1), soft(c, { rough: 0.6 }), [0, 0.035, 0], [0.04, 0.04, 0.05], [Math.PI / 2, 0, 0]); for (const sx of [1, -1]) mesh(J.handR, SPH, soft(c), [sx * 0.009, 0.035, 0.044], [0.01, 0.007, 0.004], [0, 0, sx * 0.4]); }
+    else if (s === 'amizade') ['#ff7ab8', '#ffd34d', c].forEach((cc, i) => mesh(J.handR, torus(1, 0.07), soft(cc, { rough: 0.8 }), [0, 0.028 + i * 0.008, 0], [0.04, 0.04, 0.04], [Math.PI / 2, 0, i * 0.4]));
+    else { mesh(J.handR, torus(1, 0.14), soft(c, { rough: 0.3 }), [0, 0.035, 0], [0.04, 0.04, 0.04], [Math.PI / 2, 0, 0]); for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.28; mesh(J.handR, SPHm, soft(['#ffffff', c][i % 2]), [Math.cos(a) * 0.04, 0.035, Math.sin(a) * 0.04], 0.007).castShadow = false; } }
+  }
   // sombra no chão
   if (!opts.noShadow) { const shm = new THREE.Mesh(new THREE.CircleGeometry(0.28, 24), new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.25, depthWrite: false })); shm.rotation.x = -Math.PI / 2; shm.position.y = 0.012; root.add(shm); J.shadow = shm; }
   const faces = { open: faceTex(look, false), happy: faceTex(look, true) };

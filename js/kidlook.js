@@ -10,7 +10,7 @@ export const HAIR = [
 export const EYES = [['redondo', 'Redondos'], ['grande', 'Grandões brilhantes'], ['amendoa', 'Amendoados'], ['feliz', 'Sorrindo (^^)'], ['sonolento', 'Sonolentos']];
 export const MOUTH = [['sorriso', 'Sorriso'], ['sorrisao', 'Sorrisão'], ['banguela', 'Banguela'], ['linguinha', 'Linguinha'], ['surpreso', 'Uau!'], ['timido', 'Tímido']];
 export const BROWS = [['normal', 'Normais'], ['alegre', 'Alegres'], ['decidido', 'Decididos'], ['grossa', 'Grossas']];
-export const TOPS = [['camiseta', 'Camiseta'], ['regata', 'Regata'], ['camisa', 'Camisa de botão'], ['blusa', 'Blusa de manga longa'], ['moletom', 'Moletom com capuz']];
+export const TOPS = [['camiseta', 'Camiseta'], ['regata', 'Regata'], ['camisa', 'Camisa de botão'], ['blusa', 'Blusa de manga longa'], ['moletom', 'Moletom com capuz'], ['vestido', 'Vestido']];
 export const BOTTOMS = [['short', 'Short'], ['bermuda', 'Bermuda'], ['calca', 'Calça'], ['saia', 'Saia']];
 export const SHOES = [['tenis', 'Tênis'], ['chinelo', 'Chinelo'], ['bota', 'Bota'], ['sandalia', 'Sandália']];
 export const PATTERNS = [['liso', 'Liso'], ['listras', 'Listras'], ['bolinhas', 'Bolinhas'], ['xadrez', 'Xadrez'], ['estrelas', 'Estrelinhas'], ['raios', 'Raios'], ['coracoes', 'Corações'], ['camuflado', 'Camuflado']];
@@ -20,6 +20,48 @@ export const ACCESSORIES = [
   ['mochila', 'Mochila', '🎒'], ['colar', 'Colar', '📿'], ['relogio', 'Relógio', '⌚'], ['pulseira', 'Pulseira', '💫'],
   ['laco', 'Laço', '🎀'], ['fones', 'Fones de ouvido', '🎧'], ['cachecol', 'Cachecol', '🧣'],
 ];
+// modelos de cada acessório (o formato muda de verdade) e quais aceitam estampa
+export const ACC_STYLES = {
+  bone: [['classico', 'Clássico'], ['tela', 'Com telinha'], ['aba_reta', 'Aba reta'], ['virado', 'Virado pra trás']],
+  chapeu: [['sol', 'De sol'], ['pescador', 'Pescador'], ['palha', 'De palha'], ['vaqueiro', 'Vaqueiro']],
+  oculos_sol: [['redondo', 'Redondo'], ['quadrado', 'Quadrado'], ['coracao', 'Coração'], ['estrela', 'Estrela']],
+  oculos: [['redondo', 'Redondo'], ['quadrado', 'Quadrado'], ['gatinho', 'Gatinho']],
+  mochila: [['classica', 'Clássica'], ['bolsos', 'Com bolsos'], ['bichinho', 'Bichinho'], ['bolsinha', 'Bolsinha de lado']],
+  colar: [['estrela', 'Estrela'], ['coracao', 'Coração'], ['concha', 'Concha'], ['contas', 'Continhas']],
+  relogio: [['redondo', 'De ponteiro'], ['digital', 'Digital']],
+  pulseira: [['contas', 'Continhas'], ['fita', 'Fitinha'], ['amizade', 'Da amizade']],
+  laco: [['laco', 'Lacinho'], ['tiara', 'Tiara'], ['flor', 'Presilha de flor']],
+  fones: [['grande', 'Grandão'], ['gatinho', 'Orelhinha de gato']],
+  cachecol: [['curto', 'Curtinho'], ['comprido', 'Comprido']],
+};
+export const ACC_PATTERN = ['bone', 'chapeu', 'mochila', 'cachecol', 'laco'];
+// desenho grande no peito da camiseta
+export const PRINTS = [['nenhum', 'Sem desenho', ''], ['dino', 'Dinossauro', '🦖'], ['urso', 'Ursinho', '🐻'], ['estrela', 'Estrela', '⭐'], ['coracao', 'Coração', '💖'], ['raio', 'Raio', '⚡'], ['sol', 'Solzinho', '🌞'], ['foguete', 'Foguete', '🚀'], ['gato', 'Gatinho', '🐱'], ['bola', 'Bola', '⚽']];
+// menino ou menina (escolhido ao criar o personagem): o que é só de um deles não aparece para o outro
+export const GENDERS = [['menino', 'Menino', '👦'], ['menina', 'Menina', '👧']];
+const ONLY = {
+  menina: ['cabelo:rabo', 'cabelo:chiquinhas', 'cabelo:coque', 'cabelo:comprido', 'topo:vestido', 'baixo:saia', 'acess:laco', 'colar:coracao', 'colar:contas', 'oculos:gatinho', 'oculos_sol:coracao', 'fones:gatinho', 'pulseira:amizade', 'desenho:coracao', 'estampa:coracoes', 'boca:linguinha'],
+  menino: ['cabelo:moicano', 'cabelo:careca'],
+};
+export const allowed = (genero, grupo, id) => !genero || !ONLY[genero === 'menino' ? 'menina' : 'menino'].includes(`${grupo}:${id}`);
+// deixa o visual de acordo com o menino/menina escolhido (troca o que não combina)
+export function fitGender(k) {
+  const g = k.genero; if (!g) return k;
+  if (!allowed(g, 'cabelo', k.cabelo.estilo)) k.cabelo.estilo = g === 'menina' ? 'rabo' : 'curto';
+  if (!allowed(g, 'topo', k.topo.tipo)) k.topo.tipo = 'camiseta';
+  if (!allowed(g, 'baixo', k.baixo.tipo)) k.baixo.tipo = 'short';
+  if (!allowed(g, 'desenho', k.topo.desenho)) k.topo.desenho = 'nenhum';
+  for (const part of [k.topo, k.baixo]) if (!allowed(g, 'estampa', part.estampa)) part.estampa = 'liso';
+  if (!allowed(g, 'boca', k.boca)) k.boca = 'sorriso';
+  for (const [id, v] of Object.entries(k.acess || {})) {
+    if (!allowed(g, 'acess', id)) { delete k.acess[id]; continue; }
+    if (v.estilo && !allowed(g, id, v.estilo)) v.estilo = ACC_STYLES[id][0][0];
+    if (v.estampa && !allowed(g, 'estampa', v.estampa)) v.estampa = 'liso';
+  }
+  return k;
+}
+// quem já tinha personagem antes da escolha: adivinha pelo visual (e pede para confirmar)
+export const guessGender = (k) => (['rabo', 'chiquinhas', 'coque', 'comprido'].includes(k.cabelo?.estilo) || k.baixo?.tipo === 'saia' || k.acess?.laco?.on ? 'menina' : 'menino');
 // chapéus não combinam entre si (e tiram o espaço do cabelo de cima)
 export const HEADWEAR = ['bone', 'chapeu', 'fones', 'laco'];
 export function defaultKid() {
@@ -27,28 +69,30 @@ export function defaultKid() {
     criado: false, nome: '',
     pele: SKIN[1], cabelo: { estilo: 'curto', cor: HAIR_COLORS[1] },
     olhos: { tipo: 'redondo', cor: EYE_COLORS[0] }, boca: 'sorriso', sobrancelha: 'normal', sardas: false, bochechas: true,
-    topo: { tipo: 'camiseta', cor: '#4fc3f7', estampa: 'liso' },
+    topo: { tipo: 'camiseta', cor: '#4fc3f7', estampa: 'liso', desenho: 'nenhum' },
     baixo: { tipo: 'short', cor: '#3f63e0', estampa: 'liso' },
     calcado: { tipo: 'tenis', cor: '#e2403a' },
-    acess: { mochila: { on: true, cor: '#ff8a2a' } },
+    acess: { mochila: { on: true, cor: '#ff8a2a', estilo: 'classica' } },
   };
 }
 // um visual sorteado (botão "Surpresa!")
 export function randomKid(base = defaultKid(), level = 99) {
   const pick0 = (a) => a[Math.floor(Math.random() * a.length)];
-  const p = (a, g) => { const ok = g ? a.filter((x) => lockLevel(g, x[0]) <= level) : a; return pick0(ok.length ? ok : a); };
+  const gen = base.genero;
+  const p = (a, g) => { const ok = (g ? a.filter((x) => lockLevel(g, x[0]) <= level) : a).filter((x) => !g || allowed(gen, g, x[0])); return pick0(ok.length ? ok : a); };
   const k = structuredClone(base);
   k.pele = p(SKIN); k.cabelo = { estilo: p(HAIR, 'cabelo')[0], cor: p(level >= LOCKS.corCabelo ? HAIR_COLORS : HAIR_COLORS.slice(0, FUN_HAIR_FROM)) };
   k.olhos = { tipo: p(EYES)[0], cor: p(EYE_COLORS) }; k.boca = p(MOUTH)[0]; k.sobrancelha = p(BROWS)[0];
   k.sardas = Math.random() < 0.35; k.bochechas = Math.random() < 0.7;
-  k.topo = { tipo: p(TOPS, 'topo')[0], cor: p(COLORS), estampa: p(PATTERNS, 'estampa')[0] };
+  k.topo = { tipo: p(TOPS, 'topo')[0], cor: p(COLORS), estampa: Math.random() < 0.5 ? 'liso' : p(PATTERNS, 'estampa')[0], desenho: Math.random() < 0.5 ? p(PRINTS)[0] : 'nenhum' };
   k.baixo = { tipo: p(BOTTOMS, 'baixo')[0], cor: p(COLORS), estampa: Math.random() < 0.7 ? 'liso' : p(PATTERNS, 'estampa')[0] };
   k.calcado = { tipo: p(SHOES, 'calcado')[0], cor: p(COLORS) };
   const accOk = (id) => lockLevel('acess', id) <= level;
-  k.acess = {}; const head = pick0([...HEADWEAR.filter(accOk), null, null]); if (head) k.acess[head] = { on: true, cor: p(COLORS) };
-  for (const [id] of ACCESSORIES) if (!HEADWEAR.includes(id) && accOk(id) && Math.random() < 0.25) k.acess[id] = { on: true, cor: p(COLORS) };
+  k.acess = {}; const head = pick0([...HEADWEAR.filter(accOk).filter((id) => allowed(gen, 'acess', id)), null, null]); if (head) k.acess[head] = { on: true, cor: p(COLORS) };
+  for (const [id] of ACCESSORIES) if (!HEADWEAR.includes(id) && accOk(id) && allowed(gen, 'acess', id) && Math.random() < 0.25) k.acess[id] = { on: true, cor: p(COLORS) };
+  for (const [id, v] of Object.entries(k.acess)) if (ACC_STYLES[id]) v.estilo = pick0(ACC_STYLES[id])[0];
   if (k.acess.oculos_sol && k.acess.oculos) delete k.acess.oculos;
-  return k;
+  return fitGender(k);
 }
 
 // o que cada nível do jogador libera no visual (o resto já vem liberado)

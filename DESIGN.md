@@ -276,3 +276,26 @@ companheiros, apelidos e o guia Raiozinho nos primeiros passos.
 - `js/season.js` — as épocas pelo calendário.
 - `js/app.js` — as telas. `js/audio.js` — sons (martelada, trovão) e música.
 - `dev/gallery.html` — galeria das 150 espécies.
+
+## Rodada 9 — estilo ilha tropical, cesta e barril, bichos sob comando
+
+- **Visual**: botões turquesa com contorno escuro, barra de baixo e janelas em madeira com pergaminho, nível numa estrela roxa. No cenário: luz mais quente, grama mais viva, trilhas de areia ligando os lotes, lagoinhas turquesa (sempre nos lotes `0,-1` e `-1,-1`, sorteadas nos outros; não dá para construir em cima) e uma lagoa ao norte. Tudo continua nas épocas.
+- **Comedouro = cesta de palha** (sem níveis): começa vazia. Fruta colhida e comida cozinhada na fazendinha vão direto para a cesta (até 30). A comida da cesta conta como item seu (`G.count`, `has`, `useItem`): dá para comer, cozinhar e entregar. Cada bicho come 1 a cada 3 min. **Bebedouro = barril de água**: basta existir.
+- **Bichos exploram sozinhos** (padrão, `explores`/`setExplore`): o que acham fica na bolsa e você pega com **🎒 Pegar tudo** (ou tocando nas bolhas). Pelo menu do bicho dá para mandar cortar, minerar, catar, plantar, regar, colher ou fundir (`COMMANDS`, `petCommands`, `commandPet`); ele para de explorar, faz a tarefa (o que pegar vai direto para o inventário, `takeDone`) e volta a explorar. A opção "Explorar: ligado/desligado" no menu do bicho é o único jeito de parar a exploração.
+- **Relógios** (`farm.setTimer` / `finishTimer`): círculo que enche em cima do personagem, do bicho trabalhando e do canteiro crescendo, e vira um ✔ verde no fim.
+- **Missões prontas**: fundo verde e borda colorida, sem piscar.
+
+## Rodada 10 — cenário mais leve e acessórios com modelos
+
+- Cenário mais claro: lotes bloqueados com sombra fraca (não mais escuros), troncos e copas mais claros, floresta distante mais viva e menos densa.
+- Acessórios com **modelos** (`ACC_STYLES`) e, nos de tecido, **estampa** (`ACC_PATTERN`): boné (clássico, com telinha, aba reta, virado), chapéu (sol, pescador, palha, vaqueiro), óculos (redondo, quadrado, coração, estrela, gatinho), mochila (clássica, com bolsos, bichinho, bolsinha de lado), colar (estrela, coração, concha, continhas), relógio, pulseira, laço/tiara/flor, fones de gatinho, cachecol comprido.
+- Desenho grande no peito da camiseta (`PRINTS`), cordinha no short, cadarço com laço no tênis. Boné e chapéu escondem o cabelo de cima (só ficam os lados e a parte de trás).
+- Alças da mochila agora são tubos que saem da mochila, passam pelo ombro, descem pela frente e voltam por baixo do braço. Óculos ficam na frente dos olhos.
+- `dev/acc.html?so=<acessório>&ang=<giro>` mostra todos os modelos (`so=print` para os desenhos).
+
+## Rodada 11 — canteiro que cresce, bolhas transparentes e menino/menina
+
+- **Canteiro**: ao plantar você escolhe a semente (`CROPS`: fruta, cenoura, alface, morango, tomate, girassol — algumas liberam no nível 2 e 3). O canteiro mostra quatro plantinhas: semente na terra → broto → planta crescendo (aumenta com o tempo) → pronta, com o fruto/legume/flor de verdade, e uma plaquinha com o que foi plantado. Cada uma cresce no seu tempo e dá o seu item; os comestíveis vão para a cesta. Os bichos plantam a última semente escolhida (`S.semente`).
+- **Bug antigo corrigido**: `makeObra` apagava o `userData` montado pelo modelo — por isso o canteiro nunca mostrava nada (e o fogo/água das construções não animavam).
+- **Bolhas dos itens**: o sprite agora é transparente fora do círculo (antes aparecia um quadrado em volta).
+- **Menino ou menina** (`genero`, escolhido ao criar; personagens antigos recebem um palpite e confirmam na aba Nome): `allowed()` esconde o que é só do outro (laço, saia, vestido, colar de coração/continhas, óculos gatinho/coração, cabelos compridos/chiquinhas/coque/rabo para menino; moicano e raspadinho para menina) e `fitGender()` troca o que não combina. Novo: **vestido** para menina.

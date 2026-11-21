@@ -127,7 +127,7 @@ const cached = (k, f) => { if (!geoCache.has(k)) geoCache.set(k, f()); return ge
 export function foliageGeo(color, variant = 0, light = 0.16) {
   return cached(`fol2|${color}|${variant}|${light}`, () => {
     const g = lumpy(new THREE.SphereGeometry(1, 11, 8), 0.24, variant * 7 + 1); g.computeVertexNormals();
-    const base = C(color), dark = C(shade(color, 0.01, 0.06, -0.17)), lite = C(shade(color, -0.025, 0.02, light));
+    const base = C(color), dark = C(shade(color, 0.01, 0.04, -0.09)), lite = C(shade(color, -0.025, 0.02, light + 0.04));
     const p = g.attributes.position; const col = new Float32Array(p.count * 3); const v = V(0, 0, 0);
     for (let i = 0; i < p.count; i++) {
       v.fromBufferAttribute(p, i); const t = THREE.MathUtils.clamp(v.y * 0.55 + 0.5 + (noise3(v.x * 3, v.y * 3, v.z * 3, variant) - 0.5) * 0.28, 0, 1);
@@ -204,4 +204,143 @@ export function groundVariation(m, strength = 0.14) {
   };
   m.customProgramCacheKey = () => 'groundvar' + strength;
   return m;
+}
+
+// =========================== rodada 9: estilo ilha tropical ===========================
+// palha trançada (a cesta do comedouro)
+export function strawTex(color) {
+  return canvasTex('straw|' + color, 256, 256, (x, w, h) => {
+    x.fillStyle = shade(color, 0, 0, -0.18); x.fillRect(0, 0, w, h); const r = rng(9); const n = 8, m = 16;
+    for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) { // trama: tiras que passam por cima e por baixo
+      const over = (i + j) % 2 === 0; const cx = (j + 0.5) * (w / n), cy = (i + 0.5) * (h / m);
+      const g = x.createLinearGradient(0, cy - h / m / 2, 0, cy + h / m / 2); const c0 = shade(color, (r() - 0.5) * 0.02, 0, over ? 0.08 : -0.06);
+      g.addColorStop(0, shade(c0, 0, 0, -0.16)); g.addColorStop(0.5, c0); g.addColorStop(1, shade(c0, 0, 0, -0.2)); x.fillStyle = g;
+      x.beginPath(); x.ellipse(cx, cy, w / n * 0.56, h / m * 0.46, 0, 0, 7); x.fill();
+    }
+    for (let i = 0; i < 160; i++) { x.globalAlpha = 0.35; x.strokeStyle = shade(color, 0, 0, 0.18); x.lineWidth = 1; const px = r() * w, py = r() * h; x.beginPath(); x.moveTo(px, py); x.lineTo(px + 8 + r() * 10, py + (r() - 0.5) * 2); x.stroke(); }
+  }, [3, 1]);
+}
+// aduelas de barril: tábuas em pé
+export function staveTex(color) {
+  return canvasTex('stave|' + color, 256, 128, (x, w, h) => {
+    const r = rng(13); const n = 10;
+    for (let i = 0; i < n; i++) {
+      const x0 = (i / n) * w; x.fillStyle = shade(color, (r() - 0.5) * 0.02, 0, (r() - 0.5) * 0.1); x.fillRect(x0, 0, w / n, h);
+      for (let k = 0; k < 6; k++) { x.strokeStyle = shade(color, 0, 0, -0.12 - r() * 0.08); x.globalAlpha = 0.5; x.lineWidth = 1; x.beginPath(); const xx = x0 + r() * w / n; x.moveTo(xx, 0); x.bezierCurveTo(xx + (r() - 0.5) * 4, h * 0.4, xx + (r() - 0.5) * 4, h * 0.6, xx + (r() - 0.5) * 3, h); x.stroke(); }
+      x.globalAlpha = 1; x.fillStyle = shade(color, 0, 0, -0.3); x.fillRect(x0, 0, 2, h);
+    }
+  }, [2, 1]);
+}
+// caminho de areia com bordas macias
+function sandTex(color) {
+  return canvasTex('sand|' + color, 64, 256, (x, w, h) => {
+    const g = x.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.22, '#000'); g.addColorStop(0.78, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = color; x.fillRect(0, 0, w, h); const r = rng(17);
+    for (let i = 0; i < 260; i++) { x.fillStyle = r() < 0.5 ? shade(color, 0, 0, -0.1) : shade(color, 0, 0, 0.08); x.fillRect(r() * w, r() * h, 1.5, 1.5); }
+    x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'source-over';
+  }, [1, 1]);
+}
+const SAND = { planta: '#e9c27a', agua: '#ecca86', vento: '#e4cc96', pedra: '#e8b872', gelo: '#e8f4fa', fogo: '#8a5a48', eletrico: '#a09ab8', cosmo: '#8a78c8' };
+// caminhos de areia ligando os lotes liberados (como as trilhas de uma ilha) e uma pracinha no meio
+export function sandPaths(world, el, zonas, ZONE, zoneCenter, parseKey) {
+  const col = SAND[el] || '#f1d79a';
+  const m = new THREE.MeshStandardMaterial({ map: sandTex(col), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 });
+  const g = new THREE.Group(); world.add(g);
+  const ribbon = (a, b, wid, seed) => {
+    const pts = []; const N = 14; const dx = b[0] - a[0], dz = b[1] - a[1]; const len = Math.hypot(dx, dz); const nx = -dz / len, nz = dx / len;
+    for (let i = 0; i <= N; i++) { const t = i / N; const off = Math.sin(t * Math.PI * 2 + seed) * 0.7 * Math.sin(t * Math.PI); pts.push([a[0] + dx * t + nx * off, a[1] + dz * t + nz * off]); }
+    const pos = [], uv = [], idx = [];
+    pts.forEach(([px, pz], i) => {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(N, i + 1)]; let tx = p1[0] - p0[0], tz = p1[1] - p0[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+      const w2 = wid * (0.85 + 0.15 * Math.sin(i * 1.7 + seed)) / 2;
+      pos.push(px - tz * w2, 0, pz + tx * w2, px + tz * w2, 0, pz - tx * w2); uv.push(0, i / N * len / 3, 1, i / N * len / 3);
+      if (i < N) { const k = i * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
+    });
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, m); mesh.position.y = 0.022; mesh.receiveShadow = true; mesh.renderOrder = 1; g.add(mesh);
+  };
+  const open = new Set(zonas); let seed = 1;
+  for (const k of open) {
+    const [cx, cz] = zoneCenter(k); const [zx, zz] = parseKey(k);
+    for (const [dx, dz] of [[1, 0], [0, 1]]) if (open.has(`${zx + dx},${zz + dz}`)) ribbon([cx, cz], [cx + dx * ZONE, cz + dz * ZONE], 1.7, seed++);
+  }
+  // pracinha redonda onde o personagem começa
+  const plazaTex = canvasTex('plaza|' + col, 128, 128, (x, w) => { const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, col); gr.addColorStop(0.72, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, w, w); const r = rng(4); for (let i = 0; i < 120; i++) { x.globalAlpha = 0.4; x.fillStyle = shade(col, 0, 0, r() < 0.5 ? -0.1 : 0.08); x.fillRect(16 + r() * 96, 16 + r() * 96, 2, 2); } });
+  const plaza = new THREE.Mesh(new THREE.CircleGeometry(2.4, 40), new THREE.MeshStandardMaterial({ map: plazaTex, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }));
+  plaza.rotation.x = -Math.PI / 2; plaza.position.set(0, 0.021, 1.2); plaza.renderOrder = 1; plaza.receiveShadow = true; g.add(plaza);
+  return g;
+}
+// a lagoa azul-turquesa além da borda norte da fazendinha (cada região com a sua água)
+const WATER = { planta: ['#6ff0e0', '#16a6d8'], agua: ['#7af2e8', '#1594d6'], vento: ['#8ff0f0', '#3aa8e0'], pedra: ['#7fe8d8', '#2a9ac8'], gelo: ['#d8fbff', '#6ac8e8'], fogo: ['#ffd04a', '#e8400a'], eletrico: ['#9ab8ff', '#2a3a9a'], cosmo: ['#d8a8ff', '#4a2a9a'] };
+export function lagoon(world, el, edgeZ, fogColor) {
+  const [shallow, deep] = WATER[el] || WATER.planta; const glow = el === 'fogo' ? 1.0 : 0.0;
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uT: WIND, cS: { value: C(shallow) }, cD: { value: C(deep) }, cF: { value: C(fogColor) }, uEdge: { value: edgeZ }, uGlow: { value: glow } },
+    vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: [
+      'uniform float uT; uniform vec3 cS; uniform vec3 cD; uniform vec3 cF; uniform float uEdge; uniform float uGlow; varying vec3 vW;',
+      'float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }',
+      'float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }',
+      'void main(){',
+      '  float shore = (uEdge - vW.z) + sin(vW.x * 0.35 + uT * 0.8) * 0.6;',
+      '  vec3 c = mix(cS, cD, smoothstep(0.5, 14.0, shore));',
+      '  float w = n(vW.xz * 0.5 + vec2(uT * 0.25, uT * 0.18)) * 0.6 + n(vW.xz * 1.3 - vec2(uT * 0.3, 0.0)) * 0.4;',
+      '  c += vec3(1.0) * smoothstep(0.72, 0.9, w) * 0.22 * (1.0 - smoothstep(10.0, 40.0, shore));',
+      '  float foam = smoothstep(1.2, 0.2, abs(shore - 0.9 - sin(uT * 1.3) * 0.35)) * 0.85;',
+      '  c = mix(c, vec3(1.0), foam * (1.0 - uGlow * 0.5));',
+      '  c *= 1.0 + uGlow * 0.6;',
+      '  c = mix(c, cF, smoothstep(40.0, 110.0, length(cameraPosition - vW)));',
+      '  gl_FragColor = vec4(c, 1.0);',
+      '  #include <colorspace_fragment>',
+      '}'].join('\n'),
+  });
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(320, 160, 1, 1), m); water.rotation.x = -Math.PI / 2; water.position.set(0, 0.045, edgeZ - 80 - 2.5); water.renderOrder = 2; world.add(water);
+  // praia de areia entre a fazendinha e a água
+  const col = SAND[el] || '#f1d79a';
+  const beachTex = canvasTex('beach|' + col, 64, 64, (x, w, hh) => { x.fillStyle = col; x.fillRect(0, 0, w, hh); const r = rng(8); for (let i = 0; i < 90; i++) { x.fillStyle = shade(col, 0, 0, r() < 0.5 ? -0.08 : 0.06); x.fillRect(r() * w, r() * hh, 1.5, 1.5); } }, [40, 2]);
+  const beach = new THREE.Mesh(new THREE.PlaneGeometry(320, 5.5), new THREE.MeshStandardMaterial({ map: beachTex, roughness: 1 })); beach.rotation.x = -Math.PI / 2; beach.position.set(0, 0.04, edgeZ - 2.75 + 0.3); beach.receiveShadow = true; world.add(beach);
+  return water;
+}
+
+// lagoinha redonda com margem de areia, água que brilha e (onde é verde) folhas de vitória-régia
+const pondMats = new Map();
+function pondMat(el, fogColor, dimmed) {
+  const k = el + fogColor + dimmed; if (pondMats.has(k)) return pondMats.get(k);
+  const [shallow, deep] = WATER[el] || WATER.planta; const glow = el === 'fogo' ? 1.0 : 0.0;
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uT: WIND, cS: { value: C(shallow) }, cD: { value: C(deep) }, cF: { value: C(fogColor) }, uGlow: { value: glow }, uDim: { value: dimmed ? 0.5 : 1.0 } },
+    vertexShader: 'attribute float aShore; varying float vS; varying vec3 vW; void main(){ vS = aShore; vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: [
+      'uniform float uT; uniform vec3 cS; uniform vec3 cD; uniform vec3 cF; uniform float uGlow; uniform float uDim; varying float vS; varying vec3 vW;',
+      'float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }',
+      'float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }',
+      'void main(){',
+      '  vec3 c = mix(cS, cD, smoothstep(0.05, 0.85, vS));',
+      '  float w = n(vW.xz * 1.6 + vec2(uT * 0.3, uT * 0.22)) * 0.6 + n(vW.xz * 3.1 - vec2(uT * 0.35, 0.0)) * 0.4;',
+      '  c += vec3(1.0) * smoothstep(0.7, 0.9, w) * 0.25;',
+      '  c = mix(c, vec3(1.0), smoothstep(0.16, 0.0, vS - 0.04 * sin(uT * 1.5 + vW.x * 2.0)) * 0.8 * (1.0 - uGlow * 0.4));',
+      '  c *= (1.0 + uGlow * 0.6) * uDim;',
+      '  c = mix(c, cF, smoothstep(40.0, 110.0, length(cameraPosition - vW)));',
+      '  gl_FragColor = vec4(c, 1.0);',
+      '  #include <colorspace_fragment>',
+      '}'].join('\n'),
+  });
+  pondMats.set(k, m); return m;
+}
+export function pond(world, el, p, open, fogColor) {
+  const r = rng(p.seed + 3); const N = 40; const rad = []; for (let i = 0; i < N; i++) rad.push(p.r * (0.86 + 0.14 * Math.sin(i * 0.9 + p.seed) + (r() - 0.5) * 0.08));
+  const shape = (scale, add) => { const pos = [0, 0, 0], sh = [1], idx = []; for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; const rr = rad[i] * scale + add; pos.push(Math.cos(a) * rr, 0, Math.sin(a) * rr); sh.push(0); idx.push(0, ((i + 1) % N) + 1, i + 1); } const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aShore', new THREE.Float32BufferAttribute(sh, 1)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+  const grp = new THREE.Group(); grp.position.set(p.x, 0, p.z); world.add(grp);
+  const col = SAND[el] || '#f1d79a'; const sandM = new THREE.MeshStandardMaterial({ color: open ? col : shade(col, 0, -0.2, -0.3), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 });
+  const shore = new THREE.Mesh(shape(1, 0.55), sandM); shore.position.y = 0.025; shore.receiveShadow = true; grp.add(shore);
+  const water = new THREE.Mesh(shape(1, 0), pondMat(el, fogColor, !open)); water.position.y = 0.05; grp.add(water);
+  if (['planta', 'agua', 'vento'].includes(el)) { // vitórias-régias e uma florzinha
+    const padM = new THREE.MeshStandardMaterial({ color: open ? '#4fb83a' : '#2e5a2a', roughness: 0.6, side: THREE.DoubleSide });
+    for (let i = 0; i < 4; i++) { const a = r() * 6.28, d = p.r * (0.25 + r() * 0.45); const pad = new THREE.Mesh(new THREE.CircleGeometry(0.22 + r() * 0.12, 12, 0.4, Math.PI * 2 - 0.5), padM); pad.rotation.set(-Math.PI / 2, 0, r() * 6); pad.position.set(Math.cos(a) * d, 0.065, Math.sin(a) * d); grp.add(pad);
+      if (i === 0 && open) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshStandardMaterial({ color: '#ff8ac8', roughness: 0.5 })); fl.position.set(pad.position.x, 0.11, pad.position.z); grp.add(fl); } }
+  }
+  // pedrinhas na margem
+  const stoneM = new THREE.MeshStandardMaterial({ color: open ? '#a8a2a0' : '#4a4848', roughness: 0.9, flatShading: true });
+  for (let i = 0; i < 5; i++) { const a = r() * 6.28; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.14 + r() * 0.12, 0), stoneM); const rr = rad[Math.floor((a / 6.28) * N) % N] + 0.35; st.position.set(Math.cos(a) * rr, 0.06, Math.sin(a) * rr); st.scale.y = 0.6; st.castShadow = open; grp.add(st); }
+  return grp;
 }

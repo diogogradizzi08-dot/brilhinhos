@@ -24,6 +24,15 @@ export const RES_R = { arvore: 0.8, rocha: 0.85, arbusto: 0.55 };
 export const SPAWN = [0, 2], NPC_SPOT = [3.4, -3.2];
 const RESERVED = [[...SPAWN, 2.2], [...NPC_SPOT, 1.8]];
 
+// lagoinhas azul-turquesa espalhadas pelos lotes (nunca no lote do meio)
+const pondCache = new Map();
+export function zonePond(rid, k) {
+  const ck = rid + '|' + k; if (pondCache.has(ck)) return pondCache.get(ck);
+  let out = null;
+  if (k !== '0,0') { const r = zoneRng(rid, k, 31); if (r() < 0.35 || k === '0,-1' || k === '-1,-1') { const [cx, cz] = zoneCenter(k); out = { x: cx + (r() - 0.5) * 4, z: cz + (r() - 0.5) * 4, r: 1.5 + r() * 1.1, seed: Math.floor(r() * 1000) }; } }
+  pondCache.set(ck, out); return out;
+}
+export const pondsOf = (rid, zonas) => zonas.map((k) => zonePond(rid, k)).filter(Boolean);
 const zoneCache = new Map();
 export function zoneResources(rid, el, k) {
   const ck = rid + '|' + k; if (zoneCache.has(ck)) return zoneCache.get(ck);
@@ -33,7 +42,7 @@ export function zoneResources(rid, el, k) {
   for (let i = 0; i < (center ? Math.min(2, nt) : nt + (rnd() < 0.5 ? 1 : 0)); i++) want.push('arvore');
   for (let i = 0; i < (center ? 1 : nr); i++) want.push('rocha');
   for (let i = 0; i < (center ? 1 : nb + (rnd() < 0.4 ? 1 : 0)); i++) want.push('arbusto');
-  const out = []; let n = 0;
+  const out = []; let n = 0; const pond = zonePond(rid, k);
   for (const tipo of want) {
     for (let tries = 0; tries < 40; tries++) {
       let x = cx + (rnd() - 0.5) * (ZONE - 2), z = cz + (rnd() - 0.5) * (ZONE - 2);
@@ -43,6 +52,7 @@ export function zoneResources(rid, el, k) {
       const r = RES_R[tipo];
       if (out.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + r + 1.1)) continue;
       if (center && RESERVED.some(([ax, az, ar]) => Math.hypot(ax - x, az - z) < ar + r)) continue;
+      if (pond && Math.hypot(pond.x - x, pond.z - z) < pond.r + r + 0.6) continue;
       out.push({ id: `${k}:${n++}`, tipo, x, z, r, s: 0.85 + rnd() * 0.35, rot: rnd() * 6.28 });
       break;
     }

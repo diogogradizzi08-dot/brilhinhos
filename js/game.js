@@ -2,10 +2,10 @@
 // automático (plantação, corte, mineração, forno), base (bancada e construções),
 // evolução, pedidos, resgates, presente do dia e Fusão do Trovão.
 import { ITEMS, RARITIES, RARITY_ORDER, FAMILIES, SPECIES, RECIPE_INDEX, recipeKey, REGIONS, EL_ITEMS,
-  EVOLVE_AT, EVOLVE_COST, ACHIEVEMENTS, ELEMENT_ORDER, skillsOf, yieldOf, BUILDINGS, CRAFTS, SKILLS, FORGE_MIN, CODEX_TOTAL, THEME_ITEM, SPECIAL_ITEM, COOKS } from './data.js';
-import { zoneResources, neighbors, insideOpen, MAX_ZONES, NPC_SPOT, ZONE_ORDER } from './world.js';
+  EVOLVE_AT, EVOLVE_COST, ACHIEVEMENTS, ELEMENT_ORDER, skillsOf, yieldOf, BUILDINGS, CROPS, CRAFTS, SKILLS, FORGE_MIN, CODEX_TOTAL, THEME_ITEM, SPECIAL_ITEM, COOKS } from './data.js';
+import { zoneResources, neighbors, insideOpen, MAX_ZONES, NPC_SPOT, ZONE_ORDER, pondsOf } from './world.js';
 import { themeOn, THEMES } from './season.js';
-import { defaultKid } from './kidlook.js';
+import { defaultKid, guessGender, fitGender } from './kidlook.js';
 
 const KEY = 'brilhinhos-save-v3';
 export const now = () => Date.now();
@@ -49,9 +49,14 @@ export function load() {
 }
 function fixup() {
   for (const r of REGIONS) { const g = (S.regioes[r.id] ||= newRegion(false)); g.zonas ||= ['0,0']; g.obras ||= []; g.rec ||= {}; }
-  S.boneco ||= defaultKid(); S.nextObra ||= 1; S.epoca ||= {}; S.missoes ||= [];
+  S.boneco ||= defaultKid(); if (S.boneco.criado && !S.boneco.genero) { S.boneco.genero = guessGender(S.boneco); fitGender(S.boneco); } S.nextObra ||= 1; S.epoca ||= {}; S.missoes ||= [];
   // fazendinhas antigas: o nível sai do tamanho que já tinham
   for (const r of REGIONS) { const g = S.regioes[r.id]; if (!g.flvl) { let l = 1; while (zonesForLevel(l) < g.zonas.length) l++; g.flvl = l; g.fxp = 0; } }
+  for (const r of REGIONS) for (const o of S.regioes[r.id].obras) if (o.tipo === 'comedouro' || o.tipo === 'bebedouro') {
+    if (o.tipo === 'comedouro' && !o.comida) { o.comida = {}; const n = Math.min(FEED_CAP, Math.round((o.estoque || 0) / 3)); if (n > 0) o.comida.fruta = n; }
+    delete o.estoque; delete o.nivel;
+  }
+  S.missoes = S.missoes.filter((m) => m.tipo !== 'cocho');
   syncBase();
 }
 // jogos da versão 3 (ilha redonda) viram o terreno em lotes, sem perder nada
@@ -85,13 +90,22 @@ const notify = (a) => S.avisos.push(a);
 export const takeNotices = () => S.avisos.splice(0);
 
 // ---------- itens, moedas e níveis ----------
-export const has = (id, n = 1) => (id === 'brilho' ? S.brilho : (S.itens[id] || 0)) >= n;
+export const FOOD_IDS = ['fruta', 'morango', 'cenoura', 'alface', 'tomate', 'espetinho', 'mingau', 'torta', 'racao'];
+export const isFood = (id) => FOOD_IDS.includes(id);
+const troughs = () => REGIONS.map((r) => S.regioes[r.id]?.obras.find((o) => o.tipo === 'comedouro')).filter(Boolean);
+// quanto você tem de um item: a mochila e, se for comida, o que está guardado nos comedouros
+export const count = (id) => (id === 'brilho' ? S.brilho : (S.itens[id] || 0) + (isFood(id) ? troughs().reduce((t, c) => t + (c.comida?.[id] || 0), 0) : 0));
+export const has = (id, n = 1) => count(id) >= n;
 export function addItem(id, n = 1) {
   if (id === 'brilho') { S.brilho += n; return; }
   S.itens[id] = (S.itens[id] || 0) + n;
   if (id === 'madeira') { S.stats.madeira += n; if (S.stats.madeira >= 50) achieve('lenhador'); }
 }
-export function useItem(id, n = 1) { if (id === 'brilho') { S.brilho -= n; return; } S.itens[id] = (S.itens[id] || 0) - n; if (S.itens[id] <= 0) delete S.itens[id]; }
+export function useItem(id, n = 1) {
+  if (id === 'brilho') { S.brilho -= n; return; }
+  const fromBag = Math.min(n, S.itens[id] || 0); S.itens[id] = (S.itens[id] || 0) - fromBag; if (S.itens[id] <= 0) delete S.itens[id]; n -= fromBag;
+  for (const c of troughs()) { if (n <= 0) break; const k = Math.min(n, c.comida?.[id] || 0); if (k) { c.comida[id] -= k; if (!c.comida[id]) delete c.comida[id]; n -= k; } }
+}
 export const playerXpNeed = (n = S.nivel) => 10 + n * 8;
 export function addXp(n) {
   S.xp += n;
@@ -312,24 +326,37 @@ const TASK_SKILL = { semear: 'semear', regar: 'regar', colher: 'coletar', catar:
 export const TASK_INFO = {
   semear: { nome: 'Semeando', icone: '🌱' }, regar: { nome: 'Regando', icone: '💦' }, colher: { nome: 'Colhendo', icone: '🧺' }, catar: { nome: 'Catando frutinhas', icone: '🫐' },
   fundir: { nome: 'Fundindo no forno', icone: '🔥' }, cortar: { nome: 'Cortando árvore', icone: '🪓' }, minerar: { nome: 'Minerando', icone: '⛏️' },
-  explorar: { nome: 'Explorando a região', icone: '🔎' }, cheio: { nome: 'Bolsa cheia — toque para pegar!', icone: '🎒' },
+  explorar: { nome: 'Explorando a região', icone: '🔎' }, cheio: { nome: 'Bolsa cheia — toque em Pegar tudo!', icone: '🎒' },
 };
-export const COCHO_CAP = [0, 3, 6, 10];
-export const COCHO_STOCK = [0, 30, 60, 100]; // quanta comida cabe no comedouro de cada nível
-export const PET_EAT_MS = 180000; // cada bicho come 1 ponto a cada 3 minutos
-// comedouro e bebedouro: um de cada por fazendinha; o nível precisa dar conta de quantos bichos tem
+export const FEED_CAP = 30; // a cesta guarda até 30 comidas
+export const PET_EAT_MS = 180000; // cada bicho come 1 comida a cada 3 minutos
+export const troughOf = (rid) => S.regioes[rid].obras.find((o) => o.tipo === 'comedouro') || null;
+export const troughTotal = (c) => (c ? Object.values(c.comida || {}).reduce((t, n) => t + n, 0) : 0);
+// comedouro (cesta) e bebedouro (barril): um de cada por fazendinha, sem níveis
 export function cochoState(rid) {
-  const pets = amigosEm(rid).length; const c = S.regioes[rid].obras.find((o) => o.tipo === 'comedouro'), b = S.regioes[rid].obras.find((o) => o.tipo === 'bebedouro');
-  const com = c ? c.nivel || 1 : 0, beb = b ? b.nivel || 1 : 0;
-  const estoque = c ? Math.max(0, c.estoque ?? 20) : 0; const vazio = !!c && estoque <= 0;
-  const fome = pets > 0 && (pets > COCHO_CAP[com] || vazio), sede = pets > 0 && pets > COCHO_CAP[beb];
-  return { pets, com, beb, capCom: COCHO_CAP[com], capBeb: COCHO_CAP[beb], estoque, maxEstoque: COCHO_STOCK[com], vazio, ok: !fome && !sede, fome, sede };
+  const pets = amigosEm(rid).length; const c = troughOf(rid); const beb = hasObra(rid, 'bebedouro');
+  const comida = troughTotal(c); const vazio = !!c && comida <= 0;
+  const fome = pets > 0 && (!c || vazio), sede = pets > 0 && !beb;
+  return { pets, com: !!c, beb, comida, itens: { ...(c?.comida || {}) }, cap: FEED_CAP, vazio, ok: !fome && !sede, fome, sede };
 }
-// encher o comedouro com comida (fruta, espetinho, mingau, torta, ração)
+// a comida colhida na fazendinha vai direto para a cesta (o que não couber vai para a mochila)
+export function storeFood(rid, id, n = 1) {
+  const c = rid && isFood(id) ? troughOf(rid) : null; let k = 0;
+  if (c) { k = Math.max(0, Math.min(n, FEED_CAP - troughTotal(c))); if (k) { c.comida ||= {}; c.comida[id] = (c.comida[id] || 0) + k; } }
+  if (n - k > 0) addItem(id, n - k);
+  if (id === 'fruta') S.stats.frutas += n;
+  return k;
+}
+// colocar comida da mochila na cesta, ou tirar da cesta para a mochila
 export function fillTrough(rid, item, n = 1) {
-  const c = S.regioes[rid].obras.find((o) => o.tipo === 'comedouro'); if (!c || !has(item, n) || !ITEMS[item].cocho && item !== 'fruta') return 0;
-  const per = item === 'fruta' ? 3 : ITEMS[item].cocho; const max = COCHO_STOCK[c.nivel || 1];
-  c.estoque = Math.min(max, (c.estoque ?? 20) + per * n); useItem(item, n); addFarmXp(rid, n); save(); return per * n;
+  const c = troughOf(rid); if (!c || !isFood(item)) return 0;
+  n = Math.min(n, S.itens[item] || 0, FEED_CAP - troughTotal(c)); if (n <= 0) return 0;
+  S.itens[item] -= n; if (S.itens[item] <= 0) delete S.itens[item];
+  c.comida ||= {}; c.comida[item] = (c.comida[item] || 0) + n; save(); return n;
+}
+export function takeFromTrough(rid, item, n = 1) {
+  const c = troughOf(rid); n = Math.min(n, c?.comida?.[item] || 0); if (n <= 0) return 0;
+  c.comida[item] -= n; if (!c.comida[item]) delete c.comida[item]; S.itens[item] = (S.itens[item] || 0) + n; save(); return n;
 }
 // ---------- a fome do jogador: trabalhar cansa, comer recupera ----------
 export const ENERGY_MAX = 100;
@@ -344,7 +371,7 @@ export function eat(item) {
 }
 export function cook(rid, station, id) {
   const r = COOKS[station]?.find((x) => x.id === id); if (!r || !hasObra(rid, station) || !canPay({ itens: r.custo })) return 0;
-  pay({ itens: r.custo }); addItem(id, r.qtd); addXp(2); addFarmXp(rid, 3); save(); return r.qtd;
+  pay({ itens: r.custo }); storeFood(rid, id, r.qtd); addXp(2); addFarmXp(rid, 3); save(); return r.qtd;
 }
 function taskDur(a, tipo, rid) {
   let d = BASE_DUR[tipo];
@@ -358,26 +385,58 @@ function taskDur(a, tipo, rid) {
   }
   return d * speedMul(rid);
 }
-function pickTask(a, rid, t) {
-  const can = (sk) => skillLevel(a, sk) > 0;
-  const plots = canteiros(rid); const res = resourcesOf(rid);
-  const freePlot = (st) => { const c = plots.filter((n) => !n.por && n.st === st); return c.length ? c[Math.floor(rnd() * c.length)].uid : null; };
-  const freeRes = (tipo) => { const c = res.filter((r) => r.tipo === tipo && !resState(rid, r.id).por && resAlive(rid, r.id, t)); return c.length ? c[Math.floor(rnd() * c.length)].id : null; };
-  const opts = [];
-  if (can('semear')) { const i = freePlot('vazio'); if (i != null) opts.push(['semear', i]); }
-  if (can('regar')) { const i = freePlot('semeado'); if (i != null) opts.push(['regar', i]); }
-  if (can('coletar')) { const i = freePlot('pronto'); if (i != null) opts.push(['colher', i]); }
-  if (can('acender') && hasObra(rid, 'forno') && S.base.fila > 0) opts.push(['fundir', -1]);
-  if (can('cortar')) { const i = freeRes('arvore'); if (i) opts.push(['cortar', i]); }
-  if (can('minerar')) { const i = freeRes('rocha'); if (i) opts.push(['minerar', i]); }
-  if (can('coletar')) { const i = freeRes('arbusto'); if (i) opts.push(['catar', i]); }
-  const [tipo, alvo] = opts[0] || ['explorar', -1];
+// as ordens que dá para dar a um bicho (cada uma pede a habilidade certa)
+export const COMMANDS = [
+  { tipo: 'cortar', nome: 'Cortar árvore', icone: '🪓', sk: 'cortar', res: 'arvore' },
+  { tipo: 'minerar', nome: 'Minerar pedra', icone: '⛏️', sk: 'minerar', res: 'rocha' },
+  { tipo: 'catar', nome: 'Catar frutinhas', icone: '🫐', sk: 'coletar', res: 'arbusto' },
+  { tipo: 'semear', nome: 'Plantar', icone: '🌱', sk: 'semear', plot: 'vazio' },
+  { tipo: 'regar', nome: 'Regar', icone: '💦', sk: 'regar', plot: 'semeado' },
+  { tipo: 'colher', nome: 'Colher', icone: '🧺', sk: 'coletar', plot: 'pronto' },
+  { tipo: 'fundir', nome: 'Fundir no forno', icone: '🔥', sk: 'acender' },
+  { tipo: 'explorar', nome: 'Explorar', icone: '🔎' },
+];
+// onde cada ordem pode ser feita agora (ids de recurso ou de canteiro livres)
+export function commandTargets(rid, tipo, t = now()) {
+  const c = COMMANDS.find((x) => x.tipo === tipo); if (!c) return [];
+  if (c.res) return resourcesOf(rid).filter((r) => r.tipo === c.res && !resState(rid, r.id).por && resAlive(rid, r.id, t)).map((r) => r.id);
+  if (c.plot) return canteiros(rid).filter((n) => !n.por && n.st === c.plot).map((n) => n.uid);
+  if (tipo === 'fundir') return hasObra(rid, 'forno') && S.base.fila > 0 ? [-1] : [];
+  return [-1];
+}
+export function petCommands(a) {
+  const rid = a.local; if (!rid) return [];
+  return COMMANDS.filter((c) => !c.sk || skillLevel(a, c.sk) > 0).map((c) => {
+    const alvos = commandTargets(rid, c.tipo);
+    const motivo = alvos.length ? '' : c.res ? 'Nenhuma livre agora' : c.plot ? { vazio: 'Nenhum canteiro vazio', semeado: 'Nada para regar', pronto: 'Nada pronto' }[c.plot] : c.tipo === 'fundir' ? (hasObra(rid, 'forno') ? 'Ponha ferro no forno' : 'Precisa da Fundição') : '';
+    return { ...c, alvos, ok: alvos.length > 0, motivo };
+  }).filter((c) => c.tipo !== 'explorar');
+}
+// explorar é o que o bicho faz sozinho; o jogador só liga ou desliga
+export const explores = (a) => a.explora !== false;
+export function setExplore(a, on) {
+  a.explora = !!on;
+  if (!on && a.task?.auto) { releaseTask(a); a.task = null; }
+  save(); tick(); return a.explora;
+}
+const bagFull = (a) => (a.bolsa?.length || 0) >= bagCap(a);
+function autoExplore(a, t) { const rid = a.local; return { tipo: 'explorar', alvo: -1, ini: t, fim: t + taskDur(a, 'explorar', rid), auto: true }; }
+// dá a ordem: o bicho vai até lá, trabalha e o que ele pegar vai direto para o inventário
+export function commandPet(a, tipo, alvo) {
+  const rid = a.local; if (!rid || busy(a)) return false;
+  const c = COMMANDS.find((x) => x.tipo === tipo); if (!c || (c.sk && skillLevel(a, c.sk) <= 0)) return false;
+  const alvos = commandTargets(rid, tipo); if (alvo == null) alvo = alvos[0]; if (!alvos.includes(alvo)) return false;
+  releaseTask(a); // para de explorar para fazer o que você pediu
   if (tipo === 'fundir') S.base.fila--;
   const node = nodeOf(rid, tipo, alvo); if (node) node.por = a.uid;
-  return { tipo, alvo, ini: t, fim: t + taskDur(a, tipo, rid) };
+  const t = now(); a.task = { tipo, alvo, ini: t, fim: t + taskDur(a, tipo, rid) }; save(); return true;
 }
+export function stopPet(a) { releaseTask(a); a.task = null; save(); tick(); }
 const yieldCount = (a) => { const y = yieldOf(a.sp); return Math.floor(y) + (rnd() < y % 1 ? 1 : 0); };
-function bagPush(a, item, n) { for (let i = 0; i < n && a.bolsa.length < bagCap(a); i++) a.bolsa.push(item); }
+// o que os bichos terminam aparece para a tela (itens voando); no jogo já está no inventário
+const doneQueue = [];
+export const takeDone = () => doneQueue.splice(0);
+function bagPush(a, item, n) { for (let i = 0; i < n; i++) a.bolsa.push(item); }
 function regionDrop(rid, a) {
   const reg = regionById(rid); const lvl = farmTier(rid);
   const match = SPECIES[a.sp].el === reg.el || SPECIES[a.sp].el === 'trovao';
@@ -398,21 +457,29 @@ function resourceLoot(rid, tipo, n, mineLvl = 0) {
   return out;
 }
 function completeTask(a, rid) {
-  const t = a.task; const g = S.regioes[rid];
+  const t = a.task; const g = S.regioes[rid]; const before = a.bolsa.length;
   const n = yieldCount(a); const node = nodeOf(rid, t.tipo, t.alvo);
   switch (t.tipo) {
-    case 'semear': if (node) node.st = 'semeado'; break;
-    case 'regar': if (node) Object.assign(node, { st: 'regado', ate: t.fim + GROW_TIME }); break;
-    case 'colher': if (node) node.st = 'vazio'; bagPush(a, 'fruta', n + frostBonus(rid)); break;
+    case 'semear': if (node) Object.assign(node, { st: 'semeado', planta: seedChoice() }); break;
+    case 'regar': if (node) Object.assign(node, { st: 'regado', ini: t.fim, ate: t.fim + cropOf(node).tempo }); break;
+    case 'colher': if (node) { const cp = cropOf(node); node.st = 'vazio'; bagPush(a, cp.item, n * cp.qtd + frostBonus(rid)); } break;
     case 'fundir': bagPush(a, 'barra', 1 + (n >= 3 ? 1 : 0)); break;
     case 'cortar': case 'minerar': case 'catar': {
       const tipo = t.tipo === 'cortar' ? 'arvore' : t.tipo === 'minerar' ? 'rocha' : 'arbusto';
       if (node && node.livre <= t.fim) { node.livre = t.fim + RESPAWN; for (const it of resourceLoot(rid, tipo, n, skillLevel(a, 'minerar'))) bagPush(a, it, 1); }
       break; }
-    case 'explorar': for (let i = 0; i < n; i++) bagPush(a, regionDrop(rid, a), 1); break;
+    case 'explorar': for (let i = 0; i < n; i++) if (!bagFull(a)) a.bolsa.push(regionDrop(rid, a)); break;
   }
   if (node) node.por = 0;
   amigoAddXp(a, 2);
+  // explorando, o que acha fica na bolsa dele (você pega com "Pegar tudo")
+  if (t.auto) { a.task = null; return; }
+  // tudo vai direto para o inventário (comida vai para a cesta do comedouro)
+  const got = a.bolsa.splice(before);
+  for (const it of got) { if (isFood(it)) storeFood(rid, it, 1); else addItem(it); }
+  if (S.stats.frutas >= 20) achieve('fazendeiro');
+  S.moedas += got.length; S.stats.coletas += got.length; addXp(got.length); addFarmXp(rid, Math.ceil(got.length / 2) + 1);
+  doneQueue.push({ uid: a.uid, rid, tipo: t.tipo, itens: got, alvo: t.alvo });
   a.task = null;
   void g;
 }
@@ -429,33 +496,31 @@ export function tick(t = now()) {
     if (!a.local) continue;
     a.bolsa ||= [];
     if (busy(a, t)) continue;
-    for (let guard = 0; guard < 400; guard++) {
-      if (a.task && t >= a.task.fim) {
-        const fim = a.task.fim; completeTask(a, a.local); changed = true;
-        for (const c of canteiros(a.local)) if (c.st === 'regado' && fim >= c.ate) c.st = 'pronto';
-        if (a.bolsa.length >= bagCap(a)) break;
-        a.task = pickTask(a, a.local, fim);
-        continue;
-      }
-      if (!a.task && a.bolsa.length < bagCap(a)) { a.task = pickTask(a, a.local, t); changed = true; }
+    for (let guard = 0; guard < 300; guard++) {
+      if (a.task && t >= a.task.fim) { const fim = a.task.fim; completeTask(a, a.local); changed = true; for (const c of canteiros(a.local)) if (c.st === 'regado' && fim >= c.ate) c.st = 'pronto'; if (explores(a) && !bagFull(a)) { a.task = autoExplore(a, fim); continue; } }
+      if (!a.task && explores(a) && !bagFull(a)) { a.task = autoExplore(a, t); changed = true; }
       break;
     }
   }
   if (S.fusao && S.fusao.ate <= t && !S.fusao.pronta) { S.fusao.pronta = true; changed = true; }
   const last = S.ultimoTick || t; const dt = Math.max(0, Math.min(t - last, 8 * 3600000)); S.ultimoTick = t;
   if (dt > 0) {
-    for (const r of REGIONS) { const pets = amigosEm(r.id).length; if (!pets) continue; const c = S.regioes[r.id].obras.find((o) => o.tipo === 'comedouro'); if (c) c.estoque = Math.max(0, (c.estoque ?? 20) - pets * dt / PET_EAT_MS); }
+    for (const r of REGIONS) { // os bichos comem da cesta, a comida mais simples primeiro
+      const pets = amigosEm(r.id).length; const c = troughOf(r.id); if (!pets || !c) continue;
+      c.fomeAcc = (c.fomeAcc || 0) + pets * dt / PET_EAT_MS;
+      while (c.fomeAcc >= 1) { const id = FOOD_IDS.find((f) => c.comida?.[f] > 0); if (!id) { c.fomeAcc = Math.min(c.fomeAcc, 1); break; } c.comida[id]--; if (!c.comida[id]) delete c.comida[id]; c.fomeAcc--; changed = true; }
+    }
     S.energia = Math.min(ENERGY_MAX, energy() + dt / 120000); // +1 a cada 2 minutos descansando
   }
   if (changed) save();
   return changed;
 }
-export const taskOf = (a) => (a.bolsa?.length >= bagCap(a) ? 'cheio' : a.task?.tipo || null);
+export const taskOf = (a) => a.task?.tipo || (bagFull(a) ? 'cheio' : null);
 // pega tudo o que está na bolsa do companheiro
 export function collect(a) {
   if (!a.bolsa?.length) return [];
   const got = a.bolsa.splice(0);
-  for (const it of got) { addItem(it); if (it === 'fruta') S.stats.frutas++; }
+  for (const it of got) { if (isFood(it)) storeFood(a.local, it, 1); else addItem(it); }
   if (S.stats.frutas >= 20) achieve('fazendeiro');
   S.moedas += got.length; S.stats.coletas += got.length; addXp(got.length); if (a.local) addFarmXp(a.local, Math.ceil(got.length / 2));
   tick(); save(); return got;
@@ -471,18 +536,23 @@ export function playerGather(rid, id) {
   if (st.por) { const who = S.amigos.find((x) => x.uid === st.por); if (who) { releaseTask(who); who.task = null; } st.por = 0; }
   st.livre = now() + RESPAWN; spend(rid, 4);
   const got = resourceLoot(rid, res.tipo, 1);
-  for (const it of got) addItem(it);
+  let cesta = 0; for (const it of got) { if (isFood(it)) cesta += storeFood(rid, it, 1); else addItem(it); }
   S.stats.coletas += got.length; addXp(1); addFarmXp(rid, 3); save();
-  return { itens: got };
+  return { itens: got, cesta };
 }
 export function plotState(rid, uid) { return S.regioes[rid].obras.find((o) => o.uid === uid && o.tipo === 'canteiro'); }
-export function playerPlant(rid, uid) { const c = plotState(rid, uid); if (!c || c.st !== 'vazio' || c.por) return false; c.st = 'semeado'; spend(rid, 2); addXp(1); addFarmXp(rid, 2); save(); return true; }
-export function playerWater(rid, uid) { const c = plotState(rid, uid); if (!c || c.st !== 'semeado' || c.por) return false; Object.assign(c, { st: 'regado', ate: now() + GROW_TIME }); spend(rid, 2); addXp(1); addFarmXp(rid, 2); save(); return true; }
+// o que plantar: o jogador escolhe; os bichos plantam a última semente escolhida
+export const cropOf = (c) => CROPS[c?.planta] || CROPS.fruta;
+export const cropOpen = (id) => !!CROPS[id] && S.nivel >= CROPS[id].nivel;
+export const seedChoice = () => (cropOpen(S.semente) ? S.semente : 'fruta');
+export function playerPlant(rid, uid, crop = seedChoice()) { const c = plotState(rid, uid); if (!c || c.st !== 'vazio' || c.por || !CROPS[crop] || !cropOpen(crop)) return false; c.st = 'semeado'; c.planta = crop; S.semente = crop; spend(rid, 2); addXp(1); addFarmXp(rid, 2); save(); return true; }
+export function playerWater(rid, uid) { const c = plotState(rid, uid); if (!c || c.st !== 'semeado' || c.por) return false; Object.assign(c, { st: 'regado', ini: now(), ate: now() + cropOf(c).tempo }); spend(rid, 2); addXp(1); addFarmXp(rid, 2); save(); return true; }
 export function harvestPlot(rid, uid) {
   const c = plotState(rid, uid); if (!c || c.st !== 'pronto' || c.por) return 0;
-  c.st = 'vazio'; const n = 1 + frostBonus(rid); addItem('fruta', n); S.stats.frutas += n; if (S.stats.frutas >= 20) achieve('fazendeiro');
-  addXp(1); addFarmXp(rid, 2); save(); return n;
+  const cp = cropOf(c); c.st = 'vazio'; const n = cp.qtd + frostBonus(rid); if (isFood(cp.item)) storeFood(rid, cp.item, n); else addItem(cp.item, n); if (S.stats.frutas >= 20) achieve('fazendeiro');
+  lastHarvest = cp.item; addXp(1); addFarmXp(rid, 2); save(); return n;
 }
+export let lastHarvest = 'fruta';
 export function collectSparkle(rid) {
   const g = S.regioes[rid]; if (g.brilhos <= 0) return null;
   if (g.brilhos === 3) g.brilhoDesde = now();
@@ -549,13 +619,13 @@ export function canPlace(rid, tipo, x, z, ignore = null) {
   for (const res of resourcesOf(rid)) if (Math.hypot(res.x - x, res.z - z) < res.r + r + 0.1) return { ok: false, motivo: 'Tem uma árvore ou pedra aqui' };
   for (const o of g.obras) if (o.uid !== ignore && Math.hypot(o.x - x, o.z - z) < BUILDINGS[o.tipo].r + r + 0.05) return { ok: false, motivo: 'Já tem uma construção aqui' };
   if (Math.hypot(NPC_SPOT[0] - x, NPC_SPOT[1] - z) < 1.4 + r) return { ok: false, motivo: 'Aqui mora quem pede ajuda' };
+  for (const p of pondsOf(rid, g.zonas)) if (Math.hypot(p.x - x, p.z - z) < p.r + r + 0.1) return { ok: false, motivo: 'Aqui é água' };
   return { ok: true };
 }
 function addObra(rid, tipo, x, z, rot = 0) {
   const o = { uid: S.nextObra++, tipo, x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, rot };
   if (tipo === 'canteiro') Object.assign(o, { st: 'vazio', ate: 0, por: 0 });
-  if (BUILDINGS[tipo].cocho) o.nivel = 1;
-  if (tipo === 'comedouro') o.estoque = 20;
+  if (tipo === 'comedouro') o.comida = {}; // a cesta começa vazia
   S.regioes[rid].obras.push(o); syncBase(); return o;
 }
 export function build(rid, id, x, z, rot = 0) {
@@ -741,7 +811,7 @@ export { ELEMENT_ORDER, SKILLS };
 
 // ---------- missões ----------
 // tipos: fazenda (juntar recursos da fazendinha) · epoca (item especial da época) ·
-// cocho (aumentar comedouro/bebedouro) · construir (fazer uma construção) · evolucao (ajudar um bicho a evoluir)
+// construir (fazer uma construção) · evolucao (ajudar um bicho a evoluir)
 const FARM_TITLES = [['Estoque da fazendinha', '📦'], ['Cerca nova', '🪵'], ['Festa da colheita', '🧺'], ['Caixa de ferramentas', '🧰'], ['Piquenique', '🧺'], ['Reforma do celeiro', '🏚️']];
 const SEASON_MIS = {
   natal: ['Enfeitar o Natal', '🎄', { enfeite: 2, madeira: 3, fruta: 2 }], ferias: ['Dia de praia', '🏖️', { coco: 2, fruta: 3, orvalho: 2 }],
@@ -756,7 +826,7 @@ export function fillMissions(cur) {
   S.missoes = list.filter((m) => {
     if (m.tipo === 'evolucao') { const a = S.amigos.find((x) => x.uid === m.uid); return a && SPECIES[a.sp].stage === m.stage && !a.evoOk?.[m.stage]; }
     if (m.tipo === 'epoca') return m.tema === t;
-    if (m.tipo === 'cocho') { const o = S.regioes[m.rid].obras.find((x) => x.tipo === m.obra); return o && (o.nivel || 1) < m.para; }
+    if (m.tipo === 'cocho') return false;
     return true;
   });
   const has = (f) => S.missoes.some(f);
@@ -774,11 +844,6 @@ export function fillMissions(cur) {
     for (const ob of ['comedouro', 'bebedouro']) {
       const o = g.obras.find((x) => x.tipo === ob);
       if (!o && pets && !has((m) => m.tipo === 'construir' && m.rid === r.id && m.obra === ob)) S.missoes.push({ id: mid(), tipo: 'construir', rid: r.id, obra: ob, titulo: `${BUILDINGS[ob].nome} em ${r.nome}`, icone: BUILDINGS[ob].icone, pede: {}, premio: { moedas: 12, xp: 6, fxp: 12 } });
-      const lvl = o?.nivel || 1;
-      if (o && lvl < 3 && pets > COCHO_CAP[lvl] && !has((m) => m.tipo === 'cocho' && m.rid === r.id && m.obra === ob)) {
-        const pede = ob === 'comedouro' ? { madeira: 4 * lvl + 2, fruta: 3 * lvl, ferro: 2 * lvl } : { seixo: 3 * lvl + 1, orvalho: 2 * lvl + 1, ferro: 2 * lvl };
-        S.missoes.push({ id: mid(), tipo: 'cocho', rid: r.id, obra: ob, para: lvl + 1, titulo: `${BUILDINGS[ob].nome} maior`, icone: BUILDINGS[ob].icone, pede, premio: { moedas: 15 * lvl, xp: 8, fxp: 15 } });
-      }
     }
   }
   // uma missão da fazendinha onde você está
@@ -800,7 +865,7 @@ export function fillMissions(cur) {
 }
 // o que falta em cada missão
 export function missionRows(m) {
-  const rows = Object.entries(m.pede || {}).map(([id, n]) => ({ id, n, tem: id === 'brilho' ? S.brilho : S.itens[id] || 0 }));
+  const rows = Object.entries(m.pede || {}).map(([id, n]) => ({ id, n, tem: count(id) }));
   for (const r of rows) r.ok = r.tem >= r.n;
   if (m.tipo === 'construir') rows.push({ obra: m.obra, n: 1, tem: hasObra(m.rid, m.obra) ? 1 : 0, ok: hasObra(m.rid, m.obra) });
   return rows;
@@ -814,7 +879,6 @@ export function completeMission(id) {
   for (const [it, n] of Object.entries(p.itens || {})) addItem(it, n);
   let efeito = null;
   if (m.tipo === 'evolucao') { const a = S.amigos.find((x) => x.uid === m.uid); if (a) { (a.evoOk ||= {})[m.stage] = true; amigoAddXp(a, 10); efeito = { tipo: 'evolucao', amigo: a }; } }
-  if (m.tipo === 'cocho') { const o = S.regioes[m.rid].obras.find((x) => x.tipo === m.obra); if (o) { o.nivel = m.para; efeito = { tipo: 'cocho', rid: m.rid, obra: m.obra, nivel: o.nivel }; } }
   S.missoes = S.missoes.filter((x) => x !== m); S.stats.missoes = (S.stats.missoes || 0) + 1;
   fillMissions(m.rid); save();
   return { ...p, efeito, m };

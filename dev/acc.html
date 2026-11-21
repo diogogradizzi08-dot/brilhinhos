@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Acessórios</title><style>body{margin:0;background:#bfe6ff}canvas{display:block;width:100vw;height:100vh}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// vitrine de teste: cada modelo de acessório (?ang=3.14 para ver de costas, ?so=mochila para um só)
+import * as THREE from '../js/vendor/three.module.js';
+import { buildKid } from '../js/kid3d.js';
+import { defaultKid, ACC_STYLES, PRINTS } from '../js/kidlook.js';
+const q = new URLSearchParams(location.search); const ang = +q.get('ang') || 0; const so = q.get('so');
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true }); r.setPixelRatio(devicePixelRatio); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping;
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#bfe6ff');
+sc.add(new THREE.HemisphereLight('#ffffff', '#6a8a5a', 1.6)); const d = new THREE.DirectionalLight('#fff', 2.4); d.position.set(2, 4, 3); sc.add(d);
+const looks = [];
+for (const [id, list] of Object.entries(ACC_STYLES)) { if (so && so !== id) continue; for (const [est] of list) { const L = defaultKid(); L.acess = { [id]: { on: true, cor: '#ff8a2a', estilo: est } }; if (q.get('pat')) L.acess[id].estampa = q.get('pat'); looks.push(L); } }
+if (!so || so === 'print') for (const [p] of PRINTS.slice(1, 5)) { const L = defaultKid(); L.acess = {}; L.topo.cor = '#ffffff'; L.topo.desenho = p; L.calcado.cor = '#ff6a2a'; L.baixo.cor = '#ff6a2a'; looks.push(L); }
+const cols = q.get('so') ? 4 : 8; const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
+looks.forEach((L, i) => { const k = buildKid(L); k.position.set((i % cols - (cols - 1) / 2) * 0.62, 0, -Math.floor(i / cols) * 1.1); k.rotation.y = ang; k.userData.ctrl.update(0.1, 0.016); sc.add(k); });
+const rows = Math.ceil(looks.length / cols);
+function loop() { requestAnimationFrame(loop); const w = innerWidth, h = innerHeight; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); cam.position.set(0, 1.8 + rows * 0.4, 3.2 + rows * 0.9); cam.lookAt(0, 0.6, -rows * 0.5); r.render(sc, cam); }
+loop();
+</script></body></html>

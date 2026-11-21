@@ -17,11 +17,11 @@ list.forEach(([id], i) => {
   const look = defaultKid(); look.acess = mode === 'roupa' ? { colar: { on: true, cor: '#ffd34d' } } : {};
   if (mode === 'cabelo') look.cabelo = { estilo: id, cor: HAIR_COLORS[i % 6] };
   if (mode === 'pes') { look.calcado = { tipo: id, cor: ['#e2403a', '#3f63e0', '#5fd27a', '#ff7ab8'][i] }; look.baixo.tipo = 'short'; }
-  if (mode === 'roupa') look.topo = { tipo: id, cor: ['#ffb020', '#4fc3f7', '#ffffff', '#8a5cd6', '#e2403a'][i], estampa: 'liso' };
+  if (mode === 'roupa') look.topo = { tipo: id, cor: ['#ffb020', '#4fc3f7', '#ffffff', '#8a5cd6', '#e2403a', '#ff7ab8'][i], estampa: 'liso' };
   const k = buildKid(look); const cols = mode === 'cabelo' ? 6 : list.length; k.position.set((i % cols - (cols - 1) / 2) * 0.62, 0, -Math.floor(i / cols) * 1.0); k.rotation.y = ang; k.userData.ctrl.update(0.1, 0.016); sc.add(k);
 });
 function loop() { requestAnimationFrame(loop); const w = innerWidth, h = innerHeight; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
-  if (mode === 'pes') { cam.position.set(0, 0.55, 2.0); cam.lookAt(0, 0.08, 0); } else if (mode === 'roupa') { cam.position.set(0, 0.95, 3.0); cam.lookAt(0, 0.65, 0); } else { cam.position.set(0, 1.6, 4.2); cam.lookAt(0, 0.85, -0.5); }
+  if (mode === 'pes') { cam.position.set(0, 0.55, 2.0); cam.lookAt(0, 0.08, 0); } else if (mode === 'roupa') { cam.position.set(0, 0.95, 3.6); cam.lookAt(0, 0.65, 0); } else { cam.position.set(0, 1.6, 4.2); cam.lookAt(0, 0.85, -0.5); }
   r.render(sc, cam); }
 loop();
 </script></body></html>

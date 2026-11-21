@@ -20,9 +20,18 @@ const planta = r.amigo; ok(G.skillLevel(planta, 'semear') > 0, 'companheiro de p
 G.addItem('concha', 3); const ag = G.mix(['concha', 'concha', 'concha']).amigo; ok(G.skillLevel(ag, 'regar') > 0, 'companheiro de água rega');
 G.placeAmigo(planta, 'floresta'); G.placeAmigo(ag, 'floresta');
 let t = Date.now();
-for (let i = 0; i < 40; i++) { t += 5000; G.tick(t); }
 const plots = () => G.obrasOf('floresta').filter((o) => o.tipo === 'canteiro');
-ok(plots().some((c) => c.st !== 'vazio') || planta.bolsa.includes('fruta'), 'canteiros foram trabalhados: ' + plots().map((c) => c.st).join(','));
+G.tick(t); ok(planta.task?.tipo === 'explorar' && planta.task.auto, 'sem ordem o bicho explora sozinho');
+ok(G.petCommands(planta).some((c) => c.tipo === 'semear' && c.ok), 'o bicho de planta sabe plantar');
+ok(G.commandPet(planta, 'semear') && planta.task?.tipo === 'semear', 'manda o bicho plantar (para de explorar)');
+ok(!G.commandPet(ag, 'cortar'), 'não manda fazer o que ele não sabe');
+G.tick(planta.task.fim + 10); ok(plots().some((c) => c.st === 'semeado') && planta.task?.tipo === 'explorar', 'o bicho plantou e voltou a explorar');
+ok(G.commandPet(ag, 'regar'), 'manda o bicho de água regar'); G.tick(ag.task.fim + 10); ok(plots().some((c) => c.st === 'regado'), 'regou');
+G.tick(Date.now() + 3600000); ok(ag.bolsa.length === G.bagCap(ag) && G.taskOf(ag) === 'cheio', 'explorando enche a bolsa e para');
+const n0 = Object.values(G.S.itens).reduce((x, y) => x + y, 0); const gotB = G.collect(ag); ok(gotB.length && !ag.bolsa.length && ag.task?.tipo === 'explorar', 'Pegar tudo esvazia a bolsa e ele volta a explorar');
+ok(Object.values(G.S.itens).reduce((x, y) => x + y, 0) + G.cochoState('floresta').comida >= n0, 'os itens da bolsa vão para o inventário');
+G.setExplore(ag, false); ok(!ag.task && !G.explores(ag), 'desliga a exploração'); G.tick(Date.now() + 3600000); ok(!ag.task, 'desligado, fica parado');
+G.setExplore(ag, true); ok(ag.task?.tipo === 'explorar', 'liga de novo');
 // o jogador: corta, minera, cata; o recurso some e volta em 5 minutos
 G.setState(G.newState());
 const res = G.resourcesOf('floresta'); ok(res.some((x) => x.tipo === 'arvore') && res.some((x) => x.tipo === 'rocha') && res.some((x) => x.tipo === 'arbusto'), 'lote do meio tem árvore, rocha e arbusto');
@@ -61,13 +70,11 @@ ok(G.missions().some((m) => m.tipo === 'fazenda' && m.rid === 'floresta'), 'tem 
 ok(!G.cochoState('floresta').ok, 'sem comedouro os bichos ficam com fome');
 G.addItem('madeira', 30); G.addItem('fruta', 10); G.addItem('seixo', 10);
 G.build('floresta', 'comedouro', ...G.findSpot('floresta', 'comedouro', 2, 3)); G.build('floresta', 'bebedouro', ...G.findSpot('floresta', 'bebedouro', -2, -1));
-ok(G.cochoState('floresta').ok, 'com comedouro e bebedouro ficam bem');
+ok(G.cochoState('floresta').vazio && !G.cochoState('floresta').sede, 'o comedouro novo começa vazio');
+ok(G.fillTrough('floresta', 'fruta', 2) === 2 && G.cochoState('floresta').ok, 'com comida no comedouro e o bebedouro ficam bem');
 const mc = G.missions().find((m) => m.tipo === 'construir' && m.obra === 'comedouro'); ok(mc && G.missionReady(mc) && G.completeMission(mc.id), 'missão de construir se cumpre');
 for (let i = 0; i < 3; i++) { G.addItem('concha', 3); G.placeAmigo(G.mix(['concha', 'concha', 'concha']).amigo, 'floresta'); }
-G.fillMissions('floresta');
-ok(G.amigosEm('floresta').length < 4 || (!G.cochoState('floresta').ok && G.missions().some((m) => m.tipo === 'cocho')), 'com mais bichos pede comedouro maior: ' + G.amigosEm('floresta').length);
-const mco = G.missions().find((m) => m.tipo === 'cocho' && m.obra === 'comedouro');
-if (mco) { G.addItem('ferro', 10); G.addItem('madeira', 10); G.addItem('fruta', 10); const r5 = G.completeMission(mco.id); ok(r5 && G.obrasOf('floresta').find((o) => o.tipo === 'comedouro').nivel === 2, 'missão aumenta o comedouro'); }
+G.fillMissions('floresta'); ok(!G.missions().some((m) => m.tipo === 'cocho'), 'comedouro não tem mais níveis');
 G.amigoAddXp(pet, 500); G.S.brilho = 5; ok(G.canEvolve(pet).missao, 'evoluir pede a missão do bicho');
 G.fillMissions('floresta'); const me = G.missions().find((m) => m.tipo === 'evolucao' && m.uid === pet.uid); ok(me, 'aparece a missão de evolução');
 for (const [id, n] of Object.entries(me.pede)) G.addItem(id, n); ok(G.completeMission(me.id) && G.canEvolve(pet).ok, 'cumprida a missão, pode evoluir');
@@ -82,14 +89,16 @@ G.S.energia = 10; ok(G.eat('espetinho') && G.energy() === 35, 'comer recupera en
 const res2 = G.resourcesOf('floresta').find((x) => x.tipo === 'rocha'); G.playerGather('floresta', res2.id); ok(G.energy() < 35, 'trabalhar cansa');
 G.addItem('concha', 3); const pp = G.mix(['concha', 'concha', 'concha']).amigo; G.placeAmigo(pp, 'floresta');
 G.build('floresta', 'comedouro', ...G.findSpot('floresta', 'comedouro', -2, -2)); G.build('floresta', 'bebedouro', ...G.findSpot('floresta', 'bebedouro', 1, -2));
-ok(G.cochoState('floresta').ok, 'comedouro novo já vem com comida');
-G.tick(Date.now()); G.tick(Date.now() + 4 * 3600000); ok(G.cochoState('floresta').vazio && G.cochoState('floresta').fome, 'o comedouro esvazia e os bichos ficam com fome');
-ok(G.fillTrough('floresta', 'fruta', 2) === 6 && G.cochoState('floresta').ok, 'encher o comedouro resolve a fome');
+ok(G.cochoState('floresta').fome, 'comedouro novo vem vazio');
+const pl2 = G.obrasOf('floresta').find((o) => o.tipo === 'canteiro'); G.playerPlant('floresta', pl2.uid); G.playerWater('floresta', pl2.uid); G.tick(Date.now() + G.GROW_TIME + 10);
+const fr0 = G.S.itens.fruta || 0; ok(G.harvestPlot('floresta', pl2.uid) && G.cochoState('floresta').itens.fruta >= 1 && (G.S.itens.fruta || 0) === fr0, 'a colheita vai direto para a cesta do comedouro');
+ok(G.cochoState('floresta').ok, 'com comida na cesta os bichos ficam bem');
+ok(G.has('fruta', fr0 + 1), 'a comida da cesta conta como item');
+G.S.energia = 10; G.S.itens.fruta = 0; ok(G.eat('fruta') && !G.cochoState('floresta').comida, 'dá para comer a fruta da cesta');
+G.fillTrough('floresta', 'espetinho', 1); G.tick(Date.now()); G.tick(Date.now() + 4 * 3600000); ok(G.cochoState('floresta').vazio && G.cochoState('floresta').fome, 'os bichos comem e a cesta esvazia');
 // sem semeador não planta
 G.setState(G.newState()); G.addItem('concha', 3); const so = G.mix(['concha', 'concha', 'concha']).amigo; G.placeAmigo(so, 'floresta');
-t = Date.now(); for (let i = 0; i < 20; i++) { t += 5000; G.tick(t); }
-ok(plots().every((c) => c.st === 'vazio'), 'sem semeador não planta');
-ok(so.bolsa.length > 0, 'trabalhou e trouxe itens: ' + so.bolsa.join(','));
+ok(!G.commandPet(so, 'semear') && plots().every((c) => c.st === 'vazio'), 'sem semeador não planta');
 // forja: mínimo de 3 itens, toda receita tem 3+, e o começo tem variedade de elementos
 G.setState(G.newState()); ok(G.mix(['trevo']) === null && G.mix(['trevo', 'concha']) === null, 'forja exige 3 itens');
 ok(D.FAMILIES.every((f) => !f.receita || f.receita.length >= 3), 'toda receita tem 3 itens');
@@ -115,4 +124,15 @@ ok(G.mix(['enfeite', 'enfeite', 'trevo']) && !D.isSeasonal(G.S.amigos[1].sp), 'f
   ok(G.countBuilt('bancada') === 1 && G.countBuilt('forno') === 1 && G.countBuilt('casinha') === 1 && s.base.fila === 2, 'migra: construções no lugar');
   ok(s.boneco && !s.boneco.criado, 'migra: pede para criar o personagem');
 }
+// canteiro: escolher o que plantar
+{ G.setState(G.newState()); const pl = G.obrasOf('floresta').find((o) => o.tipo === 'canteiro');
+  ok(!G.playerPlant('floresta', pl.uid, 'tomate'), 'tomate só libera no nível 3');
+  ok(G.playerPlant('floresta', pl.uid, 'cenoura') && pl.planta === 'cenoura' && G.S.semente === 'cenoura', 'planta cenoura');
+  G.playerWater('floresta', pl.uid); ok(pl.ate - pl.ini === D.CROPS.cenoura.tempo, 'cada planta cresce no seu tempo');
+  G.tick(pl.ate + 10); const c0 = G.count('cenoura'); ok(G.harvestPlot('floresta', pl.uid) === 2 && G.count('cenoura') === c0 + 2 && G.lastHarvest === 'cenoura', 'colhe cenoura'); }
+// menino ou menina
+{ const K = await import('../js/kidlook.js'); const k = K.defaultKid(); k.genero = 'menino'; k.cabelo.estilo = 'chiquinhas'; k.baixo.tipo = 'saia'; k.acess.laco = { on: true, cor: '#f00' }; K.fitGender(k);
+  ok(k.cabelo.estilo === 'curto' && k.baixo.tipo === 'short' && !k.acess.laco, 'menino não fica com itens de menina');
+  ok(!K.allowed('menino', 'colar', 'coracao') && K.allowed('menina', 'colar', 'coracao') && !K.allowed('menina', 'cabelo', 'moicano'), 'cada um vê só o que é seu');
+  let bad = 0; for (let i = 0; i < 200; i++) { const r2 = K.randomKid(Object.assign(K.defaultKid(), { genero: 'menino' })); if (r2.acess.laco || r2.baixo.tipo === 'saia' || r2.topo.tipo === 'vestido') bad++; } ok(!bad, 'surpresa de menino sem itens de menina: ' + bad); }
 console.log(fail ? `${fail} FALHA(S)` : 'tudo certo');

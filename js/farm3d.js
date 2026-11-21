@@ -4,12 +4,12 @@
 // e corta, minera, cata, planta, rega, colhe, faz carinho e constrói. Os recursos
 // somem quando usados e voltam crescendo. As construções ficam onde você escolheu.
 import * as THREE from './vendor/three.module.js';
-import { buildCreature, itemSprite, sparkleTexture, GEO, SHAPES, mat, shade, Builder, taperTube } from './creature3d.js';
+import { buildCreature, itemSprite, itemTexture, sparkleTexture, GEO, SHAPES, mat, shade, Builder, taperTube } from './creature3d.js';
 import { lights, makeSparkles, burst, stepBursts, boltMesh, groundTex, canvasTex, resourceTree, rock, biomeProp, makeTrap, mulberry } from './stage3d.js';
 import { buildKid } from './kid3d.js';
-import { ZONE, HALF, ALL_ZONES, zoneCenter, parseKey, zoneAt, zoneProps, clampOpen, insideOpen, SPAWN, NPC_SPOT, inGrid, zoneRng } from './world.js';
-import { BUILDINGS } from './data.js';
-import { WIND, foliageGeo, pineGeo, rockGeo, trunkGeo, bladeGeo, vcMat, windy, barkTex, woodTex, roofTex, stoneTex, soilTex, contactShadow, skyDome, groundVariation } from './nature3d.js';
+import { ZONE, HALF, ALL_ZONES, zoneCenter, parseKey, zoneAt, zoneProps, clampOpen, insideOpen, SPAWN, NPC_SPOT, inGrid, zoneRng, zonePond } from './world.js';
+import { BUILDINGS, CROPS } from './data.js';
+import { WIND, foliageGeo, pineGeo, rockGeo, trunkGeo, bladeGeo, vcMat, windy, barkTex, woodTex, roofTex, stoneTex, soilTex, contactShadow, skyDome, groundVariation, strawTex, staveTex, sandPaths, lagoon, pond } from './nature3d.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const angTo = (cur, target, k) => cur + ((target - cur + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
@@ -17,7 +17,7 @@ const angTo = (cur, target, k) => cur + ((target - cur + Math.PI * 3) % (Math.PI
 const dimCache = new Map();
 function dimMat(m) {
   if (dimCache.has(m)) return dimCache.get(m);
-  const d = m.clone(); if (d.color) d.color.lerp(new THREE.Color('#5a5a72'), 0.55).multiplyScalar(0.55);
+  const d = m.clone(); if (d.color) d.color.lerp(new THREE.Color('#a8b4c4'), 0.32).multiplyScalar(0.8);
   if (d.emissive) d.emissiveIntensity *= 0.2; dimCache.set(m, d); return d;
 }
 function dim(obj) { obj.traverse((o) => { if (o.isMesh && !o.userData.keep) o.material = Array.isArray(o.material) ? o.material.map(dimMat) : dimMat(o.material); }); }
@@ -93,11 +93,11 @@ export function farmScene(region, opts) {
   const el = region.el; const tema = opts.tema;
   const scene = new THREE.Scene();
   const horizonC = el === 'cosmo' ? '#3a2a6a' : el === 'eletrico' ? '#5a6090' : el === 'fogo' ? '#d98a5a' : shade(region.ceu[1], 0, -0.05, -0.02);
-  const fogC = horizonC; scene.fog = new THREE.Fog(fogC, 30, 95);
+  const fogC = horizonC; scene.fog = new THREE.Fog(fogC, 45, 130);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 260);
   const b = new Builder(false); const rnd = mulberry(region.id.length * 97 + 13);
   const dark = ['fogo', 'eletrico', 'cosmo'].includes(el);
-  const sun = lights(scene, { sky: dark ? '#9aa0ff' : '#d8ecff', ground: shade(region.chao, 0, 0, -0.2), sun: el === 'fogo' ? '#ffc08a' : dark ? '#c8c8ff' : '#fff2dc', sunI: dark ? 1.9 : 2.7, hemiI: dark ? 0.85 : 1.15, radius: 14 });
+  const sun = lights(scene, { sky: dark ? '#9aa0ff' : '#d8ecff', ground: shade(region.chao, 0, 0, -0.2), sun: el === 'fogo' ? '#ffc08a' : dark ? '#c8c8ff' : '#fff2dc', sunI: dark ? 1.9 : 2.35, hemiI: dark ? 0.95 : 1.05, radius: 14 });
   sun.shadow.mapSize.set(1024, 1024); scene.add(sun.target); sun.shadow.radius = 3;
   const sky = skyDome(scene, el === 'cosmo' ? '#0e0a2a' : el === 'eletrico' ? '#232a50' : el === 'fogo' ? '#7a3a3a' : shade(region.ceu[0], 0, 0.05, -0.08), horizonC);
   if (el === 'cosmo' || el === 'eletrico') sky.clouds.visible = el === 'eletrico';
@@ -113,8 +113,8 @@ export function farmScene(region, opts) {
   groundVariation(groundM, el === 'gelo' ? 0.08 : 0.16);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundM); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; world.add(ground);
   // ---------- lotes: os bloqueados ficam na sombra, com cadeado ----------
-  const shadeM = new THREE.MeshBasicMaterial({ color: '#141026', transparent: true, opacity: 0.5, depthWrite: false });
-  const wildM = new THREE.MeshBasicMaterial({ color: '#141026', transparent: true, opacity: 0.32, depthWrite: false });
+  const shadeM = new THREE.MeshBasicMaterial({ color: '#3a4470', transparent: true, opacity: 0.2, depthWrite: false });
+  const wildM = new THREE.MeshBasicMaterial({ color: '#3a4470', transparent: true, opacity: 0.12, depthWrite: false });
   const tileGeo = new THREE.PlaneGeometry(ZONE, ZONE);
   const locks = []; const abriveis = new Map((opts.abriveis || []).map((a) => [a.key, a]));
   for (const k of ALL_ZONES) {
@@ -151,15 +151,20 @@ export function farmScene(region, opts) {
       }
     }
   }
+  // ---------- caminhos de areia e a lagoa turquesa ao norte ----------
+  sandPaths(world, el, [...zonas], ZONE, zoneCenter, parseKey);
+  const LAGOON_Z = -E - 4.5; lagoon(world, el, LAGOON_Z, fogC);
+  const ponds = []; for (const k of ALL_ZONES) { const pd = zonePond(region.id, k); if (pd) { pond(world, el, pd, isOpen(k), fogC); if (isOpen(k)) ponds.push(pd); } }
   // ---------- o mundo além: morros e florestas distantes (instanciados, leves) ----------
   {
-    const leaf0 = { planta: '#4f9a34', agua: '#3f8a5a', vento: '#7fae6a', gelo: '#2f6a5a', cosmo: '#7a5acc', eletrico: '#c9a92a', fogo: '#6a3a1a', pedra: '#8a8a4a' }[el] || '#4f9d3a';
-    const n = 160; const trunk = new THREE.InstancedMesh(trunkGeo(2, 0.12), new THREE.MeshStandardMaterial({ map: barkTex('#5a4030'), roughness: 1 }), n); const crown = new THREE.InstancedMesh(el === 'gelo' ? pineGeo(leaf0, true, 1) : foliageGeo(leaf0, 2), vcMat({ flat: el === 'gelo' }), n);
+    const leaf0 = { planta: '#62c03e', agua: '#4fb86a', vento: '#8cc47a', gelo: '#4f9a8a', cosmo: '#7a5acc', eletrico: '#c9a92a', fogo: '#6a3a1a', pedra: '#8a8a4a' }[el] || '#4f9d3a';
+    const n = 120; const trunk = new THREE.InstancedMesh(trunkGeo(2, 0.12), new THREE.MeshStandardMaterial({ map: barkTex('#8a6040'), roughness: 1 }), n); const crown = new THREE.InstancedMesh(el === 'gelo' ? pineGeo(leaf0, true, 1) : foliageGeo(leaf0, 2), vcMat({ flat: el === 'gelo' }), n);
     const d = new THREE.Object3D(); const c = new THREE.Color(); let i = 0;
-    const leaf = { planta: '#3f8a2e', agua: '#3f8a5a', vento: '#7fae6a', gelo: '#2f6a5a', cosmo: '#7a5acc', eletrico: '#c9a92a', fogo: '#5a2a1a', pedra: '#8a7a4a' }[el] || '#4f9d3a';
+    const leaf = { planta: '#5ab83a', agua: '#4fb070', vento: '#8cc47a', gelo: '#4f9a8a', cosmo: '#7a5acc', eletrico: '#c9a92a', fogo: '#5a2a1a', pedra: '#8a7a4a' }[el] || '#4f9d3a';
     while (i < n) {
       const a = rnd() * Math.PI * 2, r = E + 3 + rnd() * 55; const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (Math.abs(x) < E + 1 && Math.abs(z) < E + 1) continue;
+      if (z < LAGOON_Z + 1) continue; // ali é água
       const s = 1.2 + rnd() * 1.6;
       d.position.set(x, 0, z); d.scale.set(s, s, s); d.rotation.set(0, rnd() * 6, 0); d.updateMatrix(); trunk.setMatrixAt(i, d.matrix);
       d.position.set(x, s * 2.6, z); d.scale.set(1.3 * s, (el === 'gelo' ? 2.4 : 1.2) * s, 1.3 * s); d.rotation.set(0, rnd() * 6, 0); d.updateMatrix(); crown.setMatrixAt(i, d.matrix);
@@ -168,7 +173,7 @@ export function farmScene(region, opts) {
     trunk.castShadow = false; crown.castShadow = false; world.add(trunk, crown);
     // morros ao longe
     const hillM = mat(shade(region.chao, 0, -0.1, el === 'gelo' ? 0.05 : -0.08), { rough: 1, flat: true });
-    for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2 + rnd() * 0.3; const r = 85 + rnd() * 25; const h = 14 + rnd() * 18; const m = b.m(world, el === 'pedra' || el === 'fogo' ? GEO.cone : GEO.sph, hillM, [Math.cos(a) * r, el === 'pedra' || el === 'fogo' ? h / 2 : -h * 0.3, Math.sin(a) * r], [h * 1.4, h, h * 1.4]); m.castShadow = false; }
+    for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2 + rnd() * 0.3; if (Math.sin(a) < -0.25) continue; const r = 85 + rnd() * 25; const h = 14 + rnd() * 18; const m = b.m(world, el === 'pedra' || el === 'fogo' ? GEO.cone : GEO.sph, hillM, [Math.cos(a) * r, el === 'pedra' || el === 'fogo' ? h / 2 : -h * 0.3, Math.sin(a) * r], [h * 1.4, h, h * 1.4]); m.castShadow = false; }
     if (el === 'fogo') { const v = b.m(world, GEO.cone, mat('#3a2020', { rough: 1, flat: true }), [-40, 14, -95], [40, 28, 40]); v.castShadow = false; const lava = b.m(world, GEO.sph, mat('#ff6a10', { glow: 2.5, emis: '#ff5a10' }), [-40, 28, -95], [4, 1.2, 4]); lava.castShadow = false; }
   }
   // ---------- grama ----------
@@ -226,16 +231,29 @@ export function farmScene(region, opts) {
     buildingModel(b, g, o.tipo, el, o);
     contactShadow(g, BUILDINGS[o.tipo].r * 1.25, 0.3);
     if (!['canteiro', 'forno', 'totem', 'balanco', 'fonte', 'bebedouro', 'arvore_natal', 'baloes', 'fogueira_junina', 'fogueira', 'fogao'].includes(o.tipo)) compact(g);
-    g.userData = { tipo: 'obra', uid: o.uid, obra: o.tipo };
-    const e = { g, o: { ...o }, pop: 0, pending: false };
+    g.userData = { ...g.userData, tipo: 'obra', uid: o.uid, obra: o.tipo };
+    const e = { g, o: { ...o, comida: { ...(o.comida || {}) } }, pop: 0, pending: false };
     if (o.tipo === 'canteiro') e.plot = g.userData.plot;
     obraObjs.set(o.uid, e); hideProps(); return e;
   }
   function hideProps() { for (const p of propList) p.visible = ![...obraObjs.values()].some((e) => Math.hypot(e.g.position.x - p.position.x, e.g.position.z - p.position.z) < (BUILDINGS[e.o.tipo].r + 0.4)); }
+  // o canteiro mostra o que foi plantado: semente → broto → planta crescendo → pronto para colher
   function applyPlot(e, o) {
     const u = e.g.userData.plot; if (!u) return;
-    u.seeds.visible = o.st === 'semeado'; u.sprout.visible = o.st === 'regado'; u.bush.visible = o.st === 'pronto'; u.bubble.visible = o.st === 'pronto';
-    u.box.material = o.st === 'regado' || o.st === 'pronto' ? u.wetM : u.soilM; u.grow = o.grow ?? 0;
+    const cp = CROPS[o.planta] || CROPS.fruta; const grow = o.grow ?? 0;
+    const stage = o.st === 'semeado' ? 'semente' : o.st === 'pronto' ? 'pronto' : o.st === 'regado' ? (grow < 0.25 ? 'broto' : 'planta') : '';
+    const key = stage ? (o.planta || 'fruta') + '|' + stage : '';
+    if (u.key !== key) {
+      for (const c of [...u.crop.children]) u.crop.remove(c);
+      if (stage) { for (const [px, pz] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]]) { const pg = b.g(u.crop, [px, 0, pz], [0, (px + pz) * 3, 0]); pg.scale.setScalar(1.5); cropPlant(b, pg, o.planta || 'fruta', stage); } compact(u.crop); }
+      if (stage === 'pronto' || u.key.endsWith('pronto') || !u.key) { u.bubble.material.map = itemTexture(cp.emoji, '#ff8a1c'); }
+      u.tag.material.map = itemTexture(cp.emoji, '#ffffff'); u.tag.material.needsUpdate = true; u.bubble.material.needsUpdate = true;
+      u.key = key;
+    }
+    u.sign.visible = !!stage; u.bubble.visible = stage === 'pronto';
+    const k = stage === 'broto' ? 0.55 + grow / 0.25 * 0.45 : stage === 'planta' ? 0.45 + (grow - 0.25) / 0.75 * 0.55 : 1;
+    u.crop.scale.setScalar(Math.max(0.3, Math.min(1, k)));
+    u.box.material = o.st === 'regado' || o.st === 'pronto' ? u.wetM : u.soilM; u.grow = grow;
   }
   for (const o of opts.obras) { const e = makeObra(o); applyPlot(e, o); }
   // ---------- quem pede socorro ----------
@@ -296,6 +314,7 @@ export function farmScene(region, opts) {
     for (const o of resObjs.values()) if (!o.locked && o.vivo) out.push({ x: o.data.x, z: o.data.z, r: o.data.r * 0.85 });
     for (const e of obraObjs.values()) if (e.o.tipo !== 'canteiro' && e.o.tipo !== 'flores') out.push({ x: e.g.position.x, z: e.g.position.z, r: BUILDINGS[e.o.tipo].r * 0.8 });
     if (npc) out.push({ x: npcPos.x, z: npcPos.z, r: 0.6 });
+    for (const pd of ponds) out.push({ x: pd.x, z: pd.z, r: pd.r * 0.92 });
     return out;
   }
   function obstacles() { if (!obsCache || obsT <= 0) { obsCache = obstaclesStatic(); obsT = 0.5; } return obsCache; }
@@ -316,6 +335,24 @@ export function farmScene(region, opts) {
     setTimeout(() => bursts.push(...burst(scene, V(cx, 1, cz), ['#ffffff', '#ffd25a', '#7df9ff', '#8ee07a'], 90, 6)), 200);
   }
   const fxTimers = [];
+  // ---------- relógios: um círculo que enche mostrando o começo, o andamento e o fim de cada atividade ----------
+  const timers = new Map();
+  function drawTimer(T, p) {
+    const x = T.ctx; x.clearRect(0, 0, 128, 128);
+    x.fillStyle = 'rgba(0,0,0,.25)'; x.beginPath(); x.arc(64, 68, 58, 0, 7); x.fill();
+    x.fillStyle = '#163a4c'; x.beginPath(); x.arc(64, 64, 58, 0, 7); x.fill();
+    if (T.done) {
+      x.fillStyle = '#5fd27a'; x.beginPath(); x.arc(64, 64, 50, 0, 7); x.fill();
+      x.strokeStyle = '#fff'; x.lineWidth = 14; x.lineCap = 'round'; x.lineJoin = 'round'; x.beginPath(); x.moveTo(38, 66); x.lineTo(56, 84); x.lineTo(90, 46); x.stroke();
+    } else {
+      x.fillStyle = '#ffffff'; x.beginPath(); x.arc(64, 64, 50, 0, 7); x.fill();
+      x.strokeStyle = '#d9e6ee'; x.lineWidth = 13; x.beginPath(); x.arc(64, 64, 40, 0, 7); x.stroke();
+      x.strokeStyle = '#3fc463'; x.lineCap = 'round'; x.beginPath(); x.arc(64, 64, 40, -Math.PI / 2, -Math.PI / 2 + Math.max(0.02, p) * Math.PI * 2); x.stroke();
+      x.font = '44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(T.icon || '⏳', 64, 67);
+    }
+    T.tex.needsUpdate = true; T.lastP = p;
+  }
+  function removeTimer(key) { const T = timers.get(key); if (!T) return; world.remove(T.sp); T.tex.dispose(); T.sp.material.dispose(); timers.delete(key); }
   const api = {
     scene, camera, world, walkers, kid,
     fit(w, h) { api.portrait = h > w; },
@@ -354,7 +391,7 @@ export function farmScene(region, opts) {
         seen.add(o.uid); let e = obraObjs.get(o.uid);
         if (!e) { e = makeObra(o); if (editOn) { const R = BUILDINGS[o.tipo].r; const ring = new THREE.Mesh(new THREE.RingGeometry(R, R + 0.12, 40), new THREE.MeshBasicMaterial({ color: '#ffd25a', transparent: true, opacity: 0.85, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.07; e.g.add(ring); e.ring = ring; } }
         else if (e.o.x !== o.x || e.o.z !== o.z || e.o.rot !== o.rot) { e.g.position.set(o.x, 0, o.z); e.g.rotation.y = o.rot || 0; e.o = { ...o }; hideProps(); obsT = 0; }
-        if (BUILDINGS[o.tipo].cocho && (e.o.nivel || 1) !== (o.nivel || 1)) { world.remove(e.g); obraObjs.delete(o.uid); e = makeObra(o); e.pop = 0.0001; bursts.push(...burst(scene, e.g.position.clone().setY(0.5), ['#ffffff', '#ffd25a', '#8ee07a'], 40, 3)); }
+        if (o.tipo === 'comedouro' && foodKey(e.o) !== foodKey(o)) { const more = foodKey(o) > foodKey(e.o); world.remove(e.g); obraObjs.delete(o.uid); e = makeObra(o); if (more) bursts.push(...burst(scene, e.g.position.clone().setY(0.7), ['#ff6a5a', '#ffd25a', '#8ee07a'], 14, 1.6)); }
         e.o.st = o.st; applyPlot(e, o);
       }
       for (const [uid, e] of obraObjs) if (!seen.has(uid)) { bursts.push(...burst(scene, e.g.position.clone().setY(0.6), ['#ffffff', '#c9a06a'], 24, 2.5)); world.remove(e.g); obraObjs.delete(uid); hideProps(); }
@@ -397,7 +434,7 @@ export function farmScene(region, opts) {
       if (['cortar', 'minerar', 'catar'].includes(tipo)) { const r = resObjs.get(alvo); if (r) p = { x: r.data.x, z: r.data.z, r: r.data.r }; }
       else if (['semear', 'regar', 'colher'].includes(tipo)) { const e = obraObjs.get(alvo); if (e) p = { x: e.g.position.x, z: e.g.position.z, r: 0.7 }; }
       else if (tipo === 'fundir') { const e = [...obraObjs.values()].find((q) => q.o.tipo === 'forno'); if (e) p = { x: e.g.position.x, z: e.g.position.z, r: 1.2 }; }
-      w.job = p ? { tipo, p: V(p.x, 0, p.z), r: p.r } : tipo === 'cheio' ? { tipo, p: null } : null;
+      w.job = p ? { tipo, p: V(p.x, 0, p.z), r: p.r } : null;
     },
     petHappy(uid) { const w = walkers.find((x) => x.uid === uid); if (w) { w.c.userData.ctrl.happy(); w.happyT = 1.2; bursts.push(...burst(scene, w.c.position.clone().setY(w.c.userData.height + 0.2), ['#ff7ab8', '#ffffff', '#ffd25a'], 18, 2)); } },
     walkerPos(uid) { return walkers.find((x) => x.uid === uid)?.c.position || null; },
@@ -408,6 +445,22 @@ export function farmScene(region, opts) {
     themePos(id) { return themeFx?.picks.get(id)?.position || null; },
     setNeeds(fome, sede) { for (const w of walkers) { const want = fome ? '🥕' : sede ? '💧' : null; if (w.need?.userData.e !== want) { if (w.need) w.c.remove(w.need); w.need = null; if (want) { const k = w.c.scale.x; const sp = itemSprite(want, 0.38 / k, '#ff8a5a'); sp.userData.e = want; sp.position.set(0.45 / k, (w.c.userData.height + 0.1) / k, 0); w.c.add(sp); w.need = sp; } } } },
     setForno(on) { fornoOn = on; },
+    // relógio de uma atividade: { x, y, z } fixo ou follow() que devolve a posição; ini/fim em ms (Date.now)
+    setTimer(key, o) {
+      let T = timers.get(key);
+      if (!T) {
+        const cv = document.createElement('canvas'); cv.width = cv.height = 128; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); sp.renderOrder = 60; sp.scale.setScalar(0.85); world.add(sp);
+        T = { sp, tex, ctx: cv.getContext('2d'), lastP: -1, done: 0 }; timers.set(key, T);
+      }
+      if (T.done) { T.done = 0; T.sp.material.opacity = 1; T.sp.scale.setScalar(0.85); }
+      const iconChanged = T.icon !== o.icon; Object.assign(T, o); if (iconChanged) T.lastP = -1;
+      if (!o.follow) T.sp.position.set(o.x, o.y ?? 1.6, o.z);
+    },
+    finishTimer(key) { const T = timers.get(key); if (T && !T.done) { T.done = 0.0001; drawTimer(T, 1); } },
+    clearTimer: removeTimer,
+    timerKeys() { return [...timers.keys()]; },
+    timerState(key) { const T = timers.get(key); return T ? { p: T.lastP, done: !!T.done, icon: T.icon } : null; },
     popAt(pos, color, n = 18) { const p = pos.isVector3 ? pos.clone() : (() => { const v = new THREE.Vector3(); pos.getWorldPosition(v); return v; })(); bursts.push(...burst(scene, p, color || ['#fff3a0', '#ffffff'], n, 2.5)); },
     freeNpc() { if (trap) { bursts.push(...burst(scene, npcPos.clone().setY(1), ['#ffffff', '#7df9ff', '#ffe066', '#ff9f5a'], 70, 5)); world.remove(trap.g); trap = null; npc.position.y = 0; } npc?.userData.ctrl.happy(); },
     npcPos,
@@ -482,7 +535,7 @@ export function farmScene(region, opts) {
       for (const e of obraObjs.values()) {
         if (e.pop > 0) { e.pop += dt / 0.7; const k = Math.min(1, e.pop); const s = k < 0.6 ? (k / 0.6) * 1.2 : 1.2 - (k - 0.6) / 0.4 * 0.2; e.g.scale.set(1 + (1 - k) * 0.3 * Math.sin(k * 20), Math.max(0.001, s), 1 + (1 - k) * 0.3 * Math.sin(k * 20)); if (k >= 1) { e.pop = 0; e.g.scale.setScalar(1); } }
         const u = e.g.userData;
-        if (u.plot) { const p = u.plot; if (p.sprout.visible) p.sprout.scale.setScalar(0.3 + 0.7 * (p.grow || 0)); if (p.bubble.visible) p.bubble.position.y = 1.05 + Math.sin(t * 3 + e.o.uid) * 0.08; }
+        if (u.plot) { const p = u.plot; if (p.bubble.visible) p.bubble.position.y = 1.05 + Math.sin(t * 3 + e.o.uid) * 0.08; }
         if (u.flame) u.flame.scale.y = 1 + Math.sin(t * 11 + e.o.uid) * 0.18;
         if (u.spin) u.spin.rotation.y += dt * 0.8;
         if (u.swing) u.swing.rotation.x = Math.sin(t * 1.6 + e.o.uid) * 0.35;
@@ -496,7 +549,7 @@ export function farmScene(region, opts) {
       for (const l of locks) { l.position.y = l.userData.base + Math.sin(t * 2 + l.position.x) * 0.12; if (l.userData.ring) { l.userData.ring.material.opacity = 0.5 + Math.sin(t * 3) * 0.3; l.userData.ring.scale.setScalar(1 + Math.sin(t * 3) * 0.06); } }
       // ---------- companheiros ----------
       for (const w of walkers) {
-        const c = w.c; const ctrl = c.userData.ctrl; let goal = null; const full = w.job?.tipo === 'cheio' || w.bubbles.length >= 3;
+        const c = w.c; const ctrl = c.userData.ctrl; let goal = null; const full = false;
         if (w.happyT > 0) { w.happyT -= dt; ctrl.setWalking(0); }
         else if (full) ctrl.setWalking(0);
         else if (w.job?.p) goal = w.job.p;
@@ -529,6 +582,15 @@ export function farmScene(region, opts) {
       if (revealT < 2) { revealT += dt; for (const r of revealObjs) { const k = Math.min(1, Math.max(0, (revealT - r.d) / 0.6)); const s = k < 0.7 ? k / 0.7 * 1.15 : 1.15 - (k - 0.7) / 0.3 * 0.15; r.o.scale.copy(r.s).multiplyScalar(Math.max(0.001, s)); } }
       amb.update(dt, 0.6); themeFx?.update(t, dt, camT); stepBursts(scene, bursts, dt);
       ghost && (ghost.ring.scale.setScalar(1 + Math.sin(t * 6) * 0.04));
+      // relógios
+      const nowMs = Date.now();
+      for (const [key, T] of timers) {
+        if (T.follow) { const fp = T.follow(); if (fp) T.sp.position.set(fp.x, T.y ?? 1.6, fp.z); }
+        if (T.done) { T.done += dt; const k = T.done; T.sp.scale.setScalar(0.85 * (k < 0.2 ? 1 + k * 1.5 : 1.3 - Math.min(0.3, (k - 0.2)))); T.sp.material.opacity = Math.max(0, 1 - Math.max(0, k - 0.6) / 0.35); if (k > 0.95) removeTimer(key); continue; }
+        const p = Math.min(1, Math.max(0, (nowMs - T.ini) / Math.max(1, T.fim - T.ini)));
+        if (Math.abs(p - T.lastP) > 0.008) drawTimer(T, p);
+        T.sp.position.y = (T.follow ? T.y ?? 1.6 : T.y ?? 1.6) + Math.sin(t * 2.5) * 0.04;
+      }
     },
     dispose() { fxTimers.forEach(clearTimeout); },
   };
@@ -536,14 +598,14 @@ export function farmScene(region, opts) {
 }
 
 // ---------- árvore, rocha ou arbusto (a peça inteira ou o brotinho que volta a crescer) ----------
-const LEAF = { planta: ['#4f9a34', '#6aae3a', '#3f8a2e'], agua: ['#3f8a5a', '#4f9a6a', '#2f7a5a'], vento: ['#7fae6a', '#9ac07a', '#6a9a5a'], gelo: ['#2f6a5a', '#3a7a6a'], cosmo: ['#8a5ad6', '#b07aff', '#6a4ab6'], eletrico: ['#e8c42a', '#f2d64a', '#c9a92a'], fogo: ['#a03a1a', '#c4561a', '#7a2a1a'], pedra: ['#8a9a4a', '#a0a85a'] };
-const BARK = { gelo: '#5a4a40', cosmo: '#3a2a50', eletrico: '#4a4048', fogo: '#2a1e1e', pedra: '#7a5a3a' };
+const LEAF = { planta: ['#5cc83a', '#86dc4a', '#4cbc36'], agua: ['#46c070', '#6ad486', '#3ab466'], vento: ['#8cd06a', '#acdc7a', '#78c05a'], gelo: ['#2f6a5a', '#3a7a6a'], cosmo: ['#8a5ad6', '#b07aff', '#6a4ab6'], eletrico: ['#e8c42a', '#f2d64a', '#c9a92a'], fogo: ['#a03a1a', '#c4561a', '#7a2a1a'], pedra: ['#8a9a4a', '#a0a85a'] };
+const BARK = { gelo: '#8a6a50', cosmo: '#5a4a78', eletrico: '#6a6070', fogo: '#4a3434', pedra: '#9a7450' };
 function buildResource(b, root, r, el, berry, part) {
   const rr = mulberry(Math.round(r.x * 100 + r.z * 7) + 3);
   if (r.tipo === 'arvore') {
-    if (part !== 'full') { b.m(root, GEO.cyl, mat('#6a4a32'), [0, 0.15, 0], [0.03, 0.3, 0.03]); for (const sx of [1, -1]) b.m(root, SHAPES.leaf, mat('#6fbf3a'), [0, 0.28, 0], 0.18, [0, 0, -sx * 0.8]); const st = new THREE.Mesh(trunkGeo(0.22, 0.16), new THREE.MeshStandardMaterial({ map: barkTex(BARK[el] || '#6a4a32'), roughness: 0.95 })); st.position.set(0.25, 0, 0.1); st.castShadow = true; root.add(st); b.m(root, GEO.cyl, mat('#d9b98a', { rough: 0.8 }), [0.25, 0.225, 0.1], [0.15, 0.01, 0.15]); return; }
+    if (part !== 'full') { b.m(root, GEO.cyl, mat('#6a4a32'), [0, 0.15, 0], [0.03, 0.3, 0.03]); for (const sx of [1, -1]) b.m(root, SHAPES.leaf, mat('#6fbf3a'), [0, 0.28, 0], 0.18, [0, 0, -sx * 0.8]); const st = new THREE.Mesh(trunkGeo(0.22, 0.16), new THREE.MeshStandardMaterial({ map: barkTex(BARK[el] || '#9a6a42'), roughness: 0.95 })); st.position.set(0.25, 0, 0.1); st.castShadow = true; root.add(st); b.m(root, GEO.cyl, mat('#d9b98a', { rough: 0.8 }), [0.25, 0.225, 0.1], [0.15, 0.01, 0.15]); return; }
     const g = b.g(root); const S = 1.5 * r.s; g.scale.setScalar(S);
-    const barkM = new THREE.MeshStandardMaterial({ map: barkTex(BARK[el] || '#6a4a32'), roughness: 0.95 });
+    const barkM = new THREE.MeshStandardMaterial({ map: barkTex(BARK[el] || '#9a6a42'), roughness: 0.95 });
     const tr = new THREE.Mesh(trunkGeo(el === 'gelo' ? 1.0 : 1.75, 0.13), barkM); tr.castShadow = true; g.add(tr);
     contactShadow(root, 1.25 * r.s, 0.34);
     const leaves = LEAF[el] || LEAF.planta;
@@ -575,7 +637,7 @@ function buildResource(b, root, r, el, berry, part) {
       contactShadow(root, 1.15 * r.s, 0.38);
     } else for (let k = 0; k < 3; k++) { const sm = new THREE.Mesh(rockGeo(col, top, k), rm); sm.position.set(Math.cos(k * 2.1) * 0.25, 0.07, Math.sin(k * 2.1) * 0.25); sm.scale.setScalar(0.12); root.add(sm); }
   } else {
-    const leaves = el === 'gelo' ? ['#cfe8f0', '#b8d8e4'] : el === 'fogo' ? ['#6a3a2a', '#8a4a2a'] : el === 'cosmo' ? ['#5a3a9a', '#7a5ab6'] : el === 'eletrico' ? ['#8a8a3a', '#a0a04a'] : ['#3f8a2e', '#4f9a34', '#5aa63f'];
+    const leaves = el === 'gelo' ? ['#cfe8f0', '#b8d8e4'] : el === 'fogo' ? ['#6a3a2a', '#8a4a2a'] : el === 'cosmo' ? ['#5a3a9a', '#7a5ab6'] : el === 'eletrico' ? ['#8a8a3a', '#a0a04a'] : ['#5cbc3a', '#72cc46', '#86d852'];
     if (part === 'full') {
       const fm = vcMat({ flat: false, rough: 0.78, wind: 0.05, windY: 0.25 });
       for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2 + rr() * 0.4; const ring = k === 5 ? 0 : 0.26; const m = new THREE.Mesh(foliageGeo(leaves[k % leaves.length], k % 4, 0.2), fm); const sz = k === 5 ? 0.36 : 0.3 + rr() * 0.06; m.position.set(Math.cos(a) * ring, k === 5 ? 0.5 : 0.3 + (k % 2) * 0.1, Math.sin(a) * ring); m.scale.set(sz, sz * 0.85, sz); m.rotation.set(rr(), rr() * 6, 0); m.castShadow = true; root.add(m); }
@@ -612,8 +674,53 @@ function smallProp(b, g, el, v, s) {
 const texMats = new Map();
 function texMat(kind, color, o = {}) {
   const k = kind + color + JSON.stringify(o); if (texMats.has(k)) return texMats.get(k);
-  const map = { wood: woodTex, stone: stoneTex, roof: roofTex, soil: () => soilTex(), bark: barkTex }[kind](color);
+  const map = { wood: woodTex, stone: stoneTex, roof: roofTex, soil: () => soilTex(), bark: barkTex, straw: strawTex, stave: staveTex }[kind](color);
   const m = new THREE.MeshStandardMaterial({ map, roughness: o.rough ?? 0.88, metalness: 0, color: o.tint || '#ffffff' }); texMats.set(k, m); return m;
+}
+const geoC = new Map(); const cachedGeo = (k, f) => { if (!geoC.has(k)) geoC.set(k, f()); return geoC.get(k); };
+const lathe2 = (k, pts) => cachedGeo('lathe|' + k, () => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 36));
+const foodKey = (o) => (o.tipo === 'comedouro' ? Math.ceil(Object.values(o.comida || {}).reduce((t, n) => t + n, 0) / 3) : 0);
+// ---------- as plantas do canteiro (cada uma no seu estágio) ----------
+function cropPlant(b, g, id, stage) {
+  const leaf = mat('#4fae2e', { rough: 0.7 }), leaf2 = mat('#6cc83a', { rough: 0.7 }), stem = mat('#3f8a24', { rough: 0.8 });
+  if (stage === 'semente') { // montinho de terra com as sementes por cima
+    b.m(g, GEO.sph, mat('#4a2e1c', { rough: 1 }), [0, 0.0, 0], [0.12, 0.05, 0.12]);
+    const sc = { girassol: '#3a3a3a', morango: '#e8d070', cenoura: '#c8a070', tomate: '#e8d8a0', alface: '#d8c890' }[id] || '#d9b070';
+    for (let i = 0; i < 3; i++) { const a = i * 2.1; b.m(g, GEO.sph, mat(sc, { rough: 0.6 }), [Math.cos(a) * 0.05, 0.045, Math.sin(a) * 0.05], [0.022, 0.014, 0.016], [0, a, 0]); }
+    return;
+  }
+  if (stage === 'broto') { b.m(g, GEO.cyl, stem, [0, 0.06, 0], [0.014, 0.12, 0.014]); for (const sx of [1, -1]) b.m(g, SHAPES.leaf, leaf2, [0, 0.11, 0], 0.08, [0, 0, -sx * 0.9]); return; }
+  const ready = stage === 'pronto';
+  switch (id) {
+    case 'cenoura': // ramas finas; pronta, o topo laranja aparece na terra
+      for (let i = 0; i < 7; i++) { const a = i * 0.9; b.m(g, GEO.cone, i % 2 ? leaf : leaf2, [Math.cos(a) * 0.03, 0.12, Math.sin(a) * 0.03], [0.018, 0.26, 0.018], [Math.sin(a) * 0.35, 0, Math.cos(a) * 0.35]); }
+      if (ready) b.m(g, GEO.cone, mat('#ff8a1c', { rough: 0.5 }), [0, -0.02, 0], [0.06, 0.16, 0.06], [Math.PI, 0, 0]);
+      break;
+    case 'alface': // roseta de folhas; pronta, um repolhinho cheio
+      for (let i = 0; i < 6; i++) { const a = i * 1.05; b.m(g, GEO.sph, i % 2 ? leaf2 : mat('#8ee06a', { rough: 0.6 }), [Math.cos(a) * 0.07, 0.05, Math.sin(a) * 0.07], [0.08, 0.05, 0.06], [0, -a, 0.5]); }
+      if (ready) b.m(g, GEO.sph, mat('#a6ea7a', { rough: 0.55 }), [0, 0.1, 0], [0.11, 0.1, 0.11]);
+      break;
+    case 'morango': // folhinhas rasteiras e moranguinhos vermelhos
+      for (let i = 0; i < 5; i++) { const a = i * 1.25; b.m(g, GEO.sph, leaf, [Math.cos(a) * 0.07, 0.06, Math.sin(a) * 0.07], [0.06, 0.025, 0.05], [0, -a, 0.3]); }
+      b.m(g, GEO.cyl, stem, [0, 0.05, 0], [0.012, 0.1, 0.012]);
+      if (ready) for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.4; b.m(g, GEO.cone, mat('#e8323a', { rough: 0.4 }), [Math.cos(a) * 0.11, 0.05, Math.sin(a) * 0.11], [0.035, 0.06, 0.035], [Math.PI, 0, 0]); b.m(g, GEO.sph, leaf2, [Math.cos(a) * 0.11, 0.085, Math.sin(a) * 0.11], [0.03, 0.012, 0.03]); }
+      break;
+    case 'tomate': // tutor de madeira, pé de tomate e tomates vermelhos
+      b.m(g, GEO.cyl, mat('#c9a06a', { rough: 0.9 }), [0.05, 0.25, 0], [0.012, 0.5, 0.012]); b.m(g, GEO.cyl, stem, [0, 0.2, 0], [0.016, 0.4, 0.016]);
+      for (let i = 0; i < 5; i++) { const a = i * 1.3; b.m(g, GEO.sph, i % 2 ? leaf : leaf2, [Math.cos(a) * 0.07, 0.1 + i * 0.065, Math.sin(a) * 0.07], [0.07, 0.035, 0.05], [0, -a, 0.3]); }
+      if (ready) for (let i = 0; i < 4; i++) { const a = i * 1.7; b.m(g, GEO.sph, mat('#e8382a', { rough: 0.35 }), [Math.cos(a) * 0.075, 0.13 + i * 0.06, Math.sin(a) * 0.075], 0.045); }
+      break;
+    case 'girassol': // caule alto e a flor amarela olhando para a frente
+      b.m(g, GEO.cyl, stem, [0, 0.25, 0], [0.018, 0.5, 0.018]);
+      for (const sx of [1, -1]) b.m(g, SHAPES.leaf, leaf, [0, 0.2, 0], 0.13, [0, 0, -sx * 1.0]);
+      if (ready) { const f = b.g(g, [0, 0.52, 0.02], [-0.5, 0, 0]); b.m(f, GEO.cyl, mat('#6a3a1a', { rough: 0.9 }), [0, 0, 0], [0.06, 0.03, 0.06], [Math.PI / 2, 0, 0]); for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; b.m(f, GEO.sph, mat('#ffd22a', { rough: 0.5 }), [Math.cos(a) * 0.09, Math.sin(a) * 0.09, 0], [0.045, 0.02, 0.012], [0, 0, a]); } }
+      else b.m(g, GEO.sph, leaf2, [0, 0.52, 0], 0.045);
+      break;
+    default: // fruta energética: um pé de fruta pequenino
+      b.m(g, GEO.cyl, mat('#7a5232', { rough: 0.9 }), [0, 0.14, 0], [0.025, 0.28, 0.025]);
+      b.m(g, GEO.sph, leaf, [0, 0.34, 0], [0.15, 0.13, 0.15]); b.m(g, GEO.sph, leaf2, [0.05, 0.4, 0.03], [0.09, 0.08, 0.09]);
+      if (ready) for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.3; b.m(g, GEO.sph, mat('#e8322a', { rough: 0.3 }), [Math.cos(a) * 0.13, 0.3 + (i % 2) * 0.06, Math.sin(a) * 0.13], 0.04); }
+  }
 }
 // ---------- os modelos de cada construção (escala: o personagem tem 1,15 m) ----------
 export function buildingModel(b, g, tipo, el, o = {}) {
@@ -626,31 +733,40 @@ export function buildingModel(b, g, tipo, el, o = {}) {
       const box = b.m(g, GEO.box, soilM, [0, 0.09, 0], [1.2, 0.18, 1.2]); box.receiveShadow = true;
       for (const [x, z] of [[-0.6, 0], [0.6, 0], [0, -0.6], [0, 0.6]]) b.m(g, GEO.box, wood, [x, 0.13, z], x ? [0.08, 0.24, 1.28] : [1.28, 0.24, 0.08]); for (const [x, z] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) b.m(g, GEO.box, dkw, [x, 0.16, z], [0.11, 0.3, 0.11]);
       for (let k = 0; k < 3; k++) b.m(g, GEO.box, mat('#4a2e1c', { rough: 1 }), [0, 0.185, (k - 1) * 0.36], [1.05, 0.02, 0.1]);
-      const seeds = b.g(g, [0, 0.2, 0]); for (let k = 0; k < 6; k++) b.m(seeds, GEO.sphLo, mat('#d9b070'), [((k % 3) - 1) * 0.32, 0, (Math.floor(k / 3) - 0.5) * 0.45], 0.045);
-      const sprout = b.g(g, [0, 0.19, 0]); for (let k = 0; k < 4; k++) { const sg = b.g(sprout, [((k % 2) - 0.5) * 0.5, 0, (Math.floor(k / 2) - 0.5) * 0.5]); b.m(sg, GEO.cyl, mat('#4f9d3a'), [0, 0.13, 0], [0.025, 0.26, 0.025]); for (const sx of [1, -1]) b.m(sg, SHAPES.leaf, mat('#6fbf3a'), [0, 0.24, 0], 0.17, [0, 0, -sx * 0.7]); }
-      const bush = b.g(g, [0, 0.19, 0]); for (let k = 0; k < 4; k++) { const bg = b.g(bush, [((k % 2) - 0.5) * 0.5, 0, (Math.floor(k / 2) - 0.5) * 0.5]); b.m(bg, GEO.ico, mat('#3f8a2e', { flat: true }), [0, 0.26, 0], 0.24); for (let f = 0; f < 3; f++) b.m(bg, GEO.sph, mat('#e8322a', { rough: 0.3 }), [Math.cos(f * 2) * 0.16, 0.32 + f * 0.05, Math.sin(f * 2) * 0.16], 0.075); }
-      const bubble = itemSprite('🍎', 0.55, '#ff8a1c'); bubble.position.y = 1.05; g.add(bubble);
-      seeds.visible = sprout.visible = bush.visible = bubble.visible = false;
-      u.plot = { box, seeds, sprout, bush, bubble, soilM, wetM, grow: 0 }; break;
+      const crop = b.g(g, [0, 0.18, 0]);
+      const bubble = itemSprite('🍎', 0.55, '#ff8a1c'); bubble.position.y = 1.05; bubble.visible = false; g.add(bubble);
+      const sign = b.g(g, [0.66, 0, 0.66]); b.m(sign, GEO.cyl, dkw, [0, 0.22, 0], [0.025, 0.44, 0.025]); const tag = itemSprite('🍎', 0.3, '#ffffff'); tag.position.y = 0.5; sign.add(tag); sign.visible = false;
+      u.plot = { box, crop, bubble, sign, tag, soilM, wetM, grow: 0, key: '' }; break;
     }
     case 'bancada': b.m(g, GEO.box, wood, [0, 0.72, 0], [1.7, 0.12, 0.85]); for (const [x, z] of [[-0.75, -0.32], [0.75, -0.32], [-0.75, 0.32], [0.75, 0.32]]) b.m(g, GEO.box, dkw, [x, 0.35, z], [0.1, 0.7, 0.1]); b.m(g, GEO.box, wood, [0, 0.25, 0], [1.5, 0.06, 0.7]); b.m(g, GEO.box, steel, [0.45, 0.84, 0], [0.42, 0.12, 0.26]); b.m(g, GEO.cyl, dkw, [-0.4, 0.82, 0.12], [0.04, 0.4, 0.04], [0, 0, Math.PI / 2]); b.m(g, GEO.box, mat('#b4bccf', { metal: 0.9, rough: 0.25 }), [-0.2, 0.82, 0.12], [0.14, 0.12, 0.1]); b.m(g, GEO.box, wood, [0, 1.3, -0.4], [1.6, 1.0, 0.06]); for (let i = 0; i < 3; i++) b.m(g, GEO.cyl, steel, [-0.5 + i * 0.5, 1.35, -0.34], [0.03, 0.35, 0.03]); break;
     case 'forno': { b.m(g, GEO.cyl, stone, [0, 0.7, 0], [0.75, 1.4, 0.75]); b.m(g, GEO.cone, stone, [0, 1.65, 0], [0.6, 0.55, 0.6]); b.m(g, GEO.cyl, stone, [0, 2.15, 0], [0.18, 0.7, 0.18]); const mouth = b.m(g, GEO.box, mat('#ff7a1a', { glow: 0.2, emis: '#ff5a10' }).clone(), [0, 0.5, 0.67], [0.5, 0.45, 0.1]); mouth.castShadow = false; const fl = new THREE.PointLight('#ff8a3c', 0, 5); fl.position.set(0, 0.6, 1.1); g.add(fl); u.mouth = mouth; u.fl = fl; break; }
     case 'casinha': { b.m(g, GEO.box, texMat('wood', '#e8cfa0'), [0, 0.75, 0], [1.9, 1.5, 1.6]); b.m(g, GEO.box, stone, [0, 0.1, 0], [2.0, 0.2, 1.7]); const roof = b.m(g, GEO.cone, texMat('roof', '#c4503a', { rough: 0.75 }), [0, 1.95, 0], [1.75, 1.0, 1.55], [0, Math.PI / 4, 0]); roof.scale.set(1.75, 1.0, 1.55); b.m(g, GEO.box, dkw, [0, 0.45, 0.81], [0.5, 0.9, 0.04]); for (const sx of [1, -1]) { b.m(g, GEO.box, mat('#9fd8ff', { rough: 0.1, glow: 0.2, emis: '#ffe8a0' }), [sx * 0.6, 0.95, 0.81], [0.35, 0.35, 0.03]); b.m(g, GEO.box, wood, [sx * 0.6, 0.95, 0.83], [0.4, 0.04, 0.02]); } b.m(g, GEO.box, mat('#d9534f'), [0.55, 2.2, 0.3], [0.22, 0.5, 0.22]); break; }
     case 'totem': { b.m(g, GEO.box, mat('#6a6478', { kind: 'pedra', seed: 3, rough: 0.9 }), [0, 1.0, 0], [0.6, 2.0, 0.6]); const bolt = b.m(g, SHAPES.bolt, mat('#7df9ff', { glow: 1.8 }), [0, 1.2, 0.32], 0.35); bolt.castShadow = false; const cr = b.m(g, GEO.oct, mat('#7df9ff', { glow: 2 }), [0, 2.35, 0], 0.22); u.spin = cr; break; }
-    case 'comedouro': { // cocho de madeira cheio de comida; cresce um pouco a cada nível
-      const L = [1, 1.25, 1.5][nv - 1];
-      b.m(g, GEO.box, wood, [0, 0.36, 0], [1.1 * L, 0.08, 0.6]); for (const sz of [-0.27, 0.27]) b.m(g, GEO.box, wood, [0, 0.46, sz], [1.1 * L, 0.22, 0.06]); for (const sx of [-1, 1]) b.m(g, GEO.box, wood, [sx * 0.55 * L, 0.46, 0], [0.06, 0.22, 0.6]);
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.m(g, GEO.box, dkw, [sx * 0.45 * L, 0.16, sz * 0.22], [0.08, 0.32, 0.08]);
-      const food = ['#ff8a1c', '#e8322a', '#8ee07a', '#ffd34d']; for (let i = 0; i < Math.round(7 * L); i++) { const x = (i / Math.max(1, Math.round(7 * L) - 1) - 0.5) * 0.9 * L; b.m(g, i % 3 ? GEO.sph : GEO.cone, mat(food[i % 4], { rough: 0.5 }), [x, 0.5 + (i % 2) * 0.04, (i % 2 - 0.5) * 0.2], i % 3 ? 0.08 : [0.05, 0.16, 0.05], i % 3 ? [0, 0, 0] : [0, 0, 1.2]); }
-      if (nv >= 2) { b.m(g, GEO.cyl, mat('#e8c46a', { kind: 'pele', seed: 7, rough: 1 }), [0.95 * L, 0.25, 0.15], [0.28, 0.5, 0.28], [Math.PI / 2, 0, 0]); }
-      if (nv >= 3) { for (const sx of [-1, 1]) b.m(g, GEO.cyl, dkw, [sx * 0.6 * L, 0.75, -0.32], [0.04, 1.5, 0.04]); b.m(g, GEO.box, mat('#b04a3a', { rough: 0.8 }), [0, 1.5, -0.15], [1.4 * L, 0.06, 0.8], [0.35, 0, 0]); }
+    case 'comedouro': { // cesta de palha: a comida colhida na fazendinha fica guardada nela
+      const straw = texMat('straw', '#e2bd6e', { rough: 0.95 }), strawD = texMat('straw', '#b8893f', { rough: 0.95 });
+      const bowl = new THREE.Mesh(lathe2('cesta', [[0.02, 0.04], [0.46, 0.05], [0.62, 0.16], [0.71, 0.34], [0.75, 0.52], [0.73, 0.55], [0.66, 0.53], [0.6, 0.36], [0.5, 0.2], [0.02, 0.17]]), straw); bowl.castShadow = bowl.receiveShadow = true; g.add(bowl);
+      b.m(g, cachedGeo('borda', () => new THREE.TorusGeometry(1, 0.08, 10, 40)), strawD, [0, 0.54, 0], [0.74, 0.74, 0.74], [Math.PI / 2, 0, 0]);
+      const handle = new THREE.Mesh(cachedGeo('alca', () => new THREE.TorusGeometry(0.62, 0.045, 8, 28, Math.PI)), strawD); handle.position.y = 0.52; handle.rotation.y = 0.4; handle.castShadow = true; g.add(handle);
+      // a comida aparece de verdade: quanto mais cheia, mais alto o montinho
+      const com = o.comida || {}; const tot = Object.values(com).reduce((t, n) => t + n, 0);
+      if (tot > 0) {
+        const fill = Math.min(1, tot / 30); const n = Math.round(3 + fill * 15); const ids = Object.entries(com).flatMap(([id, k]) => Array(Math.max(1, Math.round(k / tot * n))).fill(id)).slice(0, n);
+        const FOOD_LOOK = { fruta: ['#e8322a', 0.11], espetinho: ['#ff8a1c', 0.09], mingau: ['#f2e2b0', 0.12], torta: ['#d9934a', 0.13], racao: ['#7fd04a', 0.09] };
+        const top = 0.2 + fill * 0.32;
+        ids.forEach((id, i) => { const a = i * 2.39996, rr = Math.sqrt((i + 0.5) / ids.length) * 0.52 * (0.7 + fill * 0.3); const [c, s0] = FOOD_LOOK[id] || FOOD_LOOK.fruta; const y = top - rr * rr * 0.45 + (i % 3) * 0.02;
+          const f = b.m(g, GEO.sph, mat(c, { rough: 0.45 }), [Math.cos(a) * rr, y, Math.sin(a) * rr], [s0, s0 * 0.9, s0]); f.castShadow = false;
+          if (id === 'fruta') b.m(g, GEO.cyl, mat('#5a3a1a'), [Math.cos(a) * rr, y + s0 * 0.95, Math.sin(a) * rr], [0.012, 0.05, 0.012]).castShadow = false; });
+      }
       break; }
-    case 'bebedouro': { // bacia de pedra com água e uma bica
-      const L = [1, 1.2, 1.4][nv - 1];
-      b.m(g, GEO.cyl, stone, [0, 0.2, 0], [0.6 * L, 0.4, 0.6 * L]); const wtr = b.m(g, GEO.cyl, mat('#5fbfff', { op: 0.75, rough: 0.05, glow: 0.25, emis: '#3aa0ff' }), [0, 0.38, 0], [0.52 * L, 0.03, 0.52 * L]); wtr.castShadow = false; u.water = wtr;
-      b.m(g, GEO.cyl, mat('#4a4c5c', { metal: 0.6, rough: 0.4 }), [0.55 * L, 0.55, 0], [0.05, 0.7, 0.05]); b.m(g, GEO.cyl, mat('#4a4c5c', { metal: 0.6 }), [0.42 * L, 0.88, 0], [0.035, 0.28, 0.035], [0, 0, Math.PI / 2]); b.m(g, GEO.cone, mat('#bfe8ff', { op: 0.55, glow: 0.5, emis: '#7fd0ff' }), [0.3 * L, 0.62, 0], [0.04, 0.5, 0.04]).castShadow = false;
-      if (nv >= 2) { b.m(g, GEO.cyl, stone, [-0.75 * L, 0.14, 0.2], [0.35, 0.28, 0.35]); b.m(g, GEO.cyl, mat('#5fbfff', { op: 0.75, rough: 0.05 }), [-0.75 * L, 0.27, 0.2], [0.3, 0.02, 0.3]).castShadow = false; }
-      if (nv >= 3) for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.28; b.m(g, GEO.sph, mat(['#ff7ab8', '#ffd34d', '#ffffff'][i % 3]), [Math.cos(a) * 0.68 * L, 0.42, Math.sin(a) * 0.68 * L], 0.06).castShadow = false; }
+    case 'bebedouro': { // barril de madeira com água fresquinha
+      const staves = texMat('stave', '#b07a42', { rough: 0.85 }); const iron = mat('#4a4c5c', { metal: 0.6, rough: 0.4 });
+      const prof = [[0.4, 0], [0.47, 0.18], [0.51, 0.42], [0.5, 0.62], [0.45, 0.84], [0.42, 0.84], [0.47, 0.62], [0.48, 0.42], [0.44, 0.18], [0.37, 0.06]];
+      const barrel = new THREE.Mesh(lathe2('barril', prof), staves); barrel.castShadow = barrel.receiveShadow = true; g.add(barrel);
+      for (const [y, r] of [[0.1, 0.44], [0.42, 0.515], [0.76, 0.475]]) b.m(g, cachedGeo('aro', () => new THREE.TorusGeometry(1, 0.035, 8, 40)), iron, [0, y, 0], [r, r, r * 1.6], [Math.PI / 2, 0, 0]);
+      const wtr = b.m(g, GEO.cyl, mat('#4fd8ff', { op: 0.85, rough: 0.05, glow: 0.35, emis: '#2aa8e8' }), [0, 0.74, 0], [0.44, 0.02, 0.44]); wtr.castShadow = false; u.water = wtr;
+      // concha de beber pendurada na borda
+      const dip = b.g(g, [0.36, 0.8, 0.12], [0, 0, -0.6]); b.m(dip, GEO.cyl, texMat('wood', '#8a5a34'), [0, 0.2, 0], [0.025, 0.42, 0.025]); b.m(dip, GEO.sph, texMat('wood', '#8a5a34'), [0, -0.02, 0], [0.09, 0.07, 0.09]);
+      b.m(g, GEO.cyl, mat('#7ad8ff', { op: 0.5, rough: 0.1 }), [0.62, 0.012, 0.2], [0.28, 0.01, 0.2]).castShadow = false; // poça de respingo
       break; }
     case 'cerca': for (const x of [-0.6, 0, 0.6]) b.m(g, GEO.box, wood, [x, 0.42, 0], [0.1, 0.84, 0.1]); for (const y of [0.3, 0.62]) b.m(g, GEO.box, wood, [0, y, 0], [1.35, 0.08, 0.05]); for (const x of [-0.6, 0, 0.6]) b.m(g, GEO.cone, wood, [x, 0.9, 0], [0.07, 0.12, 0.07], [0, Math.PI / 4, 0]); break;
     case 'flores': { const cols = ['#ff7ab8', '#ffd34d', '#ffffff', '#9a6aff', '#ff6a5a']; b.m(g, GEO.cyl, mat('#4a2e1c', { rough: 1 }), [0, 0.05, 0], [0.6, 0.1, 0.6]); for (let i = 0; i < 9; i++) { const a = i * 2.4, r = 0.15 + (i % 3) * 0.14; const fg = b.g(g, [Math.cos(a) * r, 0.08, Math.sin(a) * r]); b.m(fg, GEO.cyl, mat('#4f9d3a'), [0, 0.18, 0], [0.018, 0.36, 0.018]); for (let k = 0; k < 5; k++) { const aa = (k / 5) * Math.PI * 2; b.m(fg, GEO.sph, mat(cols[i % cols.length]), [Math.cos(aa) * 0.07, 0.37, Math.sin(aa) * 0.07], [0.06, 0.025, 0.06]).castShadow = false; } b.m(fg, GEO.sph, mat('#ffd34d'), [0, 0.38, 0], 0.04); } break; }

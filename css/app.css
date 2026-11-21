@@ -549,3 +549,112 @@ body.guiding .farm-rails { top: calc(var(--hudh) + 84px); }
 .place-bar { background: #fff7d6; border-radius: 20px; padding: 6px 10px; margin-bottom: 6px; }
 .hud-pill.energy { cursor: pointer; }
 .hud-pill.energy.low { background: #ffe1e1; animation: pulse 1.2s infinite; }
+
+/* =========================== rodada 9: visual de ilha tropical (madeira, pergaminho e botões turquesa) =========================== */
+:root {
+  --pb-t1: #7de6ee; --pb-t2: #34b4cc; --pb-t3: #1d86a2; --pb-ink: #15384a;
+  --wd1: #d49a58; --wd2: #a8682f; --wd3: #6a3d1b; --wd4: #4a2a12;
+  --parch: #fbf0d2; --parch2: #f0dcaa; --leaf: #5fc23a;
+  --ink: #3a2412; --ink2: #7a5a3a;
+}
+.stroke, .hud-pill b, .side-btn .lb, .modal h2, .rail-head, .build-head b, #nav button, .btn, .am-btn, .lvl-ring {
+  paint-order: stroke fill;
+}
+/* ---------- botões turquesa com contorno escuro ---------- */
+.btn, .btn.blue { background: linear-gradient(180deg, var(--pb-t1) 0%, var(--pb-t2) 55%, var(--pb-t3) 100%); color: #fff; border: 3px solid var(--pb-ink); border-radius: 18px; -webkit-text-stroke: 3px var(--pb-ink); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), inset 0 -4px 0 rgba(0, 40, 60, .25), 0 5px 0 var(--pb-ink); text-shadow: 0 2px 0 var(--pb-ink); letter-spacing: .3px; }
+.btn:active { transform: translateY(4px); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), 0 1px 0 var(--pb-ink); }
+.btn.green { background: linear-gradient(180deg, #b6f27a 0%, #6ccf3a 55%, #3f9e24 100%); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), inset 0 -4px 0 rgba(20, 60, 0, .25), 0 5px 0 var(--pb-ink); }
+.btn.gold { background: linear-gradient(180deg, #ffe98a 0%, #ffc43a 55%, #e0901a 100%); color: #fff; box-shadow: inset 0 3px 0 rgba(255, 255, 255, .6), inset 0 -4px 0 rgba(120, 60, 0, .25), 0 5px 0 var(--pb-ink); }
+.btn.ghost { background: linear-gradient(180deg, #fffaf0, #f0dcaa); color: var(--ink); -webkit-text-stroke: 0; text-shadow: none; box-shadow: inset 0 2px 0 #fff, 0 5px 0 var(--pb-ink); }
+/* ---------- barra de cima ---------- */
+.hud-pill { background: linear-gradient(180deg, rgba(40, 90, 110, .78), rgba(20, 56, 74, .82)); border: 3px solid var(--pb-ink); color: #fff; box-shadow: inset 0 2px 0 rgba(255, 255, 255, .25), 0 4px 0 rgba(10, 30, 40, .45); }
+.hud-pill b { -webkit-text-stroke: 3px var(--pb-ink); font-size: 21px; }
+.hud-btn { border-radius: 16px; background: linear-gradient(180deg, var(--pb-t1), var(--pb-t2) 55%, var(--pb-t3)); border: 3px solid var(--pb-ink); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .5), 0 4px 0 var(--pb-ink); }
+.hud-btn.me img { border-radius: 12px; }
+#hud-level { background: none; border: 0; box-shadow: none; padding: 0; gap: 0; }
+.lvl-ring { position: relative; z-index: 2; width: 54px; height: 54px; border-radius: 0; background: #7a3ab0; color: #fff; font-size: 22px; -webkit-text-stroke: 4px #3a1458;
+  clip-path: polygon(50% 0%, 61% 30%, 95% 31%, 68% 52%, 79% 86%, 50% 66%, 21% 86%, 32% 52%, 5% 31%, 39% 30%);
+  background: radial-gradient(circle at 50% 40%, #b07ae0, #7a3ab0 60%, #4a1a78); filter: drop-shadow(0 3px 0 rgba(30, 10, 40, .5)); padding-top: 6px; }
+.lvl-bar { width: 110px; height: 22px; margin-left: -12px; border-radius: 8px; background: linear-gradient(180deg, var(--wd2), var(--wd3)); border: 3px solid var(--wd4); padding: 3px; box-shadow: 0 4px 0 rgba(40, 20, 0, .4); }
+.lvl-bar i { border-radius: 5px; background: linear-gradient(180deg, #ffb0e0, #c45ad8 50%, #8a2ab0); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .4); }
+/* ---------- barra de baixo: tábua de madeira ---------- */
+#nav { background: linear-gradient(180deg, var(--wd1), var(--wd2) 60%, var(--wd3)); border: 3px solid var(--wd4); border-radius: 22px; box-shadow: inset 0 3px 0 rgba(255, 220, 160, .45), 0 6px 0 rgba(40, 20, 0, .45); }
+#nav button { color: #fff; -webkit-text-stroke: 3px var(--wd4); font-weight: 700; font-size: 14px; }
+#nav button span { -webkit-text-stroke: 0; filter: drop-shadow(0 2px 0 rgba(40, 20, 0, .5)); }
+#nav button.on { background: linear-gradient(180deg, var(--pb-t1), var(--pb-t2) 60%, var(--pb-t3)); border: 3px solid var(--pb-ink); color: #fff; -webkit-text-stroke: 3px var(--pb-ink); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .5); }
+/* ---------- janelas: placa de madeira em cima, pergaminho dentro ---------- */
+.modal { background: linear-gradient(180deg, var(--parch), var(--parch2)); border: 5px solid var(--wd3); border-radius: 22px; box-shadow: inset 0 0 0 3px #fff6dc, 0 0 0 4px var(--wd4), 0 18px 44px rgba(20, 10, 0, .5); color: var(--ink); }
+.modal h2 { display: inline-block; color: #fff; -webkit-text-stroke: 5px var(--wd4); text-shadow: 0 3px 0 var(--wd4); background: linear-gradient(180deg, var(--wd1), var(--wd2) 55%, var(--wd3)); border: 3px solid var(--wd4); border-radius: 14px; padding: 4px 22px 6px; box-shadow: inset 0 3px 0 rgba(255, 220, 160, .5), 0 4px 0 rgba(40, 20, 0, .4); margin: 0 0 10px; position: relative; }
+.modal h2::before, .modal h2::after { content: ''; position: absolute; top: -8px; bottom: -8px; width: 10px; border-radius: 6px; background: linear-gradient(90deg, #8ac24a, #c4e67a 45%, #5a9a2a); border: 2px solid #2e5a12; }
+.modal h2::before { left: -14px; } .modal h2::after { right: -14px; }
+.modal h3 { color: var(--wd3); }
+.modal .muted, .muted { color: var(--ink2); }
+.chip { background: #fff3d6; color: var(--ink); border: 2px solid rgba(106, 61, 27, .25); }
+.req .r { background: #fff3d6; border: 2px solid rgba(106, 61, 27, .18); }
+.req .r.ok { background: #d8f5c0; border-color: #6ccf3a; }
+.req .r.no { background: #ffe1d6; border-color: #e88a6a; }
+.craft { background: #fff8e6; border: 2px solid rgba(106, 61, 27, .2); }
+.card { background: linear-gradient(180deg, var(--parch), var(--parch2)); border: 4px solid var(--wd3); border-radius: 20px; }
+.tab { background: #fff3d6; border: 2px solid rgba(106, 61, 27, .3); color: var(--ink); }
+.tab.on, .build-tabs .tab.on, .kid-tabs .tab.on { background: linear-gradient(180deg, var(--pb-t1), var(--pb-t2) 60%, var(--pb-t3)); color: #fff; border: 2px solid var(--pb-ink); -webkit-text-stroke: 3px var(--pb-ink); paint-order: stroke fill; }
+.build-tabs .tab, .kid-tabs .tab { background: #fff3d6; }
+#guide { background: linear-gradient(180deg, var(--parch), var(--parch2)); border: 4px solid var(--wd3); color: var(--ink); }
+/* ---------- fazendinha: botões laterais, cartões e as barras ---------- */
+.side-btn { border-radius: 18px; border: 3px solid var(--pb-ink); background: linear-gradient(180deg, var(--pb-t1), var(--pb-t2) 55%, var(--pb-t3)); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .5), inset 0 -4px 0 rgba(0, 40, 60, .25), 0 5px 0 var(--pb-ink); }
+.side-btn .lb { -webkit-text-stroke: 3px var(--pb-ink); }
+.side-btn .ico { filter: drop-shadow(0 2px 0 rgba(10, 30, 40, .6)); }
+.side-btn.green { background: linear-gradient(180deg, #b6f27a, #6ccf3a 55%, #3f9e24); }
+.side-btn.violet { background: linear-gradient(180deg, #d8b8ff, #9a6af0 55%, #6a3ac8); }
+.side-btn.gold { background: linear-gradient(180deg, #ffe98a, #ffc43a 55%, #e0901a); color: #fff; }
+.side-btn.ghost { background: linear-gradient(180deg, var(--wd1), var(--wd2) 55%, var(--wd3)); border-color: var(--wd4); color: #fff; }
+.side-btn.ghost .lb { -webkit-text-stroke: 3px var(--wd4); }
+.farm-info .chip { background: linear-gradient(180deg, rgba(40, 90, 110, .82), rgba(20, 56, 74, .86)); color: #fff; border: 2px solid var(--pb-ink); box-shadow: 0 3px 0 rgba(10, 30, 40, .45); }
+.farm-info .chip small { color: #cfeef5; }
+.farm-info .need-chip { background: linear-gradient(180deg, #ffd27a, #ff9a3a) !important; color: #4a2000; border-color: #8a3a00; animation: none; }
+.fbar { background: rgba(0, 0, 0, .3) !important; }
+.rail-box { background: linear-gradient(180deg, rgba(212, 154, 88, .96), rgba(168, 104, 47, .96)); border: 3px solid var(--wd4); box-shadow: inset 0 2px 0 rgba(255, 220, 160, .45), 0 5px 0 rgba(40, 20, 0, .4); }
+.rail-head { color: #fff; -webkit-text-stroke: 3px var(--wd4); font-size: 14px; }
+.rail-arrow { background: linear-gradient(180deg, var(--pb-t1), var(--pb-t2)); color: #fff; border: 2px solid var(--pb-ink); }
+.farm-rails .rail-btn { background: rgba(255, 243, 214, .9); }
+.farm-rails .rail-btn.on { background: linear-gradient(180deg, #fffbe8, #ffe9a8); box-shadow: inset 0 0 0 3px #ffc43a; }
+.rail-name { color: var(--ink); }
+/* missões: pronta = fundo verde e borda colorida, sem piscar nem crescer */
+.mis-btn { background: #fff8e6; box-shadow: 0 3px 0 rgba(74, 42, 18, .35); border: 3px solid transparent; }
+.mis-btn.ready { background: linear-gradient(180deg, #c8f5a8, #9ee070); border-color: #2e9a1a; box-shadow: 0 3px 0 #1f6a10; animation: none; }
+.mis-btn.ready .mis-ttl { color: #1f5a0a; }
+.mis-need span { background: rgba(255, 255, 255, .7); }
+.rail-box.missions.has-ready .rail-head { color: #fff; }
+/* menu de ações: pergaminho com botões turquesa */
+.act-menu { background: linear-gradient(180deg, var(--parch), var(--parch2)); border: 4px solid var(--wd3); border-radius: 20px; box-shadow: 0 0 0 3px var(--wd4), 0 14px 34px rgba(20, 10, 0, .4); }
+.act-menu::after { background: var(--parch2); border-color: var(--wd3); }
+.am-ic { background: #fff3d6; border: 2px solid rgba(106, 61, 27, .25); }
+.am-x { background: linear-gradient(180deg, #ff8a7a, #e0402a); color: #fff; border: 2px solid #6a1a0a; font-weight: 700; }
+.am-btn { background: linear-gradient(180deg, var(--pb-t1), var(--pb-t2) 55%, var(--pb-t3)); border: 3px solid var(--pb-ink); border-radius: 14px; -webkit-text-stroke: 3px var(--pb-ink); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .5), 0 4px 0 var(--pb-ink); }
+.am-btn span { -webkit-text-stroke: 0; }
+.am-btn:active { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .5), 0 1px 0 var(--pb-ink); }
+.am-btn[disabled] { background: #d8cdb4; border-color: #8a7a5a; -webkit-text-stroke: 0; color: #8a7a5a; box-shadow: 0 4px 0 #8a7a5a; }
+.am-btn .am-pet { width: 30px; height: 30px; object-fit: contain; }
+.am-head b { color: var(--wd3); }
+/* painel de construir */
+.build-panel { background: linear-gradient(180deg, var(--parch), var(--parch2)); border: 4px solid var(--wd3); box-shadow: 0 0 0 3px var(--wd4), 0 12px 30px rgba(20, 10, 0, .4); }
+.build-head b { color: #fff; -webkit-text-stroke: 4px var(--wd4); }
+.build-card { background: #fff8e6; border: 3px solid rgba(106, 61, 27, .25); box-shadow: 0 4px 0 rgba(74, 42, 18, .3); }
+.build-card.placed { background: #e6f8d4; border-color: #6ccf3a; }
+.build-card .cnt.big { background: var(--wd3); }
+/* trabalhadores: o anel mostra quanto falta da tarefa */
+.farm-screen .worker { border: 3px solid var(--pb-ink); background: conic-gradient(#3fc463 var(--p, 0%), rgba(255, 255, 255, .92) 0); padding: 4px; }
+.farm-screen .worker img { background: #fff8e6; }
+.farm-screen .worker.idle { background: #fff3d6; border-color: var(--wd3); }
+.farm-screen .worker.idle span { background: #ffe9a8; }
+/* moedas e itens */
+.token { border-color: var(--rc, #e8dcff); box-shadow: 0 4px 0 rgba(40, 20, 0, .35); }
+.sec-sub { font-weight: 700; font-size: 14px; color: var(--ink2); margin: 8px 2px 4px; text-align: left; }
+.acc-row .opts { margin-top: 4px; }
+.seed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+.seed-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 16px; background: #fff8e6; border: 3px solid rgba(106, 61, 27, .25); box-shadow: 0 4px 0 rgba(74, 42, 18, .3); }
+.seed-card .e { font-size: 40px; line-height: 1.1; }
+.seed-card small { font-size: 12.5px; color: var(--ink2); }
+.seed-card.on { border-color: #3fc463; background: #e6f8d4; }
+.seed-card.lock { opacity: .55; }
+.seed-card em { font-style: normal; font-size: 12px; font-weight: 700; color: #a04a1a; }
+.opts.gender .opt.big { font-size: 20px; padding: 12px 22px; } .opts.gender .opt.big span { font-size: 30px; }

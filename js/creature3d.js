@@ -851,7 +851,7 @@ export function itemTexture(emoji, ring = '#ffffff') {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; spriteCache.set(k, t); return t;
 }
 export function itemSprite(emoji, size = 0.6, ring) {
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTexture(emoji, ring), depthTest: true }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTexture(emoji, ring), depthTest: true, transparent: true, alphaTest: 0.05 }));
   s.scale.setScalar(size); return s;
 }
 export function sparkleTexture() {

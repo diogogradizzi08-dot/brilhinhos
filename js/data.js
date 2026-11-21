@@ -67,7 +67,21 @@ Object.assign(ITEMS, {
   espetinho: { nome: 'Espetinho de Fruta', emoji: '🍢', el: null, rar: 'comum', recurso: true, energia: 25, cocho: 8 },
   mingau:  { nome: 'Mingau Quentinho', emoji: '🥣', el: null, rar: 'comum', recurso: true, energia: 35, cocho: 10 },
   torta:   { nome: 'Torta de Frutas', emoji: '🥧', el: null, rar: 'incomum', recurso: true, energia: 70, cocho: 20 },
+  morango: { nome: 'Morango', emoji: '🍓', el: null, rar: 'comum', recurso: true, energia: 10, cocho: 4 },
+  cenoura: { nome: 'Cenoura', emoji: '🥕', el: null, rar: 'comum', recurso: true, energia: 10, cocho: 4 },
+  alface:  { nome: 'Alface', emoji: '🥬', el: null, rar: 'comum', recurso: true, energia: 8, cocho: 4 },
+  tomate:  { nome: 'Tomate', emoji: '🍅', el: null, rar: 'comum', recurso: true, energia: 12, cocho: 5 },
+  girassol: { nome: 'Girassol', emoji: '🌻', el: null, rar: 'incomum', recurso: true },
 });
+// o que dá para plantar no canteiro (cada um cresce no seu tempo e dá o seu item)
+export const CROPS = {
+  fruta:    { nome: 'Fruta Energética', emoji: '🍎', tipo: 'Fruta', item: 'fruta', tempo: 60000, nivel: 1, qtd: 1 },
+  cenoura:  { nome: 'Cenoura', emoji: '🥕', tipo: 'Legume', item: 'cenoura', tempo: 75000, nivel: 1, qtd: 2 },
+  alface:   { nome: 'Alface', emoji: '🥬', tipo: 'Verdura', item: 'alface', tempo: 45000, nivel: 2, qtd: 2 },
+  morango:  { nome: 'Morango', emoji: '🍓', tipo: 'Fruta', item: 'morango', tempo: 60000, nivel: 2, qtd: 2 },
+  tomate:   { nome: 'Tomate', emoji: '🍅', tipo: 'Legume', item: 'tomate', tempo: 90000, nivel: 3, qtd: 3 },
+  girassol: { nome: 'Girassol', emoji: '🌻', tipo: 'Flor', item: 'girassol', tempo: 80000, nivel: 3, qtd: 2 },
+};
 // itens de época: só aparecem durante a época deles (e chamam os bichos especiais na Forja)
 Object.assign(ITEMS, {
   enfeite: { nome: 'Enfeite de Natal', emoji: '🎄', el: null, rar: 'incomum', tema: 'natal' },
@@ -264,8 +278,8 @@ export const BUILDINGS = {
   fogueira:  { nome: 'Fogueira',          icone: '🔥', cat: 'util', surv: true, desc: 'Cozinha comida simples (espetinho e mingau) e esquenta quando faz frio.', custo: { madeira: 3, seixo: 2 }, r: 0.85, max: 1 },
   fogao:     { nome: 'Forno de Barro',    icone: '🥧', cat: 'util', surv: true, desc: 'Cozinha comida caprichada (torta e ração turbo) para você e para os bichos.', custo: { madeira: 4, seixo: 6, ferro: 2 }, precisa: 'fogueira', r: 1.0, max: 1 },
   forno:     { nome: 'Fundição', icone: '🏭', cat: 'util', desc: 'Funde Ferro em Barras de Metal 🧱. Precisa de um companheiro com 🔥 Acender na mesma fazendinha.', custo: { madeira: 6, ferro: 6 }, precisa: 'bancada', r: 1.1, unico: true },
-  comedouro: { nome: 'Comedouro',         icone: '🥕', cat: 'util', cocho: true, surv: true, desc: 'Comida para os bichos desta fazendinha. Sem ele, ou cheio demais, eles trabalham mais devagar.', custo: { madeira: 4, fruta: 2 }, r: 0.9, max: 1 },
-  bebedouro: { nome: 'Bebedouro',         icone: '🚰', cat: 'util', cocho: true, surv: true, desc: 'Água fresquinha para os bichos desta fazendinha. Sem ele, eles trabalham mais devagar.', custo: { madeira: 3, seixo: 2 }, r: 0.9, max: 1 },
+  comedouro: { nome: 'Comedouro',         icone: '🧺', cat: 'util', cocho: true, surv: true, desc: 'Cesta de palha: a comida colhida aqui fica guardada nela, e os bichos comem dela. Começa vazia.', custo: { madeira: 4, fruta: 2 }, r: 0.9, max: 1 },
+  bebedouro: { nome: 'Bebedouro',         icone: '💧', cat: 'util', cocho: true, surv: true, desc: 'Barril de madeira com água fresquinha para os bichos. Sem ele, eles trabalham mais devagar.', custo: { madeira: 3, seixo: 2 }, r: 0.9, max: 1 },
   casinha:   { nome: 'Casinha da Equipe', icone: '🏠', cat: 'util', desc: '+1 lugar para companheiros em todas as fazendinhas (até 3 no mundo).', custo: { madeira: 12, barra: 3 }, precisa: 'bancada', r: 1.5, total: 3, nivel: 4 },
   totem:     { nome: 'Totem do Trovão',   icone: '🗿', cat: 'util', desc: 'Todos os companheiros trabalham 25% mais rápido.', custo: { barra: 6, runa: 1 }, precisa: 'forno', r: 0.7, unico: true, nivel: 6 },
   cerca:     { nome: 'Cerquinha',         icone: '🪵', cat: 'enfeite', desc: 'Um pedaço de cerca. Gire para fazer caminhos!', custo: { madeira: 1 }, r: 0.45 },
@@ -297,12 +311,12 @@ export const CRAFTS = [
 
 // Regiões: cada uma tem uma fazendinha, uma ponte de pedra rúnica para abrir e alguém para salvar.
 export const REGIONS = [
-  { id: 'floresta', el: 'planta', nome: 'Floresta Viva', chao: '#5f9e3f', ceu: ['#8fc9e8', '#e3f3d8'],
+  { id: 'floresta', el: 'planta', nome: 'Floresta Viva', chao: '#5aae2a', ceu: ['#6ccff5', '#e6f9ff'],
     ponte: null,
     resgate: { quem: 'Vovó Margarida', g: 'a', arch: 'sapo', cor: '#e8d7c0', chapeu: 'palha', armadilha: 'ilha',
       texto: 'A ponte de cipós arrebentou e a Vovó Margarida ficou ilhada do outro lado do riacho!',
       ajuda: 'Um companheiro de Planta faz os cipós crescerem e refaz a ponte.', precisa: { el: 'planta', estagio: 0 }, itens: { trevo: 3 } } },
-  { id: 'lago', el: 'agua', nome: 'Lago Profundo', chao: '#5aa68a', ceu: ['#6fb3e0', '#d8eefa'],
+  { id: 'lago', el: 'agua', nome: 'Lago Profundo', chao: '#4fae54', ceu: ['#5cc6f2', '#dcf6ff'],
     ponte: { moedas: 30, itens: { trevo: 4, orvalho: 2 }, amigos: 2 },
     resgate: { quem: 'Capitão Bigode', g: 'o', arch: 'macaco', cor: '#9fb5c9', chapeu: 'marinheiro', armadilha: 'redemoinho',
       texto: 'O barco do Capitão Bigode ficou preso girando num redemoinho!',
@@ -312,7 +326,7 @@ export const REGIONS = [
     resgate: { quem: 'Ferreiro Tito', g: 'o', arch: 'urso', cor: '#8a5a3a', chapeu: 'capacete', armadilha: 'nuvem',
       texto: 'Uma nuvem de chuva apagou a fornalha do Ferreiro Tito, o mestre da Forja do Trovão!',
       ajuda: 'Um companheiro de Fogo reacende a fornalha.', precisa: { el: 'fogo', estagio: 0 }, itens: { brasa: 4 } } },
-  { id: 'picos', el: 'vento', nome: 'Picos dos Ventos', chao: '#8aa39a', ceu: ['#7ab4e6', '#f2f7ff'],
+  { id: 'picos', el: 'vento', nome: 'Picos dos Ventos', chao: '#9cc678', ceu: ['#72c2f0', '#f2fbff'],
     ponte: { moedas: 160, itens: { brasa: 6, pimenta: 2 }, amigos: 6 },
     resgate: { quem: 'Aviadora Brisa', g: 'a', arch: 'raposa', cor: '#d9a36a', chapeu: 'touca', armadilha: 'alto',
       texto: 'O balão da Aviadora Brisa enroscou lá no alto do pico mais alto!',
@@ -322,7 +336,7 @@ export const REGIONS = [
     resgate: { quem: 'Explorador Pingo', g: 'o', arch: 'pinguim', cor: '#4a5a7a', chapeu: 'gorro', armadilha: 'gelo',
       texto: 'O Explorador Pingo escorregou e ficou congelado dentro de um bloco de gelo!',
       ajuda: 'Um companheiro de Fogo (Jovem ou maior) derrete o gelo com cuidado.', precisa: { el: 'fogo', estagio: 1 }, itens: { floco: 5, pimenta: 2 } } },
-  { id: 'canion', el: 'pedra', nome: 'Cânion de Pedra', chao: '#b0784a', ceu: ['#e8a86a', '#fbe6c8'],
+  { id: 'canion', el: 'pedra', nome: 'Cânion de Pedra', chao: '#d09a5a', ceu: ['#f0b070', '#fff0d0'],
     ponte: { moedas: 400, itens: { floco: 8, neve: 2 }, amigos: 10 },
     resgate: { quem: 'Mestre Toupeira', g: 'o', arch: 'macaco', cor: '#a07a5a', chapeu: 'capacete', armadilha: 'pedras',
       texto: 'Um deslizamento fechou a entrada da mina do Mestre Toupeira!',

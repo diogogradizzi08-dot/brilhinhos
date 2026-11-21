@@ -1323,12 +1323,42 @@ function levelModal() {
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'OK')));
   });
 }
+// =========================== ATUALIZAÇÕES ===========================
+// a versão nova baixa em segundo plano; o jogo avisa e só troca quando o jogador toca em "Atualizar".
+// O progresso fica guardado no aparelho (separado dos arquivos do jogo), então nada se perde.
+let swReg = null, updateReady = false;
+function setupUpdates() {
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    swReg = reg;
+    const watch = (w) => { if (!w) return; if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdate(); w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdate(); }); };
+    watch(reg.waiting); watch(reg.installing);
+    reg.addEventListener('updatefound', () => watch(reg.installing));
+    const check = () => reg.update().catch(() => {});
+    setInterval(check, 15 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  }).catch(() => {});
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading && updateReady) { reloading = true; location.reload(); } });
+}
+function showUpdate() {
+  if (updateReady) return; updateReady = true;
+  const bar = h('div', { class: 'update-bar' }, h('span', { class: 'e' }, '✨'), h('div', {}, h('b', {}, 'Versão nova do Brilhinhos!'), h('small', {}, 'Seus bichos, fazendinhas e personagem continuam iguais.')),
+    h('button', { class: 'btn green small', onclick: () => doUpdate() }, '🔄 Atualizar'), h('button', { class: 'btn ghost small', onclick: () => { bar.remove(); updateReady = 'depois'; } }, 'Depois'));
+  document.body.append(bar);
+}
+function doUpdate() {
+  G.saveNow(); // guarda o progresso antes de trocar
+  const w = swReg?.waiting; if (!w) { location.reload(); return; }
+  updateReady = true; w.postMessage('atualizar');
+  setTimeout(() => location.reload(), 2500); // se o aviso de troca não chegar
+}
 function optionsModal() {
   modal((box, close) => {
     const s = S();
     const sfx = h('button', { class: 'btn ' + (s.som ? 'green' : 'ghost'), onclick: () => { s.som = !s.som; setSfx(s.som); G.save(); close(); optionsModal(); } }, s.som ? '🔊 Sons ligados' : '🔈 Sons desligados');
     const mus = h('button', { class: 'btn ' + (s.musica ? 'green' : 'ghost'), onclick: () => { s.musica = !s.musica; setMusic(s.musica); G.save(); close(); optionsModal(); } }, s.musica ? '🎵 Música ligada' : '🎵 Música desligada');
     box.append(h('h2', {}, '⚙️ Ajustes'), h('div', { class: 'actions' }, sfx, mus),
+      h('div', { class: 'actions' }, swReg?.waiting ? h('button', { class: 'btn green', onclick: () => { close(); doUpdate(); } }, '🔄 Atualizar agora') : h('button', { class: 'btn ghost small', onclick: (e) => { const b = e.currentTarget; b.textContent = '⏳ Procurando…'; if (!swReg) { b.textContent = 'Atualizações só no jogo instalado'; return; } swReg.update().then(() => setTimeout(() => { if (swReg.waiting) { close(); showUpdate(); } else b.textContent = '✅ Você já tem a versão mais nova'; }, 1500)).catch(() => { b.textContent = 'Sem internet agora'; }); } }, '🔄 Procurar atualização')),
       h('p', { class: 'muted', style: 'margin-top:20px' }, 'Brilhinhos não tem propaganda nem compras. Tudo se ganha jogando!'),
       h('div', { class: 'actions' }, h('button', { class: 'btn ghost small', onclick: () => { close(); resetModal(); } }, '🗑️ Começar de novo'), h('button', { class: 'btn', onclick: close }, 'Fechar')));
   });
@@ -1385,6 +1415,6 @@ function start() {
   go(!S().boneco.criado ? 'boneco' : S().amigos.length ? 'mapa' : 'ninho');
   setTimeout(() => $('#splash').classList.add('hide'), 300); setTimeout(() => $('#splash').remove(), 1000);
   flushNotices();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !location.hostname.match(/^(localhost|127\.)/)) navigator.serviceWorker.register('sw.js');
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !location.hostname.match(/^(localhost|127\.)/)) setupUpdates();
 }
 start();

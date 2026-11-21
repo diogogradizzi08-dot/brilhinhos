@@ -40,7 +40,10 @@ export function newState() {
 
 export let S = null;
 export function load() {
-  try { const raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : null; } catch { S = null; }
+  // guarda uma cópia do progresso a cada início (se algo der errado numa versão nova, ela é usada)
+  let raw = null; try { raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : null; } catch { S = null; }
+  if (S && raw) { try { localStorage.setItem(KEY + '-copia', raw); } catch {} }
+  else if (raw || !S) { try { const c = localStorage.getItem(KEY + '-copia'); if (c) S = JSON.parse(c); } catch { S = null; } }
   if (S && S.v === 3) migrate3(S);
   if (!S || S.v !== 4) { S = newState(); starterPlots(BASE_REGION); }
   fixup();

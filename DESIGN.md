@@ -299,3 +299,9 @@ companheiros, apelidos e o guia Raiozinho nos primeiros passos.
 - **Bug antigo corrigido**: `makeObra` apagava o `userData` montado pelo modelo — por isso o canteiro nunca mostrava nada (e o fogo/água das construções não animavam).
 - **Bolhas dos itens**: o sprite agora é transparente fora do círculo (antes aparecia um quadrado em volta).
 - **Menino ou menina** (`genero`, escolhido ao criar; personagens antigos recebem um palpite e confirmam na aba Nome): `allowed()` esconde o que é só do outro (laço, saia, vestido, colar de coração/continhas, óculos gatinho/coração, cabelos compridos/chiquinhas/coque/rabo para menino; moicano e raspadinho para menina) e `fitGender()` troca o que não combina. Novo: **vestido** para menina.
+
+## Rodada 12 — atualização com aviso
+
+- O `sw.js` agora baixa a versão nova em segundo plano e **espera**: a versão que está rodando usa só os arquivos dela (nada muda no meio da brincadeira). Quando a nova está pronta, aparece o aviso "✨ Versão nova do Brilhinhos!" com **Atualizar** / **Depois**; em ⚙️ Ajustes há "Procurar atualização". O jogo procura versão nova a cada 15 minutos e ao voltar para o app.
+- O progresso fica no `localStorage` (separado dos arquivos do jogo); antes de atualizar o jogo salva, e a cada início guarda uma cópia (`brilhinhos-save-v3-copia`) que é usada se o progresso principal não puder ser lido.
+- Ao publicar: aumente `VERSION` no `sw.js` (próxima: `brilhinhos-v11`) e ponha arquivos novos na lista `FILES`.

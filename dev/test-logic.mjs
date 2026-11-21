@@ -46,10 +46,45 @@ ok(G.removeObra('floresta', cerca.uid) && !G.obrasOf('floresta').includes(cerca)
 // aumentar: um lote vizinho de cada vez
 ok(G.expandOptions('floresta').length === 4, '4 lotes vizinhos para abrir');
 G.S.moedas = 999; G.addItem('trevo', 20); G.addItem('cogumelo', 5);
+ok(!G.expand('floresta', '1,0') && G.expandState('floresta').precisa === 2, 'sem o nível da fazendinha não abre lote');
+G.addFarmXp('floresta', G.farmXpNeed(1)); ok(G.farmLevel('floresta') === 2, 'fazendinha sobe de nível com experiência');
 ok(!G.expand('floresta', '2,2'), 'não abre lote longe');
 ok(G.expand('floresta', '1,0') && G.S.regioes.floresta.zonas.length === 2, 'abre o lote vizinho');
 ok(G.resourcesOf('floresta').some((x) => x.id.startsWith('1,0:')), 'o lote novo tem recursos');
 ok(W.ZONE_ORDER[0] === '0,0' && W.ZONE_ORDER.length === 25, 'grade de 25 lotes');
+// missões, comedouro e evolução
+G.setState(G.newState()); G.addItem('concha', 3);
+const pet = G.mix(['concha', 'concha', 'concha']).amigo; G.placeAmigo(pet, 'floresta');
+G.fillMissions('floresta');
+ok(G.missions().some((m) => m.tipo === 'construir' && m.obra === 'comedouro'), 'com bicho na fazendinha pede para construir o comedouro');
+ok(G.missions().some((m) => m.tipo === 'fazenda' && m.rid === 'floresta'), 'tem missão da fazendinha');
+ok(!G.cochoState('floresta').ok, 'sem comedouro os bichos ficam com fome');
+G.addItem('madeira', 30); G.addItem('fruta', 10); G.addItem('seixo', 10);
+G.build('floresta', 'comedouro', ...G.findSpot('floresta', 'comedouro', 2, 3)); G.build('floresta', 'bebedouro', ...G.findSpot('floresta', 'bebedouro', -2, -1));
+ok(G.cochoState('floresta').ok, 'com comedouro e bebedouro ficam bem');
+const mc = G.missions().find((m) => m.tipo === 'construir' && m.obra === 'comedouro'); ok(mc && G.missionReady(mc) && G.completeMission(mc.id), 'missão de construir se cumpre');
+for (let i = 0; i < 3; i++) { G.addItem('concha', 3); G.placeAmigo(G.mix(['concha', 'concha', 'concha']).amigo, 'floresta'); }
+G.fillMissions('floresta');
+ok(G.amigosEm('floresta').length < 4 || (!G.cochoState('floresta').ok && G.missions().some((m) => m.tipo === 'cocho')), 'com mais bichos pede comedouro maior: ' + G.amigosEm('floresta').length);
+const mco = G.missions().find((m) => m.tipo === 'cocho' && m.obra === 'comedouro');
+if (mco) { G.addItem('ferro', 10); G.addItem('madeira', 10); G.addItem('fruta', 10); const r5 = G.completeMission(mco.id); ok(r5 && G.obrasOf('floresta').find((o) => o.tipo === 'comedouro').nivel === 2, 'missão aumenta o comedouro'); }
+G.amigoAddXp(pet, 500); G.S.brilho = 5; ok(G.canEvolve(pet).missao, 'evoluir pede a missão do bicho');
+G.fillMissions('floresta'); const me = G.missions().find((m) => m.tipo === 'evolucao' && m.uid === pet.uid); ok(me, 'aparece a missão de evolução');
+for (const [id, n] of Object.entries(me.pede)) G.addItem(id, n); ok(G.completeMission(me.id) && G.canEvolve(pet).ok, 'cumprida a missão, pode evoluir');
+ok(G.S.nivel < 5 ? !G.rarityOpen('epico') : true, 'épico só a partir do nível 5');
+// sobrevivência: fogueira, comida, comedouro que esvazia e energia
+G.setState(G.newState()); G.addItem('madeira', 20); G.addItem('seixo', 10); G.addItem('fruta', 10); G.addItem('orvalho', 5); G.addItem('ferro', 5);
+ok(G.buildState('canteiro', 'floresta').lim === 3, 'canteiros cabem pelo nível da fazendinha (nível 1 = 3)');
+ok(!G.buildState('fogao', 'floresta').ok, 'forno de barro pede a fogueira antes');
+ok(G.build('floresta', 'fogueira', ...G.findSpot('floresta', 'fogueira', 2, 2)), 'constrói a fogueira');
+ok(G.cook('floresta', 'fogueira', 'espetinho') === 2 && G.S.itens.espetinho === 2, 'cozinha espetinho na fogueira');
+G.S.energia = 10; ok(G.eat('espetinho') && G.energy() === 35, 'comer recupera energia');
+const res2 = G.resourcesOf('floresta').find((x) => x.tipo === 'rocha'); G.playerGather('floresta', res2.id); ok(G.energy() < 35, 'trabalhar cansa');
+G.addItem('concha', 3); const pp = G.mix(['concha', 'concha', 'concha']).amigo; G.placeAmigo(pp, 'floresta');
+G.build('floresta', 'comedouro', ...G.findSpot('floresta', 'comedouro', -2, -2)); G.build('floresta', 'bebedouro', ...G.findSpot('floresta', 'bebedouro', 1, -2));
+ok(G.cochoState('floresta').ok, 'comedouro novo já vem com comida');
+G.tick(Date.now()); G.tick(Date.now() + 4 * 3600000); ok(G.cochoState('floresta').vazio && G.cochoState('floresta').fome, 'o comedouro esvazia e os bichos ficam com fome');
+ok(G.fillTrough('floresta', 'fruta', 2) === 6 && G.cochoState('floresta').ok, 'encher o comedouro resolve a fome');
 // sem semeador não planta
 G.setState(G.newState()); G.addItem('concha', 3); const so = G.mix(['concha', 'concha', 'concha']).amigo; G.placeAmigo(so, 'floresta');
 t = Date.now(); for (let i = 0; i < 20; i++) { t += 5000; G.tick(t); }

@@ -16,9 +16,10 @@ funciona sem internet depois de aberto uma vez. É um jogo de um jogador só.
    toca (como no Pokémon GO) e faz as coisas com as mãos. Os companheiros colocados lá trabalham
    sozinhos (bolhas em cima deles; toque e o personagem vai pegar). Companheiro do mesmo elemento
    da região trabalha **2× mais rápido** e acha mais itens raros. Os brilhos no chão dão itens.
-3. **Aumentar a fazendinha**: toque num cadeado dourado (lote vizinho ao liberado) e pague para
-   abrir. O lote sai da sombra com tudo nascendo. A cada 3 lotes a fazendinha sobe de nível
-   (1 a 5): +1 lugar para companheiros e itens raros aparecem mais; no nível 3, às vezes Runa.
+3. **Nível da fazendinha e lotes**: cada fazendinha tem nível próprio (1 a 13), que sobe com
+   experiência ganha nela: cortar, minerar, catar, plantar, regar, colher, pegar itens dos
+   companheiros, construir e cumprir missões. Cada nível libera mais lotes (nível N → até
+   1 + 2×(N−1) lotes). Para abrir um lote: tocar no cadeado dourado, ter o nível pedido e pagar.
 4. **Salvar quem está em perigo**: em cada região alguém precisa de ajuda (ilhado no riacho,
    barco no redemoinho, fornalha apagada pela chuva, balão preso no pico, congelado no gelo,
    mina bloqueada, torre na tempestade, nave sem energia). Precisa de um companheiro do
@@ -31,9 +32,45 @@ funciona sem internet depois de aberto uma vez. É um jogo de um jogador só.
    especial. Eles continuam na equipe. É o único jeito de conseguir as feras do Trovão
    (Lendária e Mítica).
 
+## Toques e mini menu
+
+Tocar no chão faz o personagem andar. Tocar em qualquer coisa abre um **mini menu** em cima dela
+com as ações possíveis (as que não dá para fazer agora aparecem apagadas): canteiro → Plantar,
+Regar, Colher, Mover; árvore/rocha/arbusto → Cortar/Minerar/Catar (ou quanto falta para voltar);
+bicho → Carinho, Dar fruta, Missão de evoluir, Ficha, Descansar; construções → Fabricar, Abrir,
+Brincar, Mover, Guardar; comedouro/bebedouro → Aumentar, Chamar bichos; presentes de época e
+brilhos → Pegar. **Bicho com itens na bolsa: tocar nele traz os itens direto para a mochila, sem o
+personagem sair do lugar.**
+
+## Barras laterais
+
+À esquerda, duas barras com 3 botões à vista e setas ▲▼: **Fazendas** (atalho para cada uma) e
+**Missões** (o resumo do que cada missão pede e o que dá, ex.: 🪵2 🪨5 🍎3 = 🔔; as prontas brilham
+em verde).
+
+## Missões
+
+- **Da fazendinha**: juntar recursos dela → moedas, experiência da fazendinha e um item.
+- **Da época**: juntar o item da época e outros → um item especial (🔔 Sino Dourado, 🏄 Prancha,
+  🪅 Máscara de Plumas, 🍫 Ovo de Chocolate, 🪗 Sanfona, 🍭 Pirulito Mágico), raro, que chama bichos
+  de época na Forja.
+- **Construir** o comedouro e o bebedouro quando a fazendinha tem bichos.
+- **Comedouro/bebedouro maior**: um de cada por fazendinha; nível 1 dá conta de 3 bichos, nível 2
+  de 6, nível 3 de 10 (crescem um pouco no cenário). Sem eles, ou pequenos demais, os bichos ficam
+  com fome/sede (ícone em cima deles) e trabalham 60% mais devagar.
+- **Evolução**: ao chegar no nível de evoluir, o bicho pede ajuda com uma lista de itens; só depois
+  dela o Cristal de Evolução funciona.
+
+## O que o nível do jogador libera
+
+Roupas, estampas, cortes e acessórios (com cadeado e "Nv X" na tela do personagem), construções
+(Balanço no 3, Casinha no 4, Fonte no 5, Totem no 6), bichos Épicos na Forja a partir do nível 5 e
+Lendários a partir do 8, o 4º espaço da Forja no 4 e a Fusão no 6. A janela de nível novo lista
+as novidades.
+
 ## O personagem do jogador
 
-Uma criança de ~1,15 m (as árvores têm ~3,5 m, os companheiros de 0,5 a 1,5 m, a bancada fica
+Uma criança de ~1,15 m no estilo de animação (cabeça grande e lisa, olhos 3D brilhantes, cabelo esculpido, roupas macias) (as árvores têm ~3,5 m, os companheiros de 0,5 a 1,5 m, a bancada fica
 na altura da cintura). Toque no chão para andar (aparece um anel no destino); toque numa coisa e
 ele vai até lá e faz a ação, com a ferramenta na mão e animação própria:
 
@@ -60,6 +97,30 @@ mochila, colar, relógio, pulseira, laço, fones e cachecol. "Surpresa" sorteia 
 Árvores, rochas e arbustos ficam sempre no mesmo lugar de cada lote. Quando alguém (o personagem
 ou um companheiro) usa um deles, ele **some do cenário** e fica só um brotinho crescendo; depois
 de **5 minutos** ele volta com um "pop" de brilho.
+
+## Modo edição (✏️ Editar)
+
+Embaixo aparece o **inventário da fazendinha** com quanto já foi colocado de cada item
+(ex.: Canteiro 3/4, Fogueira 1/1, Comedouro 1/1). Abas: 🏕️ Sobrevivência (canteiros, fogueira,
+forno de barro, comedouro, bebedouro), 🛠️ Oficina (bancada, fundição, casinha, totem), 🌷 Enfeites
+e a época. Toque num item para colocar um novo (ou, se todos já estão no chão, para escolher um
+deles). **Arraste qualquer construção com o dedo** para outro lugar; também dá para tocar no chão
+para levar o que está escolhido, girar e guardar. Anéis amarelos marcam as construções e manchas
+vermelhas os lugares proibidos (onde nascem árvores, pedras e arbustos, e onde mora quem pede
+socorro); fora da área liberada e em cima de outra construção também não pode.
+
+Canteiros: até 2 + nível da fazendinha (máximo 12).
+
+## Sobrevivência
+
+- **Energia 🍗** (no alto da tela): cortar, minerar e catar gastam 4; plantar e regar 2 (no frio da
+  Geleira, sem fogueira, gastam o dobro). Sem energia você trabalha mais devagar. Ela volta sozinha
+  (+1 a cada 2 minutos) e comendo: toque no personagem → Comer.
+- **Fogueira 🔥**: cozinha Espetinho 🍢 (2 frutas + 1 madeira → 2) e Mingau 🥣; esquenta no frio.
+- **Forno de Barro 🥧** (depois da fogueira): Torta de Frutas 🥧 e Ração Turbo 🥗.
+- **Comedouro**: tem estoque de comida (30/60/100 pelo nível). Cada bicho come 1 ponto a cada 3
+  minutos; vazio, eles ficam com fome e trabalham mais devagar. Encha com fruta (+3), espetinho
+  (+8), mingau (+10), torta (+20) ou ração (+25).
 
 ## Construir onde quiser
 
@@ -210,6 +271,7 @@ companheiros, apelidos e o guia Raiozinho nos primeiros passos.
 - `js/stage3d.js` — Forja do Trovão, vitrine, vitrine do personagem e figurinhas.
 - `js/farm3d.js` — a fazendinha em lotes (mundo aberto), construções, recursos, épocas.
 - `js/kid3d.js` / `js/kidlook.js` — o personagem (modelo, animações) e as opções de visual.
+- `js/nature3d.js` — natureza caprichada: copas em tufos macios com luz em cima e sombra embaixo (cor por vértice), troncos com raízes e casca, pinheiros com neve, pedras com musgo/neve/areia, grama em lâminas, vento nas copas e na grama, céu com nuvens, variação no chão, sombrinhas de contato e texturas de madeira, telha, pedra e terra arada.
 - `js/world.js` — a grade de lotes e onde fica cada recurso (o jogo e o 3D usam as mesmas contas).
 - `js/season.js` — as épocas pelo calendário.
 - `js/app.js` — as telas. `js/audio.js` — sons (martelada, trovão) e música.

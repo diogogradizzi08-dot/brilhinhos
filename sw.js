@@ -1,9 +1,9 @@
 /* Brilhinhos — funciona sem internet: guarda o jogo inteiro no aparelho.
    Ao publicar uma versão nova, aumente VERSION para os aparelhos atualizarem. */
-const VERSION = 'brilhinhos-v5';
+const VERSION = 'brilhinhos-v8';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css', './fonts/fredoka.woff2',
-  './js/app.js', './js/game.js', './js/data.js', './js/creature3d.js', './js/stage3d.js', './js/audio.js', './js/farm3d.js', './js/kid3d.js', './js/kidlook.js', './js/world.js', './js/season.js', './js/vendor/three.module.js',
+  './js/app.js', './js/game.js', './js/data.js', './js/creature3d.js', './js/stage3d.js', './js/audio.js', './js/farm3d.js', './js/kid3d.js', './js/kidlook.js', './js/world.js', './js/season.js', './js/nature3d.js', './js/vendor/three.module.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 self.addEventListener('install', (e) => {

@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Cabelos</title><style>body{margin:0;background:#bfe6ff}canvas{display:block;width:100vw;height:100vh}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// vitrine de teste: todos os cabelos (ou calçados/roupas com ?q=pes)
+import * as THREE from '../js/vendor/three.module.js';
+import { buildKid } from '../js/kid3d.js';
+import { defaultKid, HAIR, SHOES, TOPS, HAIR_COLORS } from '../js/kidlook.js';
+const q = new URLSearchParams(location.search); const mode = q.get('q') || 'cabelo';
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true }); r.setPixelRatio(devicePixelRatio); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping;
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#bfe6ff');
+sc.add(new THREE.HemisphereLight('#ffffff', '#6a8a5a', 1.6)); const d = new THREE.DirectionalLight('#fff', 2.4); d.position.set(2, 4, 3); sc.add(d);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
+const list = mode === 'pes' ? SHOES : mode === 'roupa' ? TOPS : HAIR;
+const ang = +q.get('ang') || 0;
+list.forEach(([id], i) => {
+  const look = defaultKid(); look.acess = mode === 'roupa' ? { colar: { on: true, cor: '#ffd34d' } } : {};
+  if (mode === 'cabelo') look.cabelo = { estilo: id, cor: HAIR_COLORS[i % 6] };
+  if (mode === 'pes') { look.calcado = { tipo: id, cor: ['#e2403a', '#3f63e0', '#5fd27a', '#ff7ab8'][i] }; look.baixo.tipo = 'short'; }
+  if (mode === 'roupa') look.topo = { tipo: id, cor: ['#ffb020', '#4fc3f7', '#ffffff', '#8a5cd6', '#e2403a'][i], estampa: 'liso' };
+  const k = buildKid(look); const cols = mode === 'cabelo' ? 6 : list.length; k.position.set((i % cols - (cols - 1) / 2) * 0.62, 0, -Math.floor(i / cols) * 1.0); k.rotation.y = ang; k.userData.ctrl.update(0.1, 0.016); sc.add(k);
+});
+function loop() { requestAnimationFrame(loop); const w = innerWidth, h = innerHeight; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+  if (mode === 'pes') { cam.position.set(0, 0.55, 2.0); cam.lookAt(0, 0.08, 0); } else if (mode === 'roupa') { cam.position.set(0, 0.95, 3.0); cam.lookAt(0, 0.65, 0); } else { cam.position.set(0, 1.6, 4.2); cam.lookAt(0, 0.85, -0.5); }
+  r.render(sc, cam); }
+loop();
+</script></body></html>

@@ -63,7 +63,10 @@ Object.assign(ITEMS, {
   ferro:   { nome: 'Ferro Bruto',    emoji: '🔩', el: null, rar: 'comum', recurso: true },
   fruta:   { nome: 'Fruta Energética', emoji: '🍎', el: null, rar: 'comum', recurso: true },
   barra:   { nome: 'Barra de Metal', emoji: '🧱', el: null, rar: 'incomum', recurso: true },
-  racao:   { nome: 'Ração Turbo', emoji: '🥗', el: null, rar: 'incomum', recurso: true, comida: 40 },
+  racao:   { nome: 'Ração Turbo', emoji: '🥗', el: null, rar: 'incomum', recurso: true, comida: 40, energia: 20, cocho: 25 },
+  espetinho: { nome: 'Espetinho de Fruta', emoji: '🍢', el: null, rar: 'comum', recurso: true, energia: 25, cocho: 8 },
+  mingau:  { nome: 'Mingau Quentinho', emoji: '🥣', el: null, rar: 'comum', recurso: true, energia: 35, cocho: 10 },
+  torta:   { nome: 'Torta de Frutas', emoji: '🥧', el: null, rar: 'incomum', recurso: true, energia: 70, cocho: 20 },
 });
 // itens de época: só aparecem durante a época deles (e chamam os bichos especiais na Forja)
 Object.assign(ITEMS, {
@@ -74,7 +77,17 @@ Object.assign(ITEMS, {
   milho:   { nome: 'Milho Verde',      emoji: '🌽', el: null, rar: 'incomum', tema: 'junina' },
   abobora: { nome: 'Abóbora Sorridente', emoji: '🎃', el: null, rar: 'incomum', tema: 'halloween' },
 });
-export const THEME_ITEM = Object.fromEntries(Object.entries(ITEMS).filter(([, it]) => it.tema).map(([id, it]) => [it.tema, id]));
+// itens especiais de época: prêmio das missões de época (raros, chamam bichos de época na Forja)
+Object.assign(ITEMS, {
+  sino:     { nome: 'Sino Dourado',      emoji: '🔔', el: null, rar: 'raro', tema: 'natal', especial: true },
+  prancha:  { nome: 'Prancha de Surfe',  emoji: '🏄', el: null, rar: 'raro', tema: 'ferias', especial: true },
+  mascara:  { nome: 'Máscara de Plumas', emoji: '🪅', el: null, rar: 'raro', tema: 'carnaval', especial: true },
+  chocolate:{ nome: 'Ovo de Chocolate',  emoji: '🍫', el: null, rar: 'raro', tema: 'pascoa', especial: true },
+  sanfona:  { nome: 'Sanfona',           emoji: '🪗', el: null, rar: 'raro', tema: 'junina', especial: true },
+  pirulito: { nome: 'Pirulito Mágico',   emoji: '🍭', el: null, rar: 'raro', tema: 'halloween', especial: true },
+});
+export const SPECIAL_ITEM = Object.fromEntries(Object.entries(ITEMS).filter(([, it]) => it.especial).map(([id, it]) => [it.tema, id]));
+export const THEME_ITEM = Object.fromEntries(Object.entries(ITEMS).filter(([, it]) => it.tema && !it.especial).map(([id, it]) => [it.tema, id]));
 
 export const EL_ITEMS = {};
 for (const [id, it] of Object.entries(ITEMS)) {
@@ -246,24 +259,33 @@ export const GUIDE_SPECIES = FAMILIES.find((f) => f.el === 'eletrico' && f.rar =
 // cat: 'util' (muda o jogo) | 'enfeite' (decoração) | 'epoca' (só se constrói na época, fica para sempre)
 // r = raio que ocupa no chão (metros); unico = só um no mundo; total = máximo no mundo; max = por fazendinha
 export const BUILDINGS = {
-  canteiro:  { nome: 'Canteiro',          icone: '🌱', cat: 'util', desc: 'Lugar para plantar: semeie, regue e colha frutas 🍎.', custo: { madeira: 2 }, r: 0.8, max: 12 },
+  canteiro:  { nome: 'Canteiro',          icone: '🌱', cat: 'util', surv: true, porNivel: true, desc: 'Lugar para plantar: semeie, regue e colha frutas 🍎.', custo: { madeira: 2 }, r: 0.8, max: 12 },
   bancada:   { nome: 'Bancada de Trabalho', icone: '🛠️', cat: 'util', desc: 'Fabrica itens e libera as outras construções.', custo: { madeira: 6, ferro: 2 }, r: 1.1, unico: true },
-  forno:     { nome: 'Forno de Fundição', icone: '🏭', cat: 'util', desc: 'Funde Ferro em Barras de Metal 🧱. Precisa de um companheiro com 🔥 Acender na mesma fazendinha.', custo: { madeira: 6, ferro: 6 }, precisa: 'bancada', r: 1.1, unico: true },
-  casinha:   { nome: 'Casinha da Equipe', icone: '🏠', cat: 'util', desc: '+1 lugar para companheiros em todas as fazendinhas (até 3 no mundo).', custo: { madeira: 12, barra: 3 }, precisa: 'bancada', r: 1.5, total: 3 },
-  totem:     { nome: 'Totem do Trovão',   icone: '🗿', cat: 'util', desc: 'Todos os companheiros trabalham 25% mais rápido.', custo: { barra: 6, runa: 1 }, precisa: 'forno', r: 0.7, unico: true },
+  fogueira:  { nome: 'Fogueira',          icone: '🔥', cat: 'util', surv: true, desc: 'Cozinha comida simples (espetinho e mingau) e esquenta quando faz frio.', custo: { madeira: 3, seixo: 2 }, r: 0.85, max: 1 },
+  fogao:     { nome: 'Forno de Barro',    icone: '🥧', cat: 'util', surv: true, desc: 'Cozinha comida caprichada (torta e ração turbo) para você e para os bichos.', custo: { madeira: 4, seixo: 6, ferro: 2 }, precisa: 'fogueira', r: 1.0, max: 1 },
+  forno:     { nome: 'Fundição', icone: '🏭', cat: 'util', desc: 'Funde Ferro em Barras de Metal 🧱. Precisa de um companheiro com 🔥 Acender na mesma fazendinha.', custo: { madeira: 6, ferro: 6 }, precisa: 'bancada', r: 1.1, unico: true },
+  comedouro: { nome: 'Comedouro',         icone: '🥕', cat: 'util', cocho: true, surv: true, desc: 'Comida para os bichos desta fazendinha. Sem ele, ou cheio demais, eles trabalham mais devagar.', custo: { madeira: 4, fruta: 2 }, r: 0.9, max: 1 },
+  bebedouro: { nome: 'Bebedouro',         icone: '🚰', cat: 'util', cocho: true, surv: true, desc: 'Água fresquinha para os bichos desta fazendinha. Sem ele, eles trabalham mais devagar.', custo: { madeira: 3, seixo: 2 }, r: 0.9, max: 1 },
+  casinha:   { nome: 'Casinha da Equipe', icone: '🏠', cat: 'util', desc: '+1 lugar para companheiros em todas as fazendinhas (até 3 no mundo).', custo: { madeira: 12, barra: 3 }, precisa: 'bancada', r: 1.5, total: 3, nivel: 4 },
+  totem:     { nome: 'Totem do Trovão',   icone: '🗿', cat: 'util', desc: 'Todos os companheiros trabalham 25% mais rápido.', custo: { barra: 6, runa: 1 }, precisa: 'forno', r: 0.7, unico: true, nivel: 6 },
   cerca:     { nome: 'Cerquinha',         icone: '🪵', cat: 'enfeite', desc: 'Um pedaço de cerca. Gire para fazer caminhos!', custo: { madeira: 1 }, r: 0.45 },
   flores:    { nome: 'Jardim de Flores',  icone: '🌷', cat: 'enfeite', desc: 'Flores coloridas que balançam com o vento.', custo: { trevo: 1, orvalho: 1 }, r: 0.6 },
   lanterna:  { nome: 'Lanterna',          icone: '🏮', cat: 'enfeite', desc: 'Um poste que acende sozinho.', custo: { madeira: 1, ferro: 1 }, r: 0.35 },
   banco:     { nome: 'Banquinho',         icone: '🪑', cat: 'enfeite', desc: 'Para descansar depois do trabalho.', custo: { madeira: 3 }, r: 0.75 },
   espantalho:{ nome: 'Espantalho',        icone: '👒', cat: 'enfeite', desc: 'Um espantalho sorridente que cuida da plantação.', custo: { madeira: 2, fruta: 1 }, r: 0.5 },
-  balanco:   { nome: 'Balanço',           icone: '🎠', cat: 'enfeite', desc: 'Um balanço de madeira! Os bichos adoram.', custo: { madeira: 4, ferro: 1 }, r: 1.1 },
-  fonte:     { nome: 'Fonte',             icone: '⛲', cat: 'enfeite', desc: 'Uma fonte de água que brilha.', custo: { seixo: 4, barra: 1 }, r: 1.0 },
+  balanco:   { nome: 'Balanço',           icone: '🎠', cat: 'enfeite', desc: 'Um balanço de madeira! Os bichos adoram.', custo: { madeira: 4, ferro: 1 }, r: 1.1, nivel: 3 },
+  fonte:     { nome: 'Fonte',             icone: '⛲', cat: 'enfeite', desc: 'Uma fonte de água que brilha.', custo: { seixo: 4, barra: 1 }, r: 1.0, nivel: 5 },
   arvore_natal: { nome: 'Árvore de Natal', icone: '🎄', cat: 'epoca', tema: 'natal', desc: 'Pisca-pisca e estrela no topo!', custo: { madeira: 3, enfeite: 2 }, r: 0.9 },
   guarda_sol: { nome: 'Guarda-sol',       icone: '⛱️', cat: 'epoca', tema: 'ferias', desc: 'Sombra e água fresca!', custo: { madeira: 2, coco: 2 }, r: 0.9 },
   baloes:    { nome: 'Balões de Carnaval', icone: '🎈', cat: 'epoca', tema: 'carnaval', desc: 'Balões coloridos que flutuam.', custo: { confete: 2, fruta: 1 }, r: 0.6 },
   ninho_ovos: { nome: 'Ninho de Ovinhos', icone: '🪺', cat: 'epoca', tema: 'pascoa', desc: 'Ovinhos pintados num ninho de palha.', custo: { ovinho: 2, madeira: 1 }, r: 0.6 },
-  fogueira:  { nome: 'Fogueira Junina',   icone: '🔥', cat: 'epoca', tema: 'junina', desc: 'Fogueira com bandeirinhas em volta.', custo: { madeira: 4, milho: 1 }, r: 1.0 },
+  fogueira_junina: { nome: 'Fogueira Junina',   icone: '🔥', cat: 'epoca', tema: 'junina', desc: 'Fogueira com bandeirinhas em volta.', custo: { madeira: 4, milho: 1 }, r: 1.0 },
   abobora_luz: { nome: 'Abóbora Iluminada', icone: '🎃', cat: 'epoca', tema: 'halloween', desc: 'Uma abóbora sorridente que brilha.', custo: { abobora: 2 }, r: 0.6 },
+};
+// comidas: na fogueira (simples) e no forno de barro (caprichada)
+export const COOKS = {
+  fogueira: [{ id: 'espetinho', custo: { fruta: 2, madeira: 1 }, qtd: 2 }, { id: 'mingau', custo: { fruta: 1, orvalho: 2, madeira: 1 }, qtd: 2 }],
+  fogao: [{ id: 'torta', custo: { fruta: 4, orvalho: 1, madeira: 2 }, qtd: 1 }, { id: 'racao', custo: { fruta: 4, trevo: 1 }, qtd: 2 }],
 };
 export const CRAFTS = [
   { id: 'evo', nome: 'Cristal de Evolução', icone: '🔷', desc: 'Para evoluir companheiros', custo: { barra: 2, fruta: 3 }, dá: 'brilho' },

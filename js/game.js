@@ -134,7 +134,7 @@ function createAmigo(spId, shiny) {
   const a = { uid: S.nextUid++, sp: spId, nivel: 1, xp: 0, shiny: !!shiny, apelido: '', local: null, task: null, bolsa: [], ocupadoAte: 0, carinho: 0 };
   S.amigos.push(a);
   const novo = !S.descobertos[spId];
-  S.descobertos[spId] = true;
+  S.descobertos[spId] = now(); a.desde = now();
   S.stats.nascimentos++;
   const r = SPECIES[spId].rar;
   achieve('primeiro');
@@ -163,7 +163,7 @@ export function evolve(a) {
   S.brilho -= c.custo;
   const antes = a.sp; a.sp += 1;
   const novo = !S.descobertos[a.sp];
-  S.descobertos[a.sp] = true; S.stats.evolucoes++;
+  if (novo) S.descobertos[a.sp] = now(); S.stats.evolucoes++;
   achieve('evo1'); if (SPECIES[a.sp].stage === 2) achieve('evo2');
   if (novo) { S.moedas += 10; checkCodex(); }
   addXp(10); save();
@@ -608,7 +608,7 @@ export function expand(rid, k) {
 // ---------- construir: escolher o que e ONDE ----------
 export function buildState(id, rid) {
   const b = BUILDINGS[id]; const tema = themeOn();
-  const n = b.unico || b.total ? countBuilt(id) : countBuilt(id, rid);
+  const n = (b.unico || b.total ? countBuilt(id) : countBuilt(id, rid)) + stored(id); // o que está guardado também conta
   const lim = b.unico ? 1 : b.total || (b.porNivel ? Math.min(b.max, 2 + farmLevel(rid)) : b.max) || 40;
   const done = n >= lim;
   const nivelFalta = b.nivel && S.nivel < b.nivel ? b.nivel : 0;
@@ -645,13 +645,23 @@ export function moveObra(rid, uid, x, z, rot) {
   Object.assign(o, { x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, rot }); save(); return true;
 }
 // guardar (desmontar) um enfeite: devolve metade do material
-export function removeObra(rid, uid) {
-  const g = S.regioes[rid]; const o = g.obras.find((q) => q.uid === uid); if (!o) return null;
-  const b = BUILDINGS[o.tipo]; if (b.cat === 'util' && o.tipo !== 'canteiro') return null;
+// ---------- guardar e colocar de novo (o modo edição) ----------
+// guardar tira a construção do lugar e põe no inventário de construções (dá para colocar de novo de graça)
+export const stored = (tipo) => (S.guardados ||= {})[tipo] || 0;
+export const storedList = () => Object.entries(S.guardados ||= {}).filter(([, n]) => n > 0);
+export function storeObra(rid, uid) {
+  const g = S.regioes[rid]; const o = g.obras.find((q) => q.uid === uid); if (!o) return false;
   if (o.por) { const who = S.amigos.find((x) => x.uid === o.por); if (who) { releaseTask(who); who.task = null; } }
+  if (o.tipo === 'comedouro') for (const [id, n] of Object.entries(o.comida || {})) addItem(id, n); // a comida da cesta vai para a mochila
   g.obras = g.obras.filter((q) => q !== o);
-  const back = {}; for (const [id, n] of Object.entries(b.custo)) { const k = Math.floor(n / 2); if (k) { addItem(id, k); back[id] = k; } }
-  syncBase(); save(); return back;
+  S.guardados ||= {}; S.guardados[o.tipo] = stored(o.tipo) + 1;
+  syncBase(); save(); return true;
+}
+export const removeObra = storeObra;
+export function placeStored(rid, tipo, x, z, rot = 0) {
+  if (stored(tipo) <= 0 || !canPlace(rid, tipo, x, z).ok) return null;
+  const b = BUILDINGS[tipo]; if (b.cocho && hasObra(rid, tipo)) return null;
+  S.guardados[tipo]--; const o = addObra(rid, tipo, x, z, rot); fillMissions(rid); save(); return o;
 }
 // procura um lugar livre perto de um ponto (para colocar coisas automaticamente)
 export function findSpot(rid, tipo, nx = 0, nz = 0) {

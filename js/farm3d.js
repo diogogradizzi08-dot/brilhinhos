@@ -122,7 +122,7 @@ export function farmScene(region, opts) {
     const [cx, cz] = zoneCenter(k);
     const t = new THREE.Mesh(tileGeo, shadeM); t.rotation.x = -Math.PI / 2; t.position.set(cx, 0.03, cz); t.renderOrder = 1; world.add(t);
     const ab = abriveis.get(k);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex(!!ab), depthTest: true, transparent: true }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex(!!ab), depthTest: false, depthWrite: false, transparent: true })); sp.renderOrder = 90;
     // o cadeado de quem dá para abrir fica perto da borda com a área liberada (aparece na tela)
     let lx = cx, lz = cz;
     if (ab) { const [zx, zz] = parseKey(k); const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => isOpen(`${zx + dx},${zz + dz}`)); if (nb) { lx = cx + nb[0] * (ZONE / 2 - 2.4); lz = cz + nb[1] * (ZONE / 2 - 2.4); } }
@@ -326,6 +326,7 @@ export function farmScene(region, opts) {
     return step;
   }
   let editG = null, editOn = false;
+  let tilt = 0.46, tiltGoal = null, rotGoal = null, recentering = false; const panOff = V(0, 0, 0);
   let bursts = [], camAng = 0.5, zoom = 1, boltT = 3, fornoOn = false, camT = V(sp0[0], 0, sp0[1]);
   const revealKey = opts.reveal; let revealT = revealKey ? 0 : 2;
   const revealObjs = [];
@@ -360,7 +361,7 @@ export function farmScene(region, opts) {
     get kidPos() { return kid.position; },
     walkTo(x, z, o = {}) {
       const [gx, gz] = clampOpen(opts.zonas, x, z, 0.3);
-      K.goal = V(gx, 0, gz); K.follow = o.follow || null; K.stopAt = o.stopAt || 0; K.onArrive = o.onArrive || null; K.onFail = o.onFail || null; K.stuck = 0; K.face = o.face ? V(o.face[0], 0, o.face[1]) : null;
+      recentering = true; K.goal = V(gx, 0, gz); K.follow = o.follow || null; K.stopAt = o.stopAt || 0; K.onArrive = o.onArrive || null; K.onFail = o.onFail || null; K.stuck = 0; K.face = o.face ? V(o.face[0], 0, o.face[1]) : null;
       kid.userData.ctrl.stop();
       if (o.marker !== false) { marker.visible = true; marker.position.set(gx, 0, gz); markerT = 0; }
     },
@@ -466,6 +467,7 @@ export function farmScene(region, opts) {
     npcPos,
     // ---------- toque ----------
     pick(ray) {
+      const lockHit = ray.intersectObjects(locks, false)[0]; if (lockHit) return { tipo: 'lote', key: lockHit.object.userData.lote, lock: true };
       const targets = [...walkers.map((w) => w.c), ...sparkles, ...(themeFx ? [...themeFx.picks.values()] : []), ...(npc ? [npc] : []), kid, ...[...resObjs.values()].filter((o) => !o.locked).map((o) => o.g), ...[...obraObjs.values()].map((e) => e.g), ...locks];
       const hits = ray.intersectObjects(targets, true);
       const shown = (o) => { for (let q = o; q && q !== world; q = q.parent) if (!q.visible) return false; return true; };
@@ -490,7 +492,20 @@ export function farmScene(region, opts) {
       return { tipo: 'chao', x: p.x, z: p.z };
     },
     groundAt(ray) { const p = new THREE.Vector3(); return ray.ray.intersectPlane(new THREE.Plane(V(0, 1, 0), 0), p) ? p : null; },
-    rotate(dx) { camAng += dx * 0.006; },
+    rotate(dx) { camAng += dx * 0.006; rotGoal = null; },
+    rotateSmooth(d) { rotGoal = (rotGoal ?? camAng) + d; },
+    // inclinar a câmera: 0 = de frente (mais baixa), 1 = de cima
+    tiltBy(d) { tilt = Math.min(1, Math.max(0, tilt + d)); tiltGoal = null; },
+    tiltTo(v) { tiltGoal = v; },
+    // arrastar o dedo move o mundo (para olhar os lotes em volta); andar volta a câmera para o personagem
+    pan(dx, dy) {
+      const k = 12.5 * zoom * (api.portrait ? 1.3 : 1) * 0.0022 * (1 + (1 - tilt) * 0.6);
+      const fx = -Math.sin(camAng), fz = -Math.cos(camAng); const rx = Math.cos(camAng), rz = -Math.sin(camAng);
+      panOff.x += (-dx * rx + dy * fx) * k; panOff.z += (-dx * rz + dy * fz) * k; recentering = false;
+      const lim = ZONE * (HALF + 0.9); const tx = kid.position.x + panOff.x, tz = kid.position.z + panOff.z;
+      panOff.x = Math.max(-lim, Math.min(lim, tx)) - kid.position.x; panOff.z = Math.max(-lim, Math.min(lim, tz)) - kid.position.z;
+    },
+    recenter() { recentering = true; },
     zoomBy(k) { zoom = Math.min(1.7, Math.max(0.55, zoom * k)); },
     get camAng() { return camAng; },
     update(t, dt) {
@@ -520,11 +535,14 @@ export function farmScene(region, opts) {
       kc.update(t, dt);
       if (marker.visible) { markerT += dt; mRing.scale.setScalar(1 + Math.sin(markerT * 6) * 0.15); mRing.material.opacity = 0.9; }
       // ---------- câmera segue o personagem ----------
-      camT.lerp(kid.position, Math.min(1, dt * 4)); sky.update(dt, camT);
-      const dist = 12.5 * (api.portrait ? 1.3 : 1) * zoom;
-      camera.position.set(camT.x + Math.sin(camAng) * dist * 0.66, dist * 0.98, camT.z + Math.cos(camAng) * dist * 0.66); camera.lookAt(camT.x, 0.5, camT.z);
+      if (recentering) { panOff.multiplyScalar(Math.max(0, 1 - dt * 5)); if (panOff.length() < 0.05) { panOff.set(0, 0, 0); recentering = false; } }
+      if (tiltGoal != null) { tilt += (tiltGoal - tilt) * Math.min(1, dt * 5); if (Math.abs(tiltGoal - tilt) < 0.005) { tilt = tiltGoal; tiltGoal = null; } }
+      if (rotGoal != null) { camAng += (rotGoal - camAng) * Math.min(1, dt * 6); if (Math.abs(rotGoal - camAng) < 0.002) { camAng = rotGoal; rotGoal = null; } }
+      camT.lerp(kid.position.clone().add(panOff), Math.min(1, dt * 4)); sky.update(dt, camT);
+      const dist = 14.8 * (api.portrait ? 1.3 : 1) * zoom; const phi = 0.55 + tilt * 0.98; // ângulo de cima para baixo
+      camera.position.set(camT.x + Math.sin(camAng) * Math.cos(phi) * dist, Math.sin(phi) * dist, camT.z + Math.cos(camAng) * Math.cos(phi) * dist); camera.lookAt(camT.x, 0.5, camT.z);
       // árvores entre a câmera e o personagem ficam transparentes (para nunca esconder a criança)
-      for (const o of trees) { const d2 = segDist(camera.position, kid.position, o.g.position); const hide = d2 < 2.3 && camera.position.distanceTo(o.g.position) < camera.position.distanceTo(kid.position); o.fade += ((hide ? 0.25 : 1) - o.fade) * Math.min(1, dt * 6); setFade(o, o.fade); }
+      for (const o of trees) { const d2 = segDist(camera.position, kid.position, o.g.position); const hide = (d2 < 2.3 && camera.position.distanceTo(o.g.position) < camera.position.distanceTo(kid.position)) || (tilt > 0.68 && Math.hypot(o.g.position.x - camT.x, o.g.position.z - camT.z) < 11); o.fade += ((hide ? 0.25 : 1) - o.fade) * Math.min(1, dt * 6); setFade(o, o.fade); }
       sun.position.set(camT.x + 8, 20, camT.z + 10); sun.target.position.copy(camT); sun.target.updateMatrixWorld();
       // ---------- recursos ----------
       for (const o of resObjs.values()) {

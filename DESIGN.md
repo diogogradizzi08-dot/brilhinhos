@@ -305,3 +305,10 @@ companheiros, apelidos e o guia Raiozinho nos primeiros passos.
 - O `sw.js` agora baixa a versão nova em segundo plano e **espera**: a versão que está rodando usa só os arquivos dela (nada muda no meio da brincadeira). Quando a nova está pronta, aparece o aviso "✨ Versão nova do Brilhinhos!" com **Atualizar** / **Depois**; em ⚙️ Ajustes há "Procurar atualização". O jogo procura versão nova a cada 15 minutos e ao voltar para o app.
 - O progresso fica no `localStorage` (separado dos arquivos do jogo); antes de atualizar o jogo salva, e a cada início guarda uma cópia (`brilhinhos-save-v3-copia`) que é usada se o progresso principal não puder ser lido.
 - Ao publicar: aumente `VERSION` no `sw.js` (próxima: `brilhinhos-v11`) e ponha arquivos novos na lista `FILES`.
+
+## Rodada 13 — Códice com filtro, edição × construção e câmera livre
+
+- **Códice**: abas ⭐ Obtidos (só os seus, do mais novo ao mais antigo — `descobertos[id]` agora guarda a data), Todos, 🔍 Filtro (janela com elementos e raridades, pode marcar vários; vale para todas as abas) e 🎉 Época.
+- **✏️ Editar** (mover, girar, guardar o que já é seu) e **🔨 Construir** (loja: escolhe e paga, depois escolhe o lugar) são separados. Nos dois some todo o resto da tela (barra de baixo, laterais, avisos). O Editar mostra o inventário embaixo por categoria (Sobrevivência, Oficina, Decoração, época) com ✔ colocados e 📦 guardados; a barrinha do item selecionado fica no topo (Girar, Guardar, Deixar aqui, ✖). **Guardar** agora põe no inventário (`S.guardados`, `storeObra`/`placeStored`) e dá para colocar de novo de graça; o guardado conta no limite.
+- **Câmera**: arrastar com um dedo move o mundo (`farm.pan`, volta ao personagem quando ele anda ou no 🎯); dois dedos dão zoom, giram e inclinam; botões ⟲ ⟳ cima/frente 🎯. De cima, as copas perto do centro ficam transparentes.
+- **Cadeados** sempre por cima de tudo e o toque neles tem prioridade.

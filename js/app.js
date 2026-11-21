@@ -53,7 +53,7 @@ function nextModal() {
   const m = modalQueue.shift(); if (!m) { modalOpen = false; updateGuide(); return; }
   modalOpen = true;
   const close = () => { bg.remove(); m.opts.onClose?.(); nextModal(); };
-  const box = h('div', { class: 'modal' });
+  const box = h('div', { class: 'modal' + (m.opts.wide ? ' wide' : '') });
   const app0 = box.append.bind(box); box.append = (...k) => app0(...k.filter((x) => x != null && x !== false));
   const bg = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === bg && !m.opts.locked) { play('tap'); close(); } } }, box);
   m.build(box, close);
@@ -550,7 +550,13 @@ function renderFazenda(sc, arg) {
   const workers = h('div', { class: 'workers' });
   const side = h('div', { class: 'farm-side' });
   const build = h('div', { class: 'build-panel', hidden: true });
-  sc.append(rail, info, side, h('div', { class: 'grow passthru' }), workers, build);
+  const camBox = h('div', { class: 'cam-ctrl' },
+    h('button', { title: 'Girar para a esquerda', onclick: () => { play('tap'); farm.rotateSmooth(-0.6); } }, '⟲'),
+    h('button', { title: 'Girar para a direita', onclick: () => { play('tap'); farm.rotateSmooth(0.6); } }, '⟳'),
+    h('button', { title: 'Ver de cima', onclick: () => { play('tap'); farm.tiltTo(1); } }, '⬇️', h('small', {}, 'cima')),
+    h('button', { title: 'Ver de frente', onclick: () => { play('tap'); farm.tiltTo(0.15); } }, '➡️', h('small', {}, 'frente')),
+    h('button', { title: 'Voltar para o personagem', onclick: () => { play('tap'); farm.recenter(); } }, '🎯'));
+  sc.append(rail, info, side, h('div', { class: 'grow passthru' }), workers, build, camBox);
   sc.classList.add('farm-screen'); const unclass = () => sc.classList.remove('farm-screen');
   function drawUi() {
     info.innerHTML = ''; side.innerHTML = ''; workers.innerHTML = '';
@@ -559,7 +565,7 @@ function renderFazenda(sc, arg) {
     info.append(h('span', { class: 'chip farm-title', style: `--c1:${ELEMENTS[r.el].cores[0]}` }, ELEMENTS[r.el].icone, ' ', r.nome),
       h('button', { class: 'chip farm-lvl', title: 'Nível da fazendinha: sobe trabalhando aqui e cumprindo missões', onclick: () => farmLevelModal(r) }, h('b', {}, `⭐ Nv ${fl}`), h('span', { class: 'fbar' }, h('i', { style: `width:${fl >= G.FARM_MAX ? 100 : Math.min(100, fx / fn * 100)}%` })), h('small', {}, `🧱 ${g.zonas.length}/${G.zonesForLevel(fl)}`)),
       h('span', { class: 'chip', title: 'Companheiros trabalhando aqui' }, `🐾 ${am.length}/${G.farmSlots(r.id)}`));
-    if (G.isCold(r.id)) info.append(h('button', { class: 'chip need-chip', onclick: () => openEdit('sobrev') }, '🥶 Que frio!', h('small', {}, ' · construa uma fogueira')));
+    if (G.isCold(r.id)) info.append(h('button', { class: 'chip need-chip', onclick: () => openShop('sobrev') }, '🥶 Que frio!', h('small', {}, ' · construa uma fogueira')));
     if (am.length && !cs.ok) info.append(h('button', { class: 'chip need-chip', onclick: () => { const m = G.missions().find((x) => x.rid === r.id && x.tipo === 'construir'); if (cs.vazio) return fillModal(r); if (m) missionModal(m); } }, cs.vazio ? '🧺 Cesta vazia' : cs.fome ? '🧺 Falta o comedouro' : '💧 Falta o bebedouro', h('small', {}, ' · trabalham devagar')));
     if (cs.com) info.append(h('button', { class: 'chip', title: 'Comida guardada na cesta do comedouro', onclick: () => fillModal(r) }, `🧺 ${cs.comida}/${cs.cap}`));
     if (tema) info.append(h('button', { class: 'chip theme-chip', style: `--tc:${THEMES[tema].cor};--tc2:${THEMES[tema].cor2}`, onclick: () => themeModal(tema) }, THEMES[tema].icone, ' ', THEMES[tema].nome));
@@ -573,7 +579,7 @@ function renderFazenda(sc, arg) {
     const place = sideBtn('➕', 'Bicho', 'green', () => pickAmigoModal(r));
     if (S().tutorial === 2 && !am.length) place.classList.add('pointing');
     const canBuild = Object.keys(BUILDINGS).some((id) => G.buildState(id, r.id).ok);
-    side.append(sideBtn('✏️', 'Editar', 'blue' + (canBuild && S().tutorial >= 4 && !S().base.bancada ? ' pointing' : ''), () => openEdit()), place, (() => { const b = sideBtn('🎒', 'Pegar tudo', 'gold', collectAll, ready ? h('i', { class: 'n' }, ready) : null); if (!ready) b.disabled = true; return b; })(),
+    side.append(sideBtn('✏️', 'Editar', 'blue', () => openEdit()), sideBtn('🔨', 'Construir', 'gold' + (canBuild && S().tutorial >= 4 && !S().base.bancada ? ' pointing' : ''), () => openShop()), place, (() => { const b = sideBtn('🎒', 'Pegar tudo', 'gold', collectAll, ready ? h('i', { class: 'n' }, ready) : null); if (!ready) b.disabled = true; return b; })(),
       sideBtn('🧱', 'Aumentar', 'violet' + (G.expandState(r.id).ok ? ' pointing-soft' : ''), () => { play('tap'); const st = G.expandState(r.id); if (st.precisa) return farmLevelModal(r); const ab = G.expandOptions(r.id); toast('Toque num cadeado dourado 🔒✨', innerWidth / 2 - 60, innerHeight / 2); if (ab.length === 1) expandZoneModal(r, ab[0]); }),
       sideBtn(h('img', { src: kidThumb(S().boneco, 96) }), 'Visual', 'ghost', () => { play('tap'); go('boneco', { back: 'fazenda' }); }));
     rails.refresh();
@@ -697,7 +703,7 @@ function renderFazenda(sc, arg) {
       if (o.tipo === 'forno') acts.push(A('🏭', 'Abrir o forno', () => walkToObra(o, () => fornoModal())));
       if (o.tipo === 'banco' || o.tipo === 'balanco') acts.push(A('😊', 'Brincar', () => walkToObra(o, () => { play('heart'); farm.kidAct('comemorar', 1.6); })));
       acts.push(mover);
-      if (B.cat !== 'util') acts.push(A('📦', 'Guardar', () => { const back = G.removeObra(r.id, o.uid); if (back) { play('pop'); farm.setObras(obrasView(r.id)); say(`📦 Guardado! Voltou: ${Object.entries(back).map(([id, n]) => `${n}${ITEMS[id].emoji}`).join(' ') || 'nada'}`); flushNotices(); } }));
+      acts.push(A('📦', 'Guardar', () => { if (G.storeObra(r.id, o.uid)) { play('pop'); farm.setObras(obrasView(r.id)); say('📦 Guardado! Coloque de novo pelo ✏️ Editar'); flushNotices(); } }));
       return actionMenu(x, y, { icon: B.icone, title: B.nome, sub: B.desc, actions: acts });
     }
     if (t === 'amigo' || t === 'bolha') {
@@ -721,104 +727,145 @@ function renderFazenda(sc, arg) {
   let hungryT = 0;
   function hungry() { if (G.tired() && Date.now() - hungryT > 15000) { hungryT = Date.now(); say('😮‍💨 Estou com fome! Toque em mim e escolha Comer 🍢', farm.kid, 1.6); } }
   function walkToObra(o, then) { farm.walkTo(o.x, o.z, { stopAt: BUILDINGS[o.tipo].r + 0.45, marker: false, onArrive: then }); }
-  function moveObraStart(uid) { const o = G.obrasOf(r.id).find((q) => q.uid === uid); const B = BUILDINGS[o.tipo]; openEdit(B.surv ? 'sobrev' : B.cat === 'util' ? 'oficina' : B.cat); selectObra(o); }
+  function moveObraStart(uid) { const o = G.obrasOf(r.id).find((q) => q.uid === uid); openEdit(catOf(BUILDINGS[o.tipo])); selectObra(o); }
   function pickSparkle(obj) { farm.walkTo(obj.position.x, obj.position.z, { stopAt: 0.5, marker: false, onArrive: () => farm.kidAct('catar', 0.7, null, () => { if (!obj.parent) return; const item = G.collectSparkle(r.id); if (!item) return; play('coin'); farm.popAt(obj, '#fff3a0'); farm.setSparkles(S().regioes[r.id].brilhos); lastSpark = S().regioes[r.id].brilhos; flyItems([item], farm.kid); flushNotices(); }) }); }
   function pickTheme(id) { const p = farm.themePos(id); if (!p) return; farm.walkTo(p.x, p.z, { stopAt: 0.6, marker: false, onArrive: () => farm.kidAct('catar', 1.0, null, () => { const got = G.collectThemeProp(r.id, id); if (!got) return; play('fanfare'); farm.takeThemeProp(id); flyItems(got, farm.kid); flushNotices(); sync(); }) }); }
-  // ---------- modo edição: o inventário fica embaixo e as construções se arrastam com o dedo ----------
-  let bm = null; // { tipo, x, z, rot, mover?: uid }
-  let editTab = 'sobrev'; let objDrag = null;
+  // ---------- modo edição (mover, girar e guardar o que já é seu) e modo construir (fazer coisa nova) ----------
+  // nos dois a fazendinha fica livre: some a barra de baixo, as laterais e os avisos; só fica o inventário embaixo
+  let bm = null; // { tipo, x, z, rot, mover?: uid, fromStore?: true, buy?: true }
+  let editTab = 'sobrev', mode = null, objDrag = null;
+  const CATS = [['sobrev', '🏕️', 'Sobrevivência'], ['oficina', '🛠️', 'Oficina'], ['enfeite', '🌷', 'Decoração'], ...(tema ? [['epoca', THEMES[tema].icone, `${THEMES[tema].nome}`]] : [])];
+  const catOf = (B) => (B.surv ? 'sobrev' : B.cat === 'util' ? 'oficina' : B.tema || B.cat === 'epoca' ? 'epoca' : 'enfeite');
   const forbidden = () => [...G.resourcesOf(r.id).map((x) => ({ x: x.x, z: x.z, r: x.r })), { x: farm.npcPos.x, z: farm.npcPos.z, r: 1.4 }, ...pondsOf(r.id, S().regioes[r.id].zonas)];
-  function openBuild(tab) { openEdit(tab === 'util' || !tab ? null : tab); }
-  function openEdit(tab) { play('tap'); if (tab) editTab = tab; bm = null; farm.setGhost(null); build.hidden = false; side.hidden = true; workers.hidden = true; closeMenu(); farm.setEditMode(true, forbidden()); drawBuild(); }
-  function closeBuild() { if (bm?.mover) farm.showObra(bm.mover); bm = null; objDrag = null; farm.setGhost(null); build.hidden = true; side.hidden = false; workers.hidden = false; farm.setEditMode(false); }
+  const placeBar = h('div', { class: 'place-float', hidden: true }); sc.append(placeBar);
+  function setMode(m) {
+    mode = m; document.body.classList.toggle('farm-editing', !!m); closeMenu();
+    build.hidden = m !== 'edit'; side.hidden = !!m; workers.hidden = !!m;
+    farm.setEditMode(!!m, m ? forbidden() : []);
+    if (!m) { if (bm?.mover) farm.showObra(bm.mover); bm = null; objDrag = null; farm.setGhost(null); placeBar.hidden = true; }
+  }
+  function openBuild(tab) { openShop(tab); }
+  function openEdit(tab) { play('tap'); if (tab) editTab = tab; if (bm?.mover) farm.showObra(bm.mover); bm = null; farm.setGhost(null); setMode('edit'); drawBuild(); drawPlace(); }
+  function closeBuild() { setMode(null); }
   const placeOk = () => (bm.mover ? G.canPlace(r.id, bm.tipo, bm.x, bm.z, bm.mover) : G.canPlace(r.id, bm.tipo, bm.x, bm.z));
-  function updateGhost() { if (!bm) return; const ok = placeOk(); farm.setGhost(bm.tipo, bm.x, bm.z, bm.rot, ok.ok); const t = build.querySelector('.place-state'); if (t) { t.className = 'place-state ' + (ok.ok ? 'ok-txt' : 'bad-txt'); t.textContent = ok.ok ? (bm.mover ? '✅ Pode soltar aqui!' : '✅ Lugar livre!') : `⛔ ${ok.motivo}`; } const c = build.querySelector('.place-go'); if (c) c.disabled = !ok.ok; }
-  function selectObra(o) { if (bm?.mover && bm.mover !== o.uid) farm.showObra(bm.mover); bm = { tipo: o.tipo, x: o.x, z: o.z, rot: o.rot || 0, mover: o.uid }; farm.hideObra(o.uid); drawBuild(); }
-  function newPlacement(id) { if (bm?.mover) farm.showObra(bm.mover); const f = farm.kidPos; const a = farm.camAng; const x = f.x - Math.sin(a) * 2.4, z = f.z - Math.cos(a) * 2.4; const sp = G.findSpot(r.id, id, x, z) || [x, z]; bm = { tipo: id, x: sp[0], z: sp[1], rot: 0 }; drawBuild(); }
+  function updateGhost() { if (!bm) return; const ok = placeOk(); farm.setGhost(bm.tipo, bm.x, bm.z, bm.rot, ok.ok); const t = placeBar.querySelector('.place-state'); if (t) { t.className = 'place-state ' + (ok.ok ? 'ok-txt' : 'bad-txt'); t.textContent = ok.ok ? '✅ Lugar livre — arraste ou toque no chão' : `⛔ ${ok.motivo}`; } const c = placeBar.querySelector('.place-go'); if (c) c.disabled = !ok.ok; }
+  function selectObra(o) { if (bm?.mover && bm.mover !== o.uid) farm.showObra(bm.mover); bm = { tipo: o.tipo, x: o.x, z: o.z, rot: o.rot || 0, mover: o.uid }; farm.hideObra(o.uid); drawPlace(); drawBuild(); }
+  function spotNear(id) { const f = farm.kidPos; const a = farm.camAng; const x = f.x - Math.sin(a) * 2.4, z = f.z - Math.cos(a) * 2.4; return G.findSpot(r.id, id, x, z) || [x, z]; }
+  function newPlacement(id, how) { if (bm?.mover) farm.showObra(bm.mover); const sp = spotNear(id); bm = { tipo: id, x: sp[0], z: sp[1], rot: 0, [how]: true }; drawPlace(); drawBuild(); }
+  // a barrinha flutuante do que está selecionado: girar, guardar, confirmar, cancelar
+  function drawPlace() {
+    placeBar.innerHTML = ''; placeBar.hidden = !bm;
+    if (!mode) return;
+    if (!bm) { if (mode === 'edit') placeBar.hidden = true; return; }
+    const B = BUILDINGS[bm.tipo]; const ok = placeOk();
+    const go = bm.buy ? '🔨 Construir aqui' : bm.fromStore ? '✔ Colocar' : '✔ Deixar aqui';
+    placeBar.append(...[h('div', { class: 'place-what' }, h('span', { class: 'ci' }, B.icone), h('div', {}, h('b', {}, B.nome), h('div', { class: 'place-state ' + (ok.ok ? 'ok-txt' : 'bad-txt') }, ok.ok ? '✅ Lugar livre — arraste ou toque no chão' : `⛔ ${ok.motivo}`))),
+      h('button', { class: 'pf-btn', title: 'Girar', onclick: () => { bm.rot = (bm.rot + Math.PI / 4) % (Math.PI * 2); play('tap'); updateGhost(); } }, '↻', h('small', {}, 'Girar')),
+      bm.mover ? h('button', { class: 'pf-btn', title: 'Guardar no inventário', onclick: () => { const uid = bm.mover; bm = null; farm.setGhost(null); if (G.storeObra(r.id, uid)) { play('pop'); farm.setObras(obrasView(r.id)); say('📦 Guardado no inventário!'); flushNotices(); } drawPlace(); drawBuild(); } }, '📦', h('small', {}, 'Guardar')) : null,
+      h('button', { class: 'pf-btn go place-go', disabled: !ok.ok, onclick: confirmPlace }, go),
+      h('button', { class: 'pf-btn x', title: 'Cancelar', onclick: () => { if (bm?.mover) farm.showObra(bm.mover); const buy = bm?.buy; bm = null; farm.setGhost(null); play('tap'); if (buy) setMode(null); else { drawPlace(); drawBuild(); } } }, '✖')].filter(Boolean));
+    updateGhost();
+  }
+  // o inventário do modo edição: ícones por categoria (o que está colocado aqui e o que está guardado)
   function drawBuild() {
-    const keep = build.querySelector('.build-list')?.scrollLeft || 0;
+    if (mode !== 'edit') return;
+    const keep = build.querySelector('.inv-items')?.scrollLeft || 0;
     build.innerHTML = '';
-    const head = h('div', { class: 'build-head' }, h('b', {}, '✏️ Modo edição'), h('span', { class: 'muted' }, 'arraste uma construção para outro lugar · toque num item para colocar'), h('button', { class: 'btn green small', onclick: () => { play('tap'); closeBuild(); } }, '✔ Pronto'));
-    build.append(head);
-    if (bm) {
-      const B = BUILDINGS[bm.tipo]; const ok = placeOk(); const guardavel = bm.mover && (B.cat !== 'util' || bm.tipo === 'canteiro');
-      build.append(h('div', { class: 'place-bar' },
-        h('div', { class: 'place-what' }, h('span', { class: 'ci' }, B.icone), h('div', {}, h('b', {}, bm.mover ? B.nome : `Colocar: ${B.nome}`), h('div', { class: 'place-state ' + (ok.ok ? 'ok-txt' : 'bad-txt') }, ok.ok ? (bm.mover ? '✅ Arraste ou toque no chão para mudar' : '✅ Lugar livre! Toque no chão para mudar') : `⛔ ${ok.motivo}`))),
-        h('button', { class: 'btn ghost small', onclick: () => { bm.rot = (bm.rot + Math.PI / 4) % (Math.PI * 2); play('tap'); updateGhost(); } }, '↻ Girar'),
-        guardavel ? h('button', { class: 'btn ghost small', onclick: () => { const uid = bm.mover; const back = G.removeObra(r.id, uid); bm = null; farm.setGhost(null); if (back) { play('pop'); farm.setObras(obrasView(r.id)); say(`📦 Guardado! Voltou: ${Object.entries(back).map(([id, n]) => `${n}${ITEMS[id].emoji}`).join(' ') || 'nada'}`); flushNotices(); } drawBuild(); } }, '📦 Guardar') : null,
-        h('button', { class: 'btn green place-go', disabled: !ok.ok, onclick: confirmPlace }, bm.mover ? '✔ Deixar aqui' : '✔ Construir aqui'),
-        h('button', { class: 'btn ghost small', onclick: () => { if (bm?.mover) farm.showObra(bm.mover); bm = null; farm.setGhost(null); play('tap'); drawBuild(); } }, '✖')));
-      updateGhost();
-    }
-    const tabs = h('div', { class: 'tabs build-tabs' });
-    const cats = [['sobrev', '🏕️ Sobrevivência'], ['oficina', '🛠️ Oficina'], ['enfeite', '🌷 Enfeites'], ...(tema ? [['epoca', `${THEMES[tema].icone} ${THEMES[tema].nome}`]] : [])];
-    for (const [k, label] of cats) tabs.append(h('button', { class: 'tab' + (editTab === k ? ' on' : ''), onclick: () => { editTab = k; play('tap'); drawBuild(); } }, label));
-    const inCat = (B) => (editTab === 'sobrev' ? B.surv : editTab === 'oficina' ? B.cat === 'util' && !B.surv : B.cat === editTab);
-    const list = h('div', { class: 'build-list inv' });
+    const cats = h('div', { class: 'inv-cats' }, ...CATS.map(([k, ico, label]) => h('button', { class: 'inv-cat' + (editTab === k ? ' on' : ''), title: label, onclick: () => { editTab = k; play('tap'); drawBuild(); } }, h('span', {}, ico), h('small', {}, label))));
+    const items = h('div', { class: 'inv-items' });
+    let any = false;
     for (const [id, B] of Object.entries(BUILDINGS)) {
-      if (!inCat(B)) continue;
-      const st = G.buildState(id, r.id); const here = G.obrasOf(r.id).filter((o) => o.tipo === id);
-      const cost = h('div', { class: 'req mini' }, ...Object.entries(B.custo).map(([it, n]) => h('span', { class: 'c ' + (G.has(it, n) ? 'ok' : 'no') }, `${ITEMS[it].emoji}${G.count(it)}/${n}`)));
-      const status = st.done ? h('span', { class: 'badge-ok' }, here.length ? '✓ Toque para mover' : '✓ Todos colocados') : st.locked ? h('span', { class: 'muted' }, st.temaFora ? `${THEMES[B.tema].icone} Só na época` : st.nivelFalta ? `🔒 Nível ${st.nivelFalta}` : `🔒 ${BUILDINGS[B.precisa].nome}`) : cost;
-      const lim = st.lim < 40 ? st.lim : '∞';
-      list.append(h('button', { class: 'build-card' + (st.ok ? '' : here.length ? ' placed' : ' off') + (bm?.tipo === id ? ' sel' : ''), onclick: () => {
-        if (st.ok) { play('tap'); return newPlacement(id); }
-        if (here.length) { play('tap'); const i = bm?.mover ? (here.findIndex((o) => o.uid === bm.mover) + 1) % here.length : 0; return selectObra(here[i]); }
-        play('sad'); say(st.locked ? (st.temaFora ? 'Só na época certa!' : st.nivelFalta ? `Libera no nível ${st.nivelFalta}!` : `Precisa: ${BUILDINGS[B.precisa].nome}`) : 'Faltam materiais');
-      } }, h('span', { class: 'cnt big' }, `${st.count}/${lim}`), h('span', { class: 'ci' }, B.icone), h('b', {}, B.nome), h('small', {}, B.desc), status));
+      if (catOf(B) !== editTab) continue;
+      const here = G.obrasOf(r.id).filter((o) => o.tipo === id); const st = G.stored(id);
+      if (!here.length && !st) continue; any = true;
+      const sel = bm?.tipo === id;
+      items.append(h('button', { class: 'inv-card' + (sel ? ' sel' : ''), onclick: () => {
+        play('tap');
+        if (st > 0 && !(bm?.mover && bm.tipo === id)) { if (B.cocho && here.length) { say('Só cabe um por fazendinha'); return; } return newPlacement(id, 'fromStore'); }
+        const i = bm?.mover ? (here.findIndex((o) => o.uid === bm.mover) + 1) % here.length : 0; selectObra(here[i]);
+      } }, h('span', { class: 'ci' }, B.icone), h('b', {}, B.nome), st ? h('i', { class: 'inv-n store' }, `📦 ${st}`) : null, here.length ? h('i', { class: 'inv-n here' }, `✔ ${here.length}`) : null));
     }
-    build.append(tabs, list); list.scrollLeft = keep;
+    if (!any) items.append(h('div', { class: 'inv-empty' }, 'Nada desta categoria ainda.'));
+    items.append(h('button', { class: 'inv-card shop', onclick: () => { setMode(null); openShop(editTab); } }, h('span', { class: 'ci' }, '🔨'), h('b', {}, 'Construir mais')));
+    build.append(h('div', { class: 'inv-head' }, h('b', {}, '✏️ Edição'), h('span', { class: 'muted' }, bm ? 'arraste no chão para mover' : 'toque numa construção na fazendinha ou aqui embaixo · arraste o chão para olhar em volta'), h('button', { class: 'btn green small', onclick: () => { play('tap'); setMode(null); } }, '✔ Pronto')), h('div', { class: 'inv-body' }, cats, items));
+    items.scrollLeft = keep;
+  }
+  // a loja de construções (modo construir): escolhe o que fazer e depois o lugar
+  function openShop(tab) {
+    play('tap'); let shopTab = tab && CATS.some((c) => c[0] === tab) ? tab : 'sobrev';
+    modal((box, close) => {
+      const draw = () => {
+        box.innerHTML = '';
+        box.append(h('h2', {}, '🔨 Construir'), h('p', { class: 'muted' }, 'Escolha o que construir e depois o lugar na fazendinha. O que você já tem fica no ✏️ Editar.'));
+        box.append(h('div', { class: 'tabs build-tabs' }, ...CATS.map(([k, ico, label]) => h('button', { class: 'tab' + (shopTab === k ? ' on' : ''), onclick: () => { shopTab = k; play('tap'); draw(); } }, `${ico} ${label}`))));
+        const list = h('div', { class: 'shop-grid' });
+        for (const [id, B] of Object.entries(BUILDINGS)) {
+          if (catOf(B) !== shopTab) continue;
+          const st = G.buildState(id, r.id); const lim = st.lim < 40 ? st.lim : '∞';
+          const cost = h('div', { class: 'req mini' }, ...Object.entries(B.custo).map(([it, n]) => h('span', { class: 'c ' + (G.has(it, n) ? 'ok' : 'no') }, `${ITEMS[it].emoji}${G.count(it)}/${n}`)));
+          const status = st.done ? h('span', { class: 'badge-ok' }, 'Já tem todos') : st.locked ? h('span', { class: 'muted' }, st.temaFora ? `${THEMES[B.tema].icone} Só na época` : st.nivelFalta ? `🔒 Nível ${st.nivelFalta}` : `🔒 ${BUILDINGS[B.precisa].nome}`) : cost;
+          list.append(h('button', { class: 'build-card' + (st.ok ? '' : ' off'), onclick: () => {
+            if (!st.ok) { play('sad'); return toast(st.done ? 'Você já tem todos' : st.locked ? (st.temaFora ? 'Só na época certa!' : st.nivelFalta ? `Libera no nível ${st.nivelFalta}!` : `Precisa: ${BUILDINGS[B.precisa].nome}`) : 'Faltam materiais', innerWidth / 2 - 60, innerHeight / 2); }
+            close(); setMode('place'); newPlacement(id, 'buy');
+          } }, h('span', { class: 'cnt big' }, `${st.count}/${lim}`), h('span', { class: 'ci' }, B.icone), h('b', {}, B.nome), h('small', {}, B.desc), status));
+        }
+        box.append(list, h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Fechar')));
+      };
+      draw();
+    }, { wide: true });
   }
   function confirmPlace() {
     if (!bm) return;
-    if (bm.mover) { const uid = bm.mover; if (G.moveObra(r.id, uid, bm.x, bm.z, bm.rot)) { play('drop'); farm.setObras(obrasView(r.id)); farm.popAt(new farm.kid.position.constructor(bm.x, 0.4, bm.z), ['#ffffff', '#ffd25a'], 20); } farm.showObra(uid); bm = null; farm.setGhost(null); farm.setEditMode(true, forbidden()); drawBuild(); return; }
+    if (bm.mover) { const uid = bm.mover; if (G.moveObra(r.id, uid, bm.x, bm.z, bm.rot)) { play('drop'); farm.setObras(obrasView(r.id)); farm.popAt(new farm.kid.position.constructor(bm.x, 0.4, bm.z), ['#ffffff', '#ffd25a'], 20); } farm.showObra(uid); bm = null; farm.setGhost(null); farm.setEditMode(true, forbidden()); drawPlace(); drawBuild(); return; }
+    if (bm.fromStore) { const o = G.placeStored(r.id, bm.tipo, bm.x, bm.z, bm.rot); if (!o) { play('sad'); return; } bm = null; farm.setGhost(null); farm.setObras(obrasView(r.id)); farm.revealObra(o.uid); play('drop'); farm.setEditMode(true, forbidden()); drawPlace(); drawBuild(); return; }
     const o = G.build(r.id, bm.tipo, bm.x, bm.z, bm.rot); if (!o) { play('sad'); return; }
-    const tipo = bm.tipo; bm = null; farm.setGhost(null); closeBuild();
+    const tipo = bm.tipo; bm = null; farm.setGhost(null); setMode(null);
     farm.setObras(obrasView(r.id)); farm.hideObra(o.uid); updateHud();
     const B = BUILDINGS[tipo]; let done = false;
     const finish = () => { if (done) return; done = true; farm.revealObra(o.uid); play('fanfare'); farm.kidAct('comemorar', 0.9); say(`${B.icone} ${B.nome} pronto!`, farm.obraObj(o.uid), 1.6); flushNotices(); sync(); };
     farm.walkTo(o.x, o.z, { stopAt: B.r + 0.5, marker: false, onArrive: () => farm.kidAct('construir', 2.2, () => { play('anvil', 2); farm.popAt(new farm.kid.position.constructor(o.x, 0.3, o.z), ['#c9a06a', '#ffffff', '#ffd25a'], 10); }, finish), onFail: finish });
   }
-  // ---------- toques na tela ----------
-  const cv = $('#stage'); const ptrs = new Map(); let drag = null, pinch = 0;
+  // ---------- toques na tela: arrastar move o mundo; dois dedos dão zoom, giram e inclinam ----------
+  const cv = $('#stage'); const ptrs = new Map(); let drag = null, two = null;
   const snap = (v) => Math.round(v * 4) / 4;
+  const twoState = () => { const [a, b2] = [...ptrs.values()]; return { d: Math.hypot(a.x - b2.x, a.y - b2.y), ang: Math.atan2(b2.y - a.y, b2.x - a.x), my: (a.y + b2.y) / 2 }; };
   const pd = (e) => {
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 1) {
-      drag = { x: e.clientX, y: e.clientY, moved: 0, t: performance.now() };
-      if (!build.hidden) { // no modo edição: pegar uma construção (ou o fantasma) e arrastar
+      drag = { x: e.clientX, y: e.clientY, moved: 0, t: performance.now(), btn: e.button };
+      if (mode) { // editando: pegar uma construção (ou o fantasma) e arrastar
         const hit = farm.pick(rayAt(e.clientX, e.clientY)); const p = farm.groundAt(rayAt(e.clientX, e.clientY));
-        if (hit?.tipo === 'obra') { const o = G.obrasOf(r.id).find((q) => q.uid === hit.uid); if (o) { if (bm?.mover !== o.uid) selectObra(o); objDrag = { uid: o.uid, dx: o.x - (p?.x ?? o.x), dz: o.z - (p?.z ?? o.z) }; } }
-        else if (bm && p && Math.hypot(p.x - bm.x, p.z - bm.z) < BUILDINGS[bm.tipo].r + 0.4) objDrag = { uid: bm.mover || null, dx: bm.x - p.x, dz: bm.z - p.z };
+        if (mode === 'edit' && hit?.tipo === 'obra') { const o = G.obrasOf(r.id).find((q) => q.uid === hit.uid); if (o) { if (bm?.mover !== o.uid) selectObra(o); objDrag = { dx: o.x - (p?.x ?? o.x), dz: o.z - (p?.z ?? o.z) }; } }
+        else if (bm && p && Math.hypot(p.x - bm.x, p.z - bm.z) < BUILDINGS[bm.tipo].r + 0.5) objDrag = { dx: bm.x - p.x, dz: bm.z - p.z };
       }
-    } else { drag = null; objDrag = null; const [a, b2] = [...ptrs.values()]; pinch = Math.hypot(a.x - b2.x, a.y - b2.y); }
+    } else { drag = null; objDrag = null; two = twoState(); }
   };
   const pm = (e) => {
     if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 2) { const [a, b2] = [...ptrs.values()]; const d = Math.hypot(a.x - b2.x, a.y - b2.y); if (pinch) farm.zoomBy(pinch / d); pinch = d; return; }
-    if (!drag) return; const dx = e.clientX - drag.x; drag.moved += Math.abs(dx) + Math.abs(e.clientY - drag.y);
+    if (ptrs.size === 2 && two) { const n = twoState(); if (two.d && n.d) farm.zoomBy(two.d / n.d); let da = n.ang - two.ang; if (da > Math.PI) da -= Math.PI * 2; if (da < -Math.PI) da += Math.PI * 2; farm.rotate(-da / 0.006); farm.tiltBy((n.my - two.my) * 0.004); two = n; return; }
+    if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy);
     if (objDrag && bm) { const p = farm.groundAt(rayAt(e.clientX, e.clientY)); if (p) { bm.x = snap(p.x + objDrag.dx); bm.z = snap(p.z + objDrag.dz); updateGhost(); } }
-    else if (drag.moved > 12) farm.rotate(dx);
+    else if (drag.moved > 10) { if (drag.btn === 2 || e.shiftKey) { farm.rotate(dx); farm.tiltBy(dy * 0.004); } else farm.pan(dx, dy); }
     drag.x = e.clientX; drag.y = e.clientY;
   };
   const pu = (e) => {
-    ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0;
-    if (objDrag && bm && drag?.moved > 12) { // soltou a construção arrastada
+    ptrs.delete(e.pointerId); if (ptrs.size < 2) two = null;
+    if (objDrag && bm && drag?.moved > 10) { // soltou a construção arrastada
       objDrag = null; drag = null;
       if (bm.mover) { if (placeOk().ok) confirmPlace(); else { play('sad'); say('⛔ ' + placeOk().motivo); } } else updateGhost();
       return;
     }
     objDrag = null;
-    if (!drag || e.target !== cv) { drag = null; return; } const moved = drag.moved; drag = null; if (moved > 12) return;
+    if (!drag || e.target !== cv) { drag = null; return; } const moved = drag.moved; drag = null; if (moved > 10) return;
     let hit = farm.pick(rayAt(e.clientX, e.clientY)); if (!hit) return;
     unlockAudio();
-    if (!build.hidden) { // modo edição: toque no chão leva o que está selecionado para lá
+    if (mode) { // editando: toque no chão leva o que está selecionado para lá
       if (hit.tipo === 'obra') return;
       const p = farm.groundAt(rayAt(e.clientX, e.clientY)); if (bm && p) { bm.x = snap(p.x); bm.z = snap(p.z); play('tap'); updateGhost(); }
       return;
     }
     // os companheiros são pequenos: um toque perto deles conta como toque neles
-    if (!['brilho', 'npc', 'bolha', 'amigo', 'eu'].includes(hit.tipo)) {
+    if (!['brilho', 'npc', 'bolha', 'amigo', 'eu', 'lote'].includes(hit.tipo) || (hit.tipo === 'lote' && !hit.lock)) {
       let best = null, bd = ['chao', 'longe', 'lote'].includes(hit.tipo) ? 56 : 24;
       for (const w of farm.walkers) { const p = toScreen(w.c, w.c.userData.height * 0.5); const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = w; } }
       if (best) hit = { tipo: 'amigo', walker: best, obj: best.c };
@@ -833,6 +880,7 @@ function renderFazenda(sc, arg) {
       default: play('tap'); menuFor(hit, e.clientX, e.clientY);
     }
   };
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
   const wheel = (e) => farm.zoomBy(e.deltaY > 0 ? 1.08 : 0.92);
   cv.addEventListener('pointerdown', pd); window.addEventListener('pointermove', pm); window.addEventListener('pointerup', pu); window.addEventListener('pointercancel', pu); cv.addEventListener('wheel', wheel, { passive: true });
   function sync() {
@@ -862,12 +910,12 @@ function renderFazenda(sc, arg) {
     const cs = G.cochoState(r.id); farm.setNeeds(cs.fome, cs.sede);
     if (tema) farm.setThemeAlive(new Set([...(farm.themeIds?.() || [])].filter((id) => G.themePropAlive(r.id, id))));
     if (S().missaoNova || Math.random() < 0.2) G.fillMissions(r.id);
-    drawUi(); if (!build.hidden && !bm && !objDrag) drawBuild();
+    drawUi(); if (mode === 'edit' && !objDrag) drawBuild();
   }
   farmSync = sync;
   let lastSpark = g.brilhos;
   farmSparkSync = () => { if (g.brilhos !== lastSpark) { lastSpark = g.brilhos; farm.setSparkles(g.brilhos); } };
-  cleanup = () => { closeMenu(); kidSpot[r.id] = [farm.kidPos.x, farm.kidPos.z]; unclass(); cv.removeEventListener('pointerdown', pd); window.removeEventListener('pointermove', pm); window.removeEventListener('pointerup', pu); window.removeEventListener('pointercancel', pu); cv.removeEventListener('wheel', wheel); farmSync = null; farmSparkSync = null; farmApi = null; };
+  cleanup = () => { closeMenu(); document.body.classList.remove('farm-editing'); kidSpot[r.id] = [farm.kidPos.x, farm.kidPos.z]; unclass(); cv.removeEventListener('pointerdown', pd); window.removeEventListener('pointermove', pm); window.removeEventListener('pointerup', pu); window.removeEventListener('pointercancel', pu); cv.removeEventListener('wheel', wheel); farmSync = null; farmSparkSync = null; farmApi = null; };
   farmApi = { farm, openBuild, openEdit, region: r }; window.__farm = farm; // ajuda nos testes
   sync();
   if (arg?.reveal) { play('fanfare'); setTimeout(() => say('🎉 Lote novo liberado!'), 300); }
@@ -1146,24 +1194,51 @@ function festaModal() {
 
 // =========================== CÓDICE ===========================
 let codexTab = 'todos';
+const codexFilter = { els: new Set(), rars: new Set() };
+// a janela de filtro: escolha os elementos e as raridades que quer ver (pode marcar vários)
+function codexFilterModal() {
+  play('tap');
+  modal((box, close) => {
+    const F = codexFilter;
+    const draw = () => {
+      box.innerHTML = '';
+      const chip = (on, label, flip, style) => h('button', { class: 'opt' + (on ? ' on' : ''), style, onclick: () => { flip(); play('tap'); draw(); } }, label, on ? ' ✓' : '');
+      box.append(h('h2', {}, '🔍 Filtro'),
+        h('div', { class: 'sec-sub' }, 'Elementos'), h('div', { class: 'opts' }, ...ELEMENT_ORDER.concat('trovao').map((e) => chip(F.els.has(e), `${ELEMENTS[e].icone} ${ELEMENTS[e].nome}`, () => (F.els.has(e) ? F.els.delete(e) : F.els.add(e))))),
+        h('div', { class: 'sec-sub' }, 'Raridade'), h('div', { class: 'opts' }, ...RARITY_ORDER.map((r) => chip(F.rars.has(r), `${'★'.repeat(RARITIES[r].estrelas)} ${RARITIES[r].nome}`, () => (F.rars.has(r) ? F.rars.delete(r) : F.rars.add(r)), `border-color:${RARITIES[r].cor}`))),
+        h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { F.els.clear(); F.rars.clear(); play('tap'); draw(); } }, '✖ Limpar'), h('button', { class: 'btn green', onclick: () => { close(); go('codice'); } }, '✔ Ver')));
+    };
+    draw();
+  });
+}
 function renderCodice(sc) {
   const n = G.discoveredCount();
   sc.append(h('div', { class: 'title' }, '📖 Códice das Feras', h('small', {}, `${n}/450 formas descobertas`)));
   const goals = h('div', { class: 'goals' }, h('div', { class: 'codex-bar' }, h('i', { style: `width:${(n / 450) * 100}%` })));
   for (const [meta, item, q] of G.codexGoals()) goals.append(h('span', { class: 'goal' + (n >= meta ? ' done' : '') }, `${meta}: ${item === 'brilho' ? '🔷' : ITEMS[item].emoji}×${q}`));
   sc.append(goals);
+  // abas: Obtidos (os seus, do mais novo ao mais antigo) · Todos · Filtro (elementos e raridades) · Época
+  const F = codexFilter; const nF = F.els.size + F.rars.size;
+  const passF = (s) => (!F.els.size || F.els.has(s.el)) && (!F.rars.size || F.rars.has(s.rar));
+  const inTab = (s, k) => (k === 'epoca' ? isSeasonal(s.id) : k === 'obtidos' ? !!S().descobertos[s.id] : s.id < CODEX_TOTAL);
   const tabs = h('div', { class: 'tabs' });
-  const inTab = (s, k) => (k === 'epoca' ? isSeasonal(s.id) : s.id < CODEX_TOTAL && (k === 'todos' || s.el === k));
-  for (const [k, label] of [['todos', 'Todos'], ...ELEMENT_ORDER.concat('trovao').map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome]), ['epoca', '🎉 Época']]) {
-    const tot = SPECIES.filter((s) => inTab(s, k)); const got = tot.filter((s) => S().descobertos[s.id]).length;
-    tabs.append(h('button', { class: 'tab' + (codexTab === k ? ' on' : ''), onclick: () => { codexTab = k; play('tap'); go('codice'); } }, `${label} ${got}/${tot.length}`));
+  for (const [k, label] of [['obtidos', '⭐ Obtidos'], ['todos', 'Todos']]) {
+    const tot = SPECIES.filter((s) => inTab(s, k) && passF(s)); const got = tot.filter((s) => S().descobertos[s.id]).length;
+    tabs.append(h('button', { class: 'tab' + (codexTab === k ? ' on' : ''), onclick: () => { codexTab = k; play('tap'); go('codice'); } }, k === 'obtidos' ? `${label} ${got}` : `${label} ${got}/${tot.length}`));
   }
+  tabs.append(h('button', { class: 'tab filter-tab' + (nF ? ' on' : ''), onclick: () => codexFilterModal() }, '🔍 Filtro', nF ? h('i', { class: 'fcount' }, String(nF)) : null));
+  { const tot = SPECIES.filter((s) => inTab(s, 'epoca') && passF(s)); const got = tot.filter((s) => S().descobertos[s.id]).length; tabs.append(h('button', { class: 'tab' + (codexTab === 'epoca' ? ' on' : ''), onclick: () => { codexTab = 'epoca'; play('tap'); go('codice'); } }, `🎉 Época ${got}/${tot.length}`)); }
   sc.append(tabs);
+  if (nF) sc.append(h('div', { class: 'filter-chips' }, ...[...F.els].map((e) => h('span', { class: 'chip' }, ELEMENTS[e].icone, ' ', ELEMENTS[e].nome)), ...[...F.rars].map((r) => h('span', { class: 'chip', style: `border-color:${RARITIES[r].cor}` }, '★ ', RARITIES[r].nome)), h('button', { class: 'chip clear', onclick: () => { F.els.clear(); F.rars.clear(); play('tap'); go('codice'); } }, '✖ Limpar')));
   const grid = h('div', { class: 'grid' });
   const queue = [];
   if (codexTab === 'epoca') { const t = G.themeOn(); sc.append(h('p', { class: 'muted', style: 'margin:4px 6px' }, t ? `${THEMES[t].icone} Agora é época de ${THEMES[t].nome}! Bichos de época ficam com você para sempre.` : '🎉 Cada época do ano (Natal, Férias, Carnaval, Páscoa, Festa Junina e Halloween) traz bichos especiais. Eles ficam para sempre!')); }
-  for (const s of SPECIES) {
-    if (!inTab(s, codexTab)) continue;
+  // obtidos: do mais recente ao mais antigo (quem foi descoberto antes de guardar a data usa a ordem de chegada na equipe)
+  const when = (s) => { const v = S().descobertos[s.id]; if (typeof v === 'number') return v; const own = S().amigos.filter((a) => a.sp === s.id); return own.length ? Math.max(...own.map((a) => a.desde || a.uid)) : 0; };
+  let list = SPECIES.filter((s) => inTab(s, codexTab) && passF(s));
+  if (codexTab === 'obtidos') list = list.sort((x, y) => when(y) - when(x));
+  if (!list.length) grid.append(h('p', { class: 'muted', style: 'grid-column:1/-1;text-align:center;padding:30px' }, codexTab === 'obtidos' ? 'Nenhum bicho com esse filtro ainda. Vá até a Forja! 🔨' : 'Nada com esse filtro.'));
+  for (const s of list) {
     const known = !!S().descobertos[s.id]; const f = FAMILIES[s.fam];
     const img = h('img', { alt: '' });
     queue.push(() => { img.src = thumb(s.id, { silhouette: !known, size: 160 }); });

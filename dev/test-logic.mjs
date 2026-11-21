@@ -51,7 +51,8 @@ const spot = G.findSpot('floresta', 'bancada', 2, 2); ok(spot && G.build('flores
 ok(G.S.base.bancada && !G.buildState('bancada', 'floresta').ok, 'a bancada é única');
 ok(!G.canPlace('floresta', 'cerca', spot[0], spot[1]).ok, 'não sobrepõe construção');
 const cerca = G.build('floresta', 'cerca', ...G.findSpot('floresta', 'cerca', -3, -1)); ok(cerca, 'constrói enfeite');
-ok(G.removeObra('floresta', cerca.uid) && !G.obrasOf('floresta').includes(cerca), 'guarda o enfeite');
+ok(G.storeObra('floresta', cerca.uid) && !G.obrasOf('floresta').includes(cerca) && G.stored('cerca') === 1, 'guarda o enfeite no inventário');
+const c2 = G.placeStored('floresta', 'cerca', ...G.findSpot('floresta', 'cerca', 3, 3)); ok(c2 && G.stored('cerca') === 0, 'coloca de novo de graça');
 // aumentar: um lote vizinho de cada vez
 ok(G.expandOptions('floresta').length === 4, '4 lotes vizinhos para abrir');
 G.S.moedas = 999; G.addItem('trevo', 20); G.addItem('cogumelo', 5);

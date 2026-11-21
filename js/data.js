@@ -65,6 +65,16 @@ Object.assign(ITEMS, {
   barra:   { nome: 'Barra de Metal', emoji: '🧱', el: null, rar: 'incomum', recurso: true },
   racao:   { nome: 'Ração Turbo', emoji: '🥗', el: null, rar: 'incomum', recurso: true, comida: 40 },
 });
+// itens de época: só aparecem durante a época deles (e chamam os bichos especiais na Forja)
+Object.assign(ITEMS, {
+  enfeite: { nome: 'Enfeite de Natal', emoji: '🎄', el: null, rar: 'incomum', tema: 'natal' },
+  coco:    { nome: 'Coco Gelado',      emoji: '🥥', el: null, rar: 'incomum', tema: 'ferias' },
+  confete: { nome: 'Confete',          emoji: '🎊', el: null, rar: 'incomum', tema: 'carnaval' },
+  ovinho:  { nome: 'Ovinho Pintado',   emoji: '🥚', el: null, rar: 'incomum', tema: 'pascoa' },
+  milho:   { nome: 'Milho Verde',      emoji: '🌽', el: null, rar: 'incomum', tema: 'junina' },
+  abobora: { nome: 'Abóbora Sorridente', emoji: '🎃', el: null, rar: 'incomum', tema: 'halloween' },
+});
+export const THEME_ITEM = Object.fromEntries(Object.entries(ITEMS).filter(([, it]) => it.tema).map(([id, it]) => [it.tema, id]));
 
 export const EL_ITEMS = {};
 for (const [id, it] of Object.entries(ITEMS)) {
@@ -146,13 +156,13 @@ const STAGE_NAMES = ['Filhote', 'Jovem', 'Adulto'];
 export const EVOLVE_AT = [5, 12];
 export const EVOLVE_COST = [1, 2];
 
-const MOLDS = { comum: ['cc', 'co', 'cco', 'cn', 'cm', 'cf'], incomum: ['uc', 'uu', 'uo', 'ucc', 'ui'], raro: ['ruc', 'rcc', 'ruu', 'rb'], epico: ['rr*', 'ru*'], lendario: ['rL'] };
+const MOLDS = { comum: ['ccc', 'cco', 'ccn', 'ccm', 'ccf', 'cno'], incomum: ['ucc', 'uco', 'uuc', 'ucm', 'uci'], raro: ['ruc', 'rcc', 'ruu', 'rcb'], epico: ['rr*', 'ru*'], lendario: ['rL'] };
 function recipeFor(el, mold) {
   const I = EL_ITEMS[el] || {}, N = EL_ITEMS[next(el)] || {};
   return ({
-    cc: [I.comum, I.comum], co: [I.comum, 'orvalho'], cco: [I.comum, I.comum, 'orvalho'], cn: [I.comum, N.comum], cm: [I.comum, 'madeira'], cf: [I.comum, 'fruta'],
-    uc: [I.incomum, I.comum], uu: [I.incomum, I.incomum], uo: [I.incomum, 'orvalho'], ucc: [I.incomum, I.comum, I.comum], ui: [I.incomum, 'ferro'],
-    ruc: [I.raro, I.incomum, I.comum], rcc: [I.raro, I.comum, I.comum], ruu: [I.raro, I.incomum, I.incomum], rb: [I.raro, 'barra'],
+    ccc: [I.comum, I.comum, I.comum], cco: [I.comum, I.comum, 'orvalho'], ccn: [I.comum, I.comum, N.comum], ccm: [I.comum, I.comum, 'madeira'], ccf: [I.comum, I.comum, 'fruta'], cno: [I.comum, N.comum, 'orvalho'],
+    ucc: [I.incomum, I.comum, I.comum], uco: [I.incomum, I.comum, 'orvalho'], uuc: [I.incomum, I.incomum, I.comum], ucm: [I.incomum, I.comum, 'madeira'], uci: [I.incomum, I.comum, 'ferro'],
+    ruc: [I.raro, I.incomum, I.comum], rcc: [I.raro, I.comum, I.comum], ruu: [I.raro, I.incomum, I.incomum], rcb: [I.raro, I.comum, 'barra'],
     'rr*': [I.raro, N.raro, 'runa'], 'ru*': [I.raro, N.incomum, 'runa'], rL: [I.raro, 'coroa', 'runa'],
   })[mold] || null;
 }
@@ -170,10 +180,42 @@ for (const el of ORDER) {
   }
 }
 for (const [rar, arch, pre] of THUNDER) FAMILIES.push({ id: FAMILIES.length, el: 'trovao', rar, arch, pre, receita: null, fusao: true });
+export const BASE_FAMILIES = FAMILIES.length; // 150
+export const CODEX_TOTAL = BASE_FAMILIES * 3;  // 450
+// bichos de época: fantasias e cores especiais; ficam na equipe para sempre
+const SEASONAL = {
+  natal: [['comum', 'gelo', 'pinguim', ['Pinguinoel', 'Pinguinatal', 'Pinguinoelzão'], ['gorro_natal', 'cachecol'], ['#2b3550', '#ffffff', '#ff4a4a']],
+    ['incomum', 'gelo', 'cervo', ['Renazinha', 'Renalume', 'Renaestrela'], ['rena', 'cachecol'], ['#9a6a44', '#f2e2c8', '#ff3a3a']],
+    ['raro', 'gelo', 'urso', ['Ursinoel', 'Ursonevado', 'Ursonatalino'], ['gorro_natal', 'cachecol'], ['#f4f6fa', '#d9e6f2', '#ff4a4a']]],
+  ferias: [['comum', 'agua', 'tartaruga', ['Tartapraia', 'Tartasurfe', 'Tartaverão'], ['oculos'], ['#3fb59a', '#f6e2a8', '#ffd34d']],
+    ['incomum', 'agua', 'lontra', ['Lontraboia', 'Lontrasol', 'Lontramarola'], ['oculos', 'boia'], ['#a8744a', '#f4dcc0', '#ff6a8a']],
+    ['raro', 'agua', 'tubarao', ['Tubarolinho', 'Tubasurfista', 'Tubaverãozão'], ['oculos', 'colar_flores'], ['#6aa0c8', '#eef6ff', '#ffd34d']]],
+  carnaval: [['comum', 'vento', 'ave', ['Arafolinha', 'Arafolia', 'Arassambista'], ['plumas'], ['#2f7aff', '#ffd34d', '#ff4f8a']],
+    ['incomum', 'planta', 'macaco', ['Miquifolia', 'Macacofolia', 'Gorilafolia'], ['mascara', 'colar_flores'], ['#8a5a3a', '#f2d2a8', '#ff4fb0']],
+    ['raro', 'fogo', 'felino', ['Onçafolia', 'Onçapluma', 'Onçarainha'], ['plumas', 'mascara'], ['#f2a83a', '#fff2cc', '#ff4fb0']]],
+  pascoa: [['comum', 'planta', 'coelho', ['Pascoelhinho', 'Pascoelho', 'Pascoelhão'], ['laco'], ['#ffd6e8', '#ffffff', '#ff8ac2']],
+    ['incomum', 'vento', 'ave', ['Pintinhovo', 'Pintapasco', 'Galopascoal'], ['casca_ovo'], ['#ffe066', '#fff6c8', '#ffb347']],
+    ['raro', 'planta', 'tartaruga', ['Tartovo', 'Tartachoco', 'Tartaovão'], ['laco'], ['#c9a6ff', '#fff0f8', '#9be6a8']]],
+  junina: [['comum', 'planta', 'sapo', ['Sapojunino', 'Saporaiá', 'Sapoquadrilha'], ['palha', 'bandana'], ['#5fb84a', '#f2e28a', '#ff6a2a']],
+    ['incomum', 'fogo', 'javali', ['Porquipipoca', 'Javapipoca', 'Javafogueira'], ['palha', 'bandana'], ['#f29aa8', '#ffe0d8', '#ff8a2a']],
+    ['raro', 'fogo', 'cavalo', ['Potrojunino', 'Corcelarraiá', 'Pegasofogueira'], ['palha', 'bandana'], ['#b0703a', '#f2d2a8', '#ffcc33']]],
+  halloween: [['comum', 'cosmo', 'morcego', ['Morcedoce', 'Morcebala', 'Morcegulosão'], ['laco'], ['#7a5cd6', '#ffb36b', '#ff8a1c']],
+    ['incomum', 'cosmo', 'felino', ['Gatabóbora', 'Gatodoce', 'Leãobóbora'], ['abobora'], ['#2b2440', '#8a5cd6', '#ff8a1c']],
+    ['raro', 'fogo', 'golem', ['Aboborim', 'Aboborão', 'Aborocolosso'], ['abobora'], ['#ff8a1c', '#ffd08a', '#ffe066']]],
+};
+for (const [tema, list] of Object.entries(SEASONAL)) {
+  const T = Object.keys(ITEMS).find((k) => ITEMS[k].tema === tema);
+  for (const [rar, el, arch, nomes, fantasia, cores] of list) {
+    const I = EL_ITEMS[el];
+    const receita = rar === 'comum' ? [T, I.comum, I.comum] : rar === 'incomum' ? [T, I.incomum, I.comum] : [T, T, I.raro];
+    FAMILIES.push({ id: FAMILIES.length, el, rar, arch, pre: nomes[0], receita, fusao: false, tema, fantasia, cores, archs: [arch, arch, arch], nomes });
+  }
+}
+export const isSeasonal = (spId) => !!FAMILIES[Math.floor(spId / 3)]?.tema;
 for (const f of FAMILIES) {
   const to = EVO_ARCH[f.arch];
-  f.archs = [f.arch, f.arch, to && hash(f.id + 7) < 0.55 ? to : f.arch];
-  f.nomes = f.archs.map((a, s) => cap(f.pre.toLowerCase()) + ARCH_NAMES[a][s]);
+  f.archs ||= [f.arch, f.arch, to && hash(f.id + 7) < 0.55 ? to : f.arch];
+  f.nomes ||= f.archs.map((a, s) => cap(f.pre.toLowerCase()) + ARCH_NAMES[a][s]);
   // habilidades: a do elemento primeiro, depois as do animal, depois sorteadas (sempre iguais para a família)
   const list = [EL_SKILL[f.el], ...(ARCH_SKILLS[f.arch] || [])];
   let s = f.id * 3;
@@ -194,18 +236,34 @@ export function skillsOf(spId) {
 }
 export const yieldOf = (spId) => YIELD[SPECIES[spId].rar] * (1 + SPECIES[spId].stage * 0.25);
 
+export const FORGE_MIN = 3;
 export const recipeKey = (items) => [...items].sort().join('+');
 export const RECIPE_INDEX = {};
 for (const f of FAMILIES) if (f.receita) RECIPE_INDEX[recipeKey(f.receita)] = f.id;
 export const GUIDE_SPECIES = FAMILIES.find((f) => f.el === 'eletrico' && f.rar === 'lendario').id * 3;
 
 // ---------- a base: bancada, forno e construções ----------
+// cat: 'util' (muda o jogo) | 'enfeite' (decoração) | 'epoca' (só se constrói na época, fica para sempre)
+// r = raio que ocupa no chão (metros); unico = só um no mundo; total = máximo no mundo; max = por fazendinha
 export const BUILDINGS = {
-  bancada: { nome: 'Bancada de Trabalho', icone: '🛠️', desc: 'Libera a fabricação de itens e as outras construções.', custo: { madeira: 6, ferro: 2 } },
-  forno:   { nome: 'Forno de Fundição',   icone: '🏭', desc: 'Funde Ferro Bruto em Barras de Metal. Precisa de um companheiro com 🔥 Acender na Floresta Viva.', custo: { madeira: 6, ferro: 6 }, precisa: 'bancada' },
-  canteiros: { nome: 'Canteiros Extras',  icone: '🌾', desc: '+2 canteiros na Floresta Viva (pode construir até 3 vezes).', custo: { madeira: 8, fruta: 2 }, precisa: 'bancada', max: 3 },
-  casinha: { nome: 'Casinha da Equipe',   icone: '🏠', desc: '+1 lugar para companheiros em todas as fazendinhas (até 3).', custo: { madeira: 12, barra: 3 }, precisa: 'bancada', max: 3 },
-  totem:   { nome: 'Totem do Trovão',     icone: '🗿', desc: 'Todos os companheiros trabalham 25% mais rápido.', custo: { barra: 6, runa: 1 }, precisa: 'forno' },
+  canteiro:  { nome: 'Canteiro',          icone: '🌱', cat: 'util', desc: 'Lugar para plantar: semeie, regue e colha frutas 🍎.', custo: { madeira: 2 }, r: 0.8, max: 12 },
+  bancada:   { nome: 'Bancada de Trabalho', icone: '🛠️', cat: 'util', desc: 'Fabrica itens e libera as outras construções.', custo: { madeira: 6, ferro: 2 }, r: 1.1, unico: true },
+  forno:     { nome: 'Forno de Fundição', icone: '🏭', cat: 'util', desc: 'Funde Ferro em Barras de Metal 🧱. Precisa de um companheiro com 🔥 Acender na mesma fazendinha.', custo: { madeira: 6, ferro: 6 }, precisa: 'bancada', r: 1.1, unico: true },
+  casinha:   { nome: 'Casinha da Equipe', icone: '🏠', cat: 'util', desc: '+1 lugar para companheiros em todas as fazendinhas (até 3 no mundo).', custo: { madeira: 12, barra: 3 }, precisa: 'bancada', r: 1.5, total: 3 },
+  totem:     { nome: 'Totem do Trovão',   icone: '🗿', cat: 'util', desc: 'Todos os companheiros trabalham 25% mais rápido.', custo: { barra: 6, runa: 1 }, precisa: 'forno', r: 0.7, unico: true },
+  cerca:     { nome: 'Cerquinha',         icone: '🪵', cat: 'enfeite', desc: 'Um pedaço de cerca. Gire para fazer caminhos!', custo: { madeira: 1 }, r: 0.45 },
+  flores:    { nome: 'Jardim de Flores',  icone: '🌷', cat: 'enfeite', desc: 'Flores coloridas que balançam com o vento.', custo: { trevo: 1, orvalho: 1 }, r: 0.6 },
+  lanterna:  { nome: 'Lanterna',          icone: '🏮', cat: 'enfeite', desc: 'Um poste que acende sozinho.', custo: { madeira: 1, ferro: 1 }, r: 0.35 },
+  banco:     { nome: 'Banquinho',         icone: '🪑', cat: 'enfeite', desc: 'Para descansar depois do trabalho.', custo: { madeira: 3 }, r: 0.75 },
+  espantalho:{ nome: 'Espantalho',        icone: '👒', cat: 'enfeite', desc: 'Um espantalho sorridente que cuida da plantação.', custo: { madeira: 2, fruta: 1 }, r: 0.5 },
+  balanco:   { nome: 'Balanço',           icone: '🎠', cat: 'enfeite', desc: 'Um balanço de madeira! Os bichos adoram.', custo: { madeira: 4, ferro: 1 }, r: 1.1 },
+  fonte:     { nome: 'Fonte',             icone: '⛲', cat: 'enfeite', desc: 'Uma fonte de água que brilha.', custo: { seixo: 4, barra: 1 }, r: 1.0 },
+  arvore_natal: { nome: 'Árvore de Natal', icone: '🎄', cat: 'epoca', tema: 'natal', desc: 'Pisca-pisca e estrela no topo!', custo: { madeira: 3, enfeite: 2 }, r: 0.9 },
+  guarda_sol: { nome: 'Guarda-sol',       icone: '⛱️', cat: 'epoca', tema: 'ferias', desc: 'Sombra e água fresca!', custo: { madeira: 2, coco: 2 }, r: 0.9 },
+  baloes:    { nome: 'Balões de Carnaval', icone: '🎈', cat: 'epoca', tema: 'carnaval', desc: 'Balões coloridos que flutuam.', custo: { confete: 2, fruta: 1 }, r: 0.6 },
+  ninho_ovos: { nome: 'Ninho de Ovinhos', icone: '🪺', cat: 'epoca', tema: 'pascoa', desc: 'Ovinhos pintados num ninho de palha.', custo: { ovinho: 2, madeira: 1 }, r: 0.6 },
+  fogueira:  { nome: 'Fogueira Junina',   icone: '🔥', cat: 'epoca', tema: 'junina', desc: 'Fogueira com bandeirinhas em volta.', custo: { madeira: 4, milho: 1 }, r: 1.0 },
+  abobora_luz: { nome: 'Abóbora Iluminada', icone: '🎃', cat: 'epoca', tema: 'halloween', desc: 'Uma abóbora sorridente que brilha.', custo: { abobora: 2 }, r: 0.6 },
 };
 export const CRAFTS = [
   { id: 'evo', nome: 'Cristal de Evolução', icone: '🔷', desc: 'Para evoluir companheiros', custo: { barra: 2, fruta: 3 }, dá: 'brilho' },

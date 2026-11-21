@@ -2,7 +2,10 @@
 // automático (plantação, corte, mineração, forno), base (bancada e construções),
 // evolução, pedidos, resgates, presente do dia e Fusão do Trovão.
 import { ITEMS, RARITIES, RARITY_ORDER, FAMILIES, SPECIES, RECIPE_INDEX, recipeKey, REGIONS, EL_ITEMS,
-  EVOLVE_AT, EVOLVE_COST, ACHIEVEMENTS, ELEMENT_ORDER, skillsOf, yieldOf, BUILDINGS, CRAFTS, SKILLS } from './data.js';
+  EVOLVE_AT, EVOLVE_COST, ACHIEVEMENTS, ELEMENT_ORDER, skillsOf, yieldOf, BUILDINGS, CRAFTS, SKILLS, FORGE_MIN, CODEX_TOTAL, THEME_ITEM } from './data.js';
+import { zoneResources, neighbors, insideOpen, MAX_ZONES, NPC_SPOT, ZONE_ORDER } from './world.js';
+import { themeOn, THEMES } from './season.js';
+import { defaultKid } from './kidlook.js';
 
 const KEY = 'brilhinhos-save-v3';
 export const now = () => Date.now();
@@ -17,13 +20,16 @@ function weighted(entries) {
 const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const BASE_REGION = 'floresta'; // onde ficam a bancada, o forno e as construções
 
-function newRegion(open) { return { aberta: open, fazenda: 1, salvo: false, brilhos: 2, brilhoDesde: now(), arv: [], roc: [], cant: [] }; }
+function newRegion(open) { return { aberta: open, fazenda: 1, salvo: false, brilhos: 2, brilhoDesde: now(), zonas: ['0,0'], obras: [], rec: {} }; }
+// item da época que está acontecendo agora (ou null)
+export const themeItem = () => { const t = themeOn(); return t ? THEME_ITEM[t] : null; };
+export { themeOn, THEMES };
 export function newState() {
   const regioes = {};
   for (const r of REGIONS) regioes[r.id] = newRegion(r.id === BASE_REGION);
   return {
-    v: 3, criado: now(), moedas: 15, xp: 0, nivel: 1, brilho: 1,
-    itens: { trevo: 4, orvalho: 3, cogumelo: 1 },
+    v: 4, criado: now(), nextObra: 1, boneco: defaultKid(), moedas: 15, xp: 0, nivel: 1, brilho: 1,
+    itens: { trevo: 3, concha: 3, brasa: 3, pena: 2, floco: 2, seixo: 2, faisca: 1, orvalho: 3, cogumelo: 1 },
     amigos: [], nextUid: 1, descobertos: {}, regioes, pedidos: [], conquistas: {},
     base: { bancada: false, forno: false, canteiros: 0, casinha: 0, totem: false, fila: 0 },
     diario: { ultimo: '', serie: 0, pendente: false }, tutorial: 0, fusao: null, avisos: [],
@@ -35,16 +41,43 @@ export function newState() {
 export let S = null;
 export function load() {
   try { const raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : null; } catch { S = null; }
-  if (!S || S.v !== 3) S = newState();
-  for (const r of REGIONS) { S.regioes[r.id] ||= newRegion(false); ensureNodes(r.id); }
+  if (S && S.v === 3) migrate3(S);
+  if (!S || S.v !== 4) { S = newState(); starterPlots(BASE_REGION); }
+  fixup();
   checkDaily();
   return S;
+}
+function fixup() {
+  for (const r of REGIONS) { const g = (S.regioes[r.id] ||= newRegion(false)); g.zonas ||= ['0,0']; g.obras ||= []; g.rec ||= {}; }
+  S.boneco ||= defaultKid(); S.nextObra ||= 1; S.epoca ||= {};
+  syncBase();
+}
+// jogos da versão 3 (ilha redonda) viram o terreno em lotes, sem perder nada
+function migrate3(st) {
+  const old = st; S = st;
+  S.v = 4; S.nextObra = 1; S.boneco = defaultKid(); S.boneco.criado = false;
+  const base = { ...(old.base || {}) };
+  for (const r of REGIONS) {
+    const g = S.regioes[r.id]; const cant = g.cant || []; const lvl = g.fazenda || 1;
+    Object.assign(g, { zonas: ZONE_ORDER.slice(0, [1, 3, 5, 7, 9][lvl - 1] || 1), obras: [], rec: {} });
+    delete g.arv; delete g.roc; delete g.cant;
+    if (!g.aberta) continue;
+    const plots = Math.max(2, cant.length);
+    for (let i = 0; i < plots; i++) { const p = findSpot(r.id, 'canteiro', -2.6 + (i % 3) * 1.7, 2.6 + Math.floor(i / 3) * 1.7); if (!p) break; const o = addObra(r.id, 'canteiro', p[0], p[1]); const c = cant[i]; if (c && c.st !== 'vazio') { o.st = c.st; o.ate = c.ate || 0; } }
+  }
+  const put = (tipo, x, z) => { const p = findSpot(BASE_REGION, tipo, x, z); if (p) addObra(BASE_REGION, tipo, p[0], p[1]); };
+  if (base.bancada) put('bancada', 2.6, 3);
+  if (base.forno) put('forno', 4, 0.6);
+  if (base.totem) put('totem', 0, -3.4);
+  for (let i = 0; i < (base.casinha || 0); i++) put('casinha', -3.6 + i * 2.8, -3.6);
+  for (const a of S.amigos) a.task = null;
+  delete S.base.canteiros;
 }
 let saveTimer = 0;
 export function save() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 150); }
 export function saveNow() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
-export function resetGame() { S = newState(); ensureNodes(BASE_REGION); checkDaily(); saveNow(); }
-export function setState(s) { S = s; for (const r of REGIONS) ensureNodes(r.id); }
+export function resetGame() { S = newState(); starterPlots(BASE_REGION); fixup(); checkDaily(); saveNow(); }
+export function setState(s) { S = s; fixup(); if (!S.regioes[BASE_REGION].obras.length) starterPlots(BASE_REGION); }
 
 const notify = (a) => S.avisos.push(a);
 export const takeNotices = () => S.avisos.splice(0);
@@ -131,44 +164,71 @@ export function feed(a, item) {
 export const magicPoints = (items) => items.reduce((s, id) => s + RARITIES[ITEMS[id].rar].pontos, 0);
 export function rarityChances(items) {
   const M = magicPoints(items);
-  const w = { comum: Math.max(15, 100 - 2 * M), incomum: 15 + 1.6 * M, raro: 3 + 0.9 * M, epico: 0.5 + 0.3 * M, lendario: M >= 15 ? 0.05 + 0.06 * M : 0.03 };
+  const w = { comum: Math.max(10, 100 - 6 * M), incomum: 10 + 3 * M, raro: 2 + 1.2 * M, epico: 0.3 + 0.35 * M, lendario: M >= 15 ? 0.05 + 0.06 * M : 0.03 };
   const tot = Object.values(w).reduce((a, b) => a + b, 0);
   const out = {}; for (const k in w) out[k] = w[k] / tot;
   return out;
 }
-export function previewMix(items) {
+// receita conhecida? (as de época só valem durante a época)
+function recipeFam(items) {
   const f = RECIPE_INDEX[recipeKey(items)];
-  return f !== undefined ? { exato: true, fam: f } : { exato: false, chances: rarityChances(items) };
+  if (f === undefined) return undefined;
+  if (FAMILIES[f].tema && FAMILIES[f].tema !== themeOn()) return undefined;
+  return f;
+}
+// a mistura tem o item da época de agora? então sai um bicho de época
+export const seasonalMix = (items) => { const T = themeItem(); return T && items.includes(T) ? themeOn() : null; };
+export function previewMix(items) {
+  const f = recipeFam(items);
+  return f !== undefined ? { exato: true, fam: f } : { exato: false, chances: rarityChances(items), tema: seasonalMix(items) };
 }
 export function mix(items) {
-  if (!items.length || items.length > nestSlots()) return null;
+  if (items.length < FORGE_MIN || items.length > nestSlots()) return null;
   const need = {}; for (const id of items) need[id] = (need[id] || 0) + 1;
   for (const id in need) if (!has(id, need[id])) return null;
   for (const id in need) useItem(id, need[id]);
-  let famId = RECIPE_INDEX[recipeKey(items)];
+  let famId = recipeFam(items);
   const exato = famId !== undefined;
-  if (!exato) famId = rollFamily(items);
+  if (!exato) { const tema = seasonalMix(items); famId = tema ? rollSeasonal(items, tema) : rollFamily(items); }
   const shiny = rnd() < (items.includes('runa') ? 1 / 18 : 1 / 40);
   const res = createAmigo(famId * 3, shiny);
   if (S.tutorial < 2) S.tutorial = 2;
   save();
   return { ...res, exato, fam: FAMILIES[famId] };
 }
+function rollSeasonal(items, tema) {
+  const rar = weighted(Object.entries(rarityChances(items)).map(([k, v]) => [Math.min(2, RARITY_ORDER.indexOf(k)), v]));
+  const c = FAMILIES.filter((f) => f.tema === tema);
+  return (c.find((f) => RARITY_ORDER.indexOf(f.rar) === rar) || c[0]).id;
+}
 function rollFamily(items) {
   const rar = weighted(Object.entries(rarityChances(items)));
-  const elW = {};
-  for (const id of items) { const it = ITEMS[id]; if (it.el) elW[it.el] = (elW[it.el] || 0) + RARITIES[it.rar].pontos; }
-  const el = Object.keys(elW).length ? weighted(Object.entries(elW)) : pick(openElements());
+  const el = weighted(Object.entries(elementChances(items)));
   for (let i = RARITY_ORDER.indexOf(rar); i >= 0; i--) {
-    const c = FAMILIES.filter((f) => f.el === el && f.rar === RARITY_ORDER[i] && !f.fusao);
+    const c = FAMILIES.filter((f) => f.el === el && f.rar === RARITY_ORDER[i] && !f.fusao && !f.tema);
     if (c.length) return pick(c).id;
   }
-  return pick(FAMILIES.filter((f) => f.el === el && !f.fusao)).id;
+  return pick(FAMILIES.filter((f) => f.el === el && !f.fusao && !f.tema)).id;
+}
+// chance de cada elemento: os itens puxam para o elemento deles; item sem elemento
+// (orvalho, madeira, fruta...) abre para qualquer um; e sempre há um pouco de surpresa
+export function elementChances(items) {
+  const els = Object.keys(EL_ITEMS);
+  const w = {}; for (const e of els) w[e] = 0.35;
+  for (const id of items) {
+    const it = ITEMS[id]; const pts = RARITIES[it.rar].pontos;
+    if (it.el && w[it.el] !== undefined) w[it.el] += 3 * pts;
+    else for (const e of els) w[e] += 0.8;
+  }
+  const tot = Object.values(w).reduce((a, b) => a + b, 0);
+  for (const e in w) w[e] /= tot;
+  return w;
 }
 const openElements = () => REGIONS.filter((r) => S.regioes[r.id].aberta).map((r) => r.el);
 
 // ---------- códice ----------
-export const discoveredCount = () => Object.keys(S.descobertos).length;
+export const discoveredCount = () => Object.keys(S.descobertos).filter((k) => +k < CODEX_TOTAL).length;
+export const seasonalCount = () => Object.keys(S.descobertos).filter((k) => +k >= CODEX_TOTAL).length;
 const CODEX_GOALS = [[25, 'brilho', 1], [75, 'runa', 1], [150, 'coroa', 1], [250, 'runa', 2], [350, 'coroa', 2], [450, 'coroa', 3]];
 function checkCodex() {
   const n = discoveredCount();
@@ -183,30 +243,39 @@ function checkCodex() {
 }
 export const codexGoals = () => CODEX_GOALS;
 
-// ---------- fazendinhas: recursos que renascem ----------
-const BIOME = { planta: [3, 1], agua: [2, 1], fogo: [0, 3], vento: [1, 2], gelo: [1, 2], pedra: [0, 4], eletrico: [1, 3], cosmo: [0, 3] };
-export const TREE_RESPAWN = 90000, ROCK_RESPAWN = 120000, GROW_TIME = 60000;
-export function nodeCounts(rid) {
-  const reg = REGIONS.find((r) => r.id === rid); const lvl = S.regioes[rid].fazenda; const [a0, r0] = BIOME[reg.el];
-  return { arv: a0 ? a0 + lvl - 1 : 0, roc: r0 + Math.floor((lvl - 1) / 2), cant: 1 + lvl + (rid === BASE_REGION ? S.base.canteiros * 2 : 0) };
+// ---------- fazendinhas: terreno em lotes, recursos que somem e voltam ----------
+export const RESPAWN = 5 * 60 * 1000, GROW_TIME = 60000;
+export const regionById = (rid) => REGIONS.find((r) => r.id === rid);
+// nível da fazendinha (1 a 5) pelo tamanho do terreno liberado
+export const farmLevel = (rid) => Math.min(5, 1 + Math.floor((S.regioes[rid].zonas.length - 1) / 3));
+export function resourcesOf(rid) {
+  const g = S.regioes[rid]; const el = regionById(rid).el;
+  return g.zonas.flatMap((k) => zoneResources(rid, el, k));
 }
-export function ensureNodes(rid) {
-  const g = S.regioes[rid]; if (!g) return;
-  g.arv ||= []; g.roc ||= []; g.cant ||= [];
-  const n = nodeCounts(rid);
-  while (g.arv.length < n.arv) g.arv.push({ livre: 0, por: 0 });
-  while (g.roc.length < n.roc) g.roc.push({ livre: 0, por: 0 });
-  while (g.cant.length < n.cant) g.cant.push({ st: 'vazio', ate: 0, por: 0 });
+export const resState = (rid, id) => (S.regioes[rid].rec[id] ||= { livre: 0, por: 0 });
+export const resAlive = (rid, id, t = now()) => resState(rid, id).livre <= t;
+export const obrasOf = (rid) => S.regioes[rid].obras;
+export const countBuilt = (tipo, rid = null) => REGIONS.reduce((n, r) => n + (rid && r.id !== rid ? 0 : (S.regioes[r.id].obras || []).filter((o) => o.tipo === tipo).length), 0);
+export const hasObra = (rid, tipo) => S.regioes[rid].obras.some((o) => o.tipo === tipo);
+function syncBase() {
+  S.base.bancada = countBuilt('bancada') > 0; S.base.forno = countBuilt('forno') > 0;
+  S.base.totem = countBuilt('totem') > 0; S.base.casinha = countBuilt('casinha');
 }
-export const farmSlots = (rid) => S.regioes[rid].fazenda + 1 + S.base.casinha;
+const canteiros = (rid) => S.regioes[rid].obras.filter((o) => o.tipo === 'canteiro');
+export const farmSlots = (rid) => farmLevel(rid) + 1 + S.base.casinha;
 export const amigosEm = (rid) => S.amigos.filter((a) => a.local === rid);
 export function placeAmigo(a, rid) {
   if (rid && rid !== a.local && amigosEm(rid).length >= farmSlots(rid)) return false;
   releaseTask(a); a.local = rid; a.task = null; save(); return true;
 }
+function nodeOf(rid, tipo, alvo) {
+  if (['cortar', 'minerar', 'catar'].includes(tipo)) return resState(rid, alvo);
+  if (['semear', 'regar', 'colher'].includes(tipo)) return S.regioes[rid].obras.find((o) => o.uid === alvo) || null;
+  return null;
+}
 function releaseTask(a) {
   const t = a.task; if (!t || !a.local) return;
-  const g = S.regioes[a.local]; const node = t.tipo === 'cortar' ? g.arv[t.alvo] : t.tipo === 'minerar' ? g.roc[t.alvo] : ['semear', 'regar', 'colher'].includes(t.tipo) ? g.cant[t.alvo] : null;
+  const node = nodeOf(a.local, t.tipo, t.alvo);
   if (node && node.por === a.uid) node.por = 0;
   if (t.tipo === 'fundir') S.base.fila++;
 }
@@ -217,10 +286,10 @@ function speedMul(rid) {
   if (en) m *= Math.max(0.65, 1 - 0.06 * en);
   return m;
 }
-const BASE_DUR = { semear: 10000, regar: 8000, colher: 6000, fundir: 18000, cortar: 16000, minerar: 18000, explorar: 28000 };
-const TASK_SKILL = { semear: 'semear', regar: 'regar', colher: 'coletar', fundir: 'acender', cortar: 'cortar', minerar: 'minerar' };
+const BASE_DUR = { semear: 10000, regar: 8000, colher: 6000, fundir: 18000, cortar: 16000, minerar: 18000, catar: 9000, explorar: 28000 };
+const TASK_SKILL = { semear: 'semear', regar: 'regar', colher: 'coletar', catar: 'coletar', fundir: 'acender', cortar: 'cortar', minerar: 'minerar' };
 export const TASK_INFO = {
-  semear: { nome: 'Semeando', icone: '🌱' }, regar: { nome: 'Regando', icone: '💦' }, colher: { nome: 'Colhendo', icone: '🧺' },
+  semear: { nome: 'Semeando', icone: '🌱' }, regar: { nome: 'Regando', icone: '💦' }, colher: { nome: 'Colhendo', icone: '🧺' }, catar: { nome: 'Catando frutinhas', icone: '🫐' },
   fundir: { nome: 'Fundindo no forno', icone: '🔥' }, cortar: { nome: 'Cortando árvore', icone: '🪓' }, minerar: { nome: 'Minerando', icone: '⛏️' },
   explorar: { nome: 'Explorando a região', icone: '🔎' }, cheio: { nome: 'Bolsa cheia — toque para pegar!', icone: '🎒' },
 };
@@ -229,67 +298,76 @@ function taskDur(a, tipo, rid) {
   const sk = TASK_SKILL[tipo];
   if (sk) d /= 1 + 0.3 * (skillLevel(a, sk) - 1);
   else {
-    const reg = REGIONS.find((r) => r.id === rid); const el = SPECIES[a.sp].el;
-    if (el === reg.el) d *= 0.5; else if (el === 'trovao') d *= 0.6;
+    const el = SPECIES[a.sp].el;
+    if (el === regionById(rid).el) d *= 0.5; else if (el === 'trovao') d *= 0.6;
     d *= 1 - Math.min(a.nivel, 20) * 0.01;
   }
   return d * speedMul(rid);
 }
 function pickTask(a, rid, t) {
-  const g = S.regioes[rid];
   const can = (sk) => skillLevel(a, sk) > 0;
-  const freeIdx = (arr, ok) => arr.findIndex((n) => !n.por && ok(n));
+  const plots = canteiros(rid); const res = resourcesOf(rid);
+  const freePlot = (st) => { const c = plots.filter((n) => !n.por && n.st === st); return c.length ? c[Math.floor(rnd() * c.length)].uid : null; };
+  const freeRes = (tipo) => { const c = res.filter((r) => r.tipo === tipo && !resState(rid, r.id).por && resAlive(rid, r.id, t)); return c.length ? c[Math.floor(rnd() * c.length)].id : null; };
   const opts = [];
-  if (can('semear')) { const i = freeIdx(g.cant, (n) => n.st === 'vazio'); if (i >= 0) opts.push(['semear', i]); }
-  if (can('regar')) { const i = freeIdx(g.cant, (n) => n.st === 'semeado'); if (i >= 0) opts.push(['regar', i]); }
-  if (can('coletar')) { const i = freeIdx(g.cant, (n) => n.st === 'pronto'); if (i >= 0) opts.push(['colher', i]); }
-  if (can('acender') && rid === BASE_REGION && S.base.forno && S.base.fila > 0) opts.push(['fundir', -1]);
-  if (can('cortar')) { const i = freeIdx(g.arv, (n) => n.livre <= t); if (i >= 0) opts.push(['cortar', i]); }
-  if (can('minerar')) { const i = freeIdx(g.roc, (n) => n.livre <= t); if (i >= 0) opts.push(['minerar', i]); }
+  if (can('semear')) { const i = freePlot('vazio'); if (i != null) opts.push(['semear', i]); }
+  if (can('regar')) { const i = freePlot('semeado'); if (i != null) opts.push(['regar', i]); }
+  if (can('coletar')) { const i = freePlot('pronto'); if (i != null) opts.push(['colher', i]); }
+  if (can('acender') && hasObra(rid, 'forno') && S.base.fila > 0) opts.push(['fundir', -1]);
+  if (can('cortar')) { const i = freeRes('arvore'); if (i) opts.push(['cortar', i]); }
+  if (can('minerar')) { const i = freeRes('rocha'); if (i) opts.push(['minerar', i]); }
+  if (can('coletar')) { const i = freeRes('arbusto'); if (i) opts.push(['catar', i]); }
   const [tipo, alvo] = opts[0] || ['explorar', -1];
   if (tipo === 'fundir') S.base.fila--;
-  const node = tipo === 'cortar' ? g.arv[alvo] : tipo === 'minerar' ? g.roc[alvo] : ['semear', 'regar', 'colher'].includes(tipo) ? g.cant[alvo] : null;
-  if (node) node.por = a.uid;
+  const node = nodeOf(rid, tipo, alvo); if (node) node.por = a.uid;
   return { tipo, alvo, ini: t, fim: t + taskDur(a, tipo, rid) };
 }
 const yieldCount = (a) => { const y = yieldOf(a.sp); return Math.floor(y) + (rnd() < y % 1 ? 1 : 0); };
 function bagPush(a, item, n) { for (let i = 0; i < n && a.bolsa.length < bagCap(a); i++) a.bolsa.push(item); }
 function regionDrop(rid, a) {
-  const reg = REGIONS.find((r) => r.id === rid); const lvl = S.regioes[rid].fazenda;
+  const reg = regionById(rid); const lvl = farmLevel(rid);
   const match = SPECIES[a.sp].el === reg.el || SPECIES[a.sp].el === 'trovao';
   const enc = skillLevel(a, 'encantar'); const I = EL_ITEMS[reg.el];
   const table = [[I.comum, 70], [I.incomum, 22 + lvl * 2 + enc * 4], [I.raro, (5 + lvl * 1.5 + enc * 3) * (match ? 1.7 : 1)], ['orvalho', 14]];
   if (lvl >= 3 || enc >= 3) table.push(['runa', 0.6 + Math.max(0, lvl - 3) * 0.4 + enc * 0.3]);
+  const tema = themeItem(); if (tema) table.push([tema, 9]);
   return weighted(table);
+}
+const frostBonus = (rid) => (amigosEm(rid).some((x) => skillLevel(x, 'congelar') > 0) ? 1 : 0);
+// o que sai de cada recurso (o jogador tira um pouco; companheiro tira pela raridade)
+function resourceLoot(rid, tipo, n, mineLvl = 0) {
+  const out = [];
+  const I = EL_ITEMS[regionById(rid).el];
+  if (tipo === 'arvore') { for (let i = 0; i < n + 1; i++) out.push('madeira'); if (rnd() < 0.15) out.push(I.comum); }
+  if (tipo === 'rocha') { for (let i = 0; i < n; i++) out.push('ferro'); if (rnd() < 0.45) out.push('seixo'); if (rnd() < 0.05 + mineLvl * 0.02) out.push('gema'); }
+  if (tipo === 'arbusto') { for (let i = 0; i < n; i++) out.push('fruta'); if (rnd() < 0.5) out.push(I.comum); const T = themeItem(); if (T && rnd() < 0.25) out.push(T); }
+  return out;
 }
 function completeTask(a, rid) {
   const t = a.task; const g = S.regioes[rid];
-  const n = yieldCount(a);
+  const n = yieldCount(a); const node = nodeOf(rid, t.tipo, t.alvo);
   switch (t.tipo) {
-    case 'semear': g.cant[t.alvo].st = 'semeado'; break;
-    case 'regar': Object.assign(g.cant[t.alvo], { st: 'regado', ate: t.fim + GROW_TIME }); break;
-    case 'colher': g.cant[t.alvo].st = 'vazio'; bagPush(a, 'fruta', n + frostBonus(rid)); break;
+    case 'semear': if (node) node.st = 'semeado'; break;
+    case 'regar': if (node) Object.assign(node, { st: 'regado', ate: t.fim + GROW_TIME }); break;
+    case 'colher': if (node) node.st = 'vazio'; bagPush(a, 'fruta', n + frostBonus(rid)); break;
     case 'fundir': bagPush(a, 'barra', 1 + (n >= 3 ? 1 : 0)); break;
-    case 'cortar': g.arv[t.alvo].livre = t.fim + TREE_RESPAWN; bagPush(a, 'madeira', n + 1); break;
-    case 'minerar': {
-      g.roc[t.alvo].livre = t.fim + ROCK_RESPAWN; bagPush(a, 'ferro', n);
-      if (rnd() < 0.4) bagPush(a, 'seixo', 1);
-      if (rnd() < 0.06 + skillLevel(a, 'minerar') * 0.02) bagPush(a, 'gema', 1);
+    case 'cortar': case 'minerar': case 'catar': {
+      const tipo = t.tipo === 'cortar' ? 'arvore' : t.tipo === 'minerar' ? 'rocha' : 'arbusto';
+      if (node && node.livre <= t.fim) { node.livre = t.fim + RESPAWN; for (const it of resourceLoot(rid, tipo, n, skillLevel(a, 'minerar'))) bagPush(a, it, 1); }
       break; }
     case 'explorar': for (let i = 0; i < n; i++) bagPush(a, regionDrop(rid, a), 1); break;
   }
-  const node = t.tipo === 'cortar' ? g.arv[t.alvo] : t.tipo === 'minerar' ? g.roc[t.alvo] : ['semear', 'regar', 'colher'].includes(t.tipo) ? g.cant[t.alvo] : null;
   if (node) node.por = 0;
   amigoAddXp(a, 2);
   a.task = null;
+  void g;
 }
-const frostBonus = (rid) => (amigosEm(rid).some((x) => skillLevel(x, 'congelar') > 0) ? 1 : 0);
 // avança tudo (também o tempo em que o jogo ficou fechado)
 export function tick(t = now()) {
   let changed = false;
   for (const r of REGIONS) {
     const g = S.regioes[r.id]; if (!g.aberta) continue;
-    for (const c of g.cant) if (c.st === 'regado' && t >= c.ate) { c.st = 'pronto'; changed = true; }
+    for (const c of canteiros(r.id)) if (c.st === 'regado' && t >= c.ate) { c.st = 'pronto'; changed = true; }
     while (g.brilhos < 3 && t - g.brilhoDesde >= 30000) { g.brilhos++; g.brilhoDesde += 30000; changed = true; }
     if (g.brilhos >= 3) g.brilhoDesde = t;
   }
@@ -300,8 +378,7 @@ export function tick(t = now()) {
     for (let guard = 0; guard < 400; guard++) {
       if (a.task && t >= a.task.fim) {
         const fim = a.task.fim; completeTask(a, a.local); changed = true;
-        // plantas que ficaram prontas durante o tempo simulado
-        for (const c of S.regioes[a.local].cant) if (c.st === 'regado' && fim >= c.ate) c.st = 'pronto';
+        for (const c of canteiros(a.local)) if (c.st === 'regado' && fim >= c.ate) c.st = 'pronto';
         if (a.bolsa.length >= bagCap(a)) break;
         a.task = pickTask(a, a.local, fim);
         continue;
@@ -324,24 +401,51 @@ export function collect(a) {
   S.moedas += got.length; S.stats.coletas += got.length; addXp(got.length);
   tick(); save(); return got;
 }
-// o jogador colhe com a mão (semear e regar só os companheiros fazem)
-export function harvestPlot(rid, i) {
-  const c = S.regioes[rid].cant[i]; if (!c || c.st !== 'pronto' || c.por) return 0;
+
+// ---------- o que o próprio jogador faz com as mãos ----------
+export const PLAYER_ACTION = { arvore: 'cortar', rocha: 'minerar', arbusto: 'catar' };
+// cortar, minerar ou catar: some do cenário e volta em 5 minutos
+export function playerGather(rid, id) {
+  const st = resState(rid, id); const res = resourcesOf(rid).find((r) => r.id === id);
+  if (!res) return { erro: 'Isso não está aqui.' };
+  if (st.livre > now()) return { erro: `Volta a crescer em ${Math.ceil((st.livre - now()) / 60000)} min.` };
+  if (st.por) { const who = S.amigos.find((x) => x.uid === st.por); if (who) { releaseTask(who); who.task = null; } st.por = 0; }
+  st.livre = now() + RESPAWN;
+  const got = resourceLoot(rid, res.tipo, 1);
+  for (const it of got) addItem(it);
+  S.stats.coletas += got.length; addXp(1); save();
+  return { itens: got };
+}
+export function plotState(rid, uid) { return S.regioes[rid].obras.find((o) => o.uid === uid && o.tipo === 'canteiro'); }
+export function playerPlant(rid, uid) { const c = plotState(rid, uid); if (!c || c.st !== 'vazio' || c.por) return false; c.st = 'semeado'; addXp(1); save(); return true; }
+export function playerWater(rid, uid) { const c = plotState(rid, uid); if (!c || c.st !== 'semeado' || c.por) return false; Object.assign(c, { st: 'regado', ate: now() + GROW_TIME }); addXp(1); save(); return true; }
+export function harvestPlot(rid, uid) {
+  const c = plotState(rid, uid); if (!c || c.st !== 'pronto' || c.por) return 0;
   c.st = 'vazio'; const n = 1 + frostBonus(rid); addItem('fruta', n); S.stats.frutas += n; if (S.stats.frutas >= 20) achieve('fazendeiro');
   addXp(1); save(); return n;
 }
 export function collectSparkle(rid) {
   const g = S.regioes[rid]; if (g.brilhos <= 0) return null;
   if (g.brilhos === 3) g.brilhoDesde = now();
-  g.brilhos--; const reg = REGIONS.find((r) => r.id === rid);
-  const item = weighted([[EL_ITEMS[reg.el].comum, 75], [EL_ITEMS[reg.el].incomum, 18], ['orvalho', 22], [EL_ITEMS[reg.el].raro, 2]]);
+  g.brilhos--; const reg = regionById(rid);
+  const longe = EL_ITEMS[pick(Object.keys(EL_ITEMS))].comum; // às vezes o vento traz um item de outra região
+  const table = [[EL_ITEMS[reg.el].comum, 60], [EL_ITEMS[reg.el].incomum, 16], ['orvalho', 18], [longe, 28], [EL_ITEMS[reg.el].raro, 2]];
+  const T = themeItem(); if (T) table.push([T, 40]);
+  const item = weighted(table);
   addItem(item); save(); return item;
 }
+
+// ---------- aumentar o terreno: um lote vizinho de cada vez ----------
+export function expandOptions(rid) {
+  const g = S.regioes[rid]; const out = new Set();
+  for (const k of g.zonas) for (const n of neighbors(k)) if (!g.zonas.includes(n)) out.add(n);
+  return [...out];
+}
 export function expandCost(rid) {
-  const lvl = S.regioes[rid].fazenda; if (lvl >= 5) return null;
+  const g = S.regioes[rid]; const n = g.zonas.length; if (n >= MAX_ZONES) return null;
   const idx = REGIONS.findIndex((r) => r.id === rid); const I = EL_ITEMS[REGIONS[idx].el];
-  const itens = { [I.comum]: 3 * lvl }; if (lvl >= 2) itens[I.incomum] = lvl - 1; if (lvl >= 3) itens.madeira = 4 * lvl; if (lvl >= 4) itens[I.raro] = 1;
-  return { moedas: Math.round(15 * lvl * lvl * (1 + idx * 0.6)), itens };
+  const itens = { [I.comum]: 2 + n }; if (n >= 3) itens[I.incomum] = Math.ceil((n - 2) / 2); if (n >= 4) itens.madeira = 2 * n; if (n >= 9) itens[I.raro] = Math.ceil((n - 8) / 4);
+  return { moedas: Math.round(8 * n * n * (1 + idx * 0.6)), itens };
 }
 export function canPay(c) {
   if (S.moedas < (c.moedas || 0)) return false;
@@ -349,24 +453,63 @@ export function canPay(c) {
   return true;
 }
 function pay(c) { S.moedas -= c.moedas || 0; for (const [id, n] of Object.entries(c.itens || {})) useItem(id, n); }
-export function expand(rid) {
-  const c = expandCost(rid); if (!c || !canPay(c)) return false;
-  pay(c); S.regioes[rid].fazenda++; ensureNodes(rid); addXp(8); save(); return true;
+export function expand(rid, k) {
+  const c = expandCost(rid); if (!c || !canPay(c) || !expandOptions(rid).includes(k)) return false;
+  pay(c); S.regioes[rid].zonas.push(k); S.regioes[rid].fazenda = farmLevel(rid); addXp(8); save(); return true;
 }
 
-// ---------- base: construções, fabricação e forno ----------
-export function buildState(id) {
-  const b = BUILDINGS[id]; const cur = S.base[id];
-  const done = b.max ? cur >= b.max : !!cur;
-  const locked = b.precisa && !S.base[b.precisa];
-  return { done, locked, ok: !done && !locked && canPay({ itens: b.custo }), count: typeof cur === 'number' ? cur : cur ? 1 : 0 };
+// ---------- construir: escolher o que e ONDE ----------
+export function buildState(id, rid) {
+  const b = BUILDINGS[id]; const tema = themeOn();
+  const n = b.unico || b.total ? countBuilt(id) : countBuilt(id, rid);
+  const lim = b.unico ? 1 : b.total || b.max || 40;
+  const done = n >= lim;
+  const locked = (b.precisa && !countBuilt(b.precisa)) || (b.tema && b.tema !== tema);
+  return { done, locked, temaFora: b.tema && b.tema !== tema, ok: !done && !locked && canPay({ itens: b.custo }) && S.regioes[rid].obras.length < 60, count: n, lim };
 }
-export function build(id) {
-  const st = buildState(id); if (!st.ok) return false;
+// o lugar está livre? (dentro do terreno liberado e sem bater em nada)
+export function canPlace(rid, tipo, x, z, ignore = null) {
+  const g = S.regioes[rid]; const r = BUILDINGS[tipo].r;
+  if (!insideOpen(g.zonas, x, z, r * 0.9)) return { ok: false, motivo: 'Fora da área liberada' };
+  for (const res of resourcesOf(rid)) if (Math.hypot(res.x - x, res.z - z) < res.r + r + 0.1) return { ok: false, motivo: 'Tem uma árvore ou pedra aqui' };
+  for (const o of g.obras) if (o.uid !== ignore && Math.hypot(o.x - x, o.z - z) < BUILDINGS[o.tipo].r + r + 0.05) return { ok: false, motivo: 'Já tem uma construção aqui' };
+  if (Math.hypot(NPC_SPOT[0] - x, NPC_SPOT[1] - z) < 1.4 + r) return { ok: false, motivo: 'Aqui mora quem pede ajuda' };
+  return { ok: true };
+}
+function addObra(rid, tipo, x, z, rot = 0) {
+  const o = { uid: S.nextObra++, tipo, x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, rot };
+  if (tipo === 'canteiro') Object.assign(o, { st: 'vazio', ate: 0, por: 0 });
+  S.regioes[rid].obras.push(o); syncBase(); return o;
+}
+export function build(rid, id, x, z, rot = 0) {
+  const st = buildState(id, rid); if (!st.ok) return null;
+  if (!canPlace(rid, id, x, z).ok) return null;
   pay({ itens: BUILDINGS[id].custo });
-  if (BUILDINGS[id].max) S.base[id]++; else S.base[id] = true;
+  const o = addObra(rid, id, x, z, rot);
   if (id === 'bancada') achieve('construtor');
-  ensureNodes(BASE_REGION); addXp(12); save(); return true;
+  addXp(BUILDINGS[id].cat === 'util' ? 12 : 3); save(); return o;
+}
+export function moveObra(rid, uid, x, z, rot) {
+  const o = S.regioes[rid].obras.find((q) => q.uid === uid); if (!o) return false;
+  if (!canPlace(rid, o.tipo, x, z, uid).ok) return false;
+  Object.assign(o, { x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, rot }); save(); return true;
+}
+// guardar (desmontar) um enfeite: devolve metade do material
+export function removeObra(rid, uid) {
+  const g = S.regioes[rid]; const o = g.obras.find((q) => q.uid === uid); if (!o) return null;
+  const b = BUILDINGS[o.tipo]; if (b.cat === 'util' && o.tipo !== 'canteiro') return null;
+  if (o.por) { const who = S.amigos.find((x) => x.uid === o.por); if (who) { releaseTask(who); who.task = null; } }
+  g.obras = g.obras.filter((q) => q !== o);
+  const back = {}; for (const [id, n] of Object.entries(b.custo)) { const k = Math.floor(n / 2); if (k) { addItem(id, k); back[id] = k; } }
+  syncBase(); save(); return back;
+}
+// procura um lugar livre perto de um ponto (para colocar coisas automaticamente)
+export function findSpot(rid, tipo, nx = 0, nz = 0) {
+  for (let ring = 0; ring < 30; ring++) for (let i = 0; i < Math.max(1, ring * 6); i++) {
+    const a = (i / Math.max(1, ring * 6)) * Math.PI * 2; const x = nx + Math.cos(a) * ring * 0.7, z = nz + Math.sin(a) * ring * 0.7;
+    if (canPlace(rid, tipo, x, z).ok) return [x, z];
+  }
+  return null;
 }
 export function craft(id) {
   const c = CRAFTS.find((x) => x.id === id); if (!S.base.bancada || !canPay({ itens: c.custo })) return false;
@@ -374,6 +517,7 @@ export function craft(id) {
 }
 export function addToForno(n) { n = Math.min(n, S.itens.ferro || 0); if (!S.base.forno || n <= 0) return 0; useItem('ferro', n); S.base.fila += n; save(); return n; }
 export const BASE_REGION_ID = BASE_REGION;
+function starterPlots(rid) { for (const [x, z] of [[-2.6, 2.6], [-1.0, 2.9]]) { const p = findSpot(rid, 'canteiro', x, z); if (p) addObra(rid, 'canteiro', p[0], p[1]); } }
 
 // ---------- pontes rúnicas e resgates ----------
 export function bridgeState(rid) {
@@ -384,7 +528,7 @@ export function bridgeState(rid) {
 }
 export function openBridge(rid) {
   const b = bridgeState(rid); if (b.aberta || !b.ok) return false;
-  pay(b.ponte); S.regioes[rid].aberta = true; S.regioes[rid].brilhos = 3; S.regioes[rid].brilhoDesde = now(); ensureNodes(rid);
+  pay(b.ponte); S.regioes[rid].aberta = true; S.regioes[rid].brilhos = 3; S.regioes[rid].brilhoDesde = now(); if (!S.regioes[rid].obras.some((o) => o.tipo === 'canteiro')) starterPlots(rid);
   addXp(15); if (REGIONS.every((r) => S.regioes[r.id].aberta)) achieve('mapa');
   save(); return true;
 }
@@ -468,8 +612,9 @@ export function claimDaily() {
   d.pendente = false;
   const open = REGIONS.filter((r) => S.regioes[r.id].aberta);
   const itens = { orvalho: 2, madeira: 2, fruta: 1 };
-  for (let i = 0; i < 3 + Math.min(d.serie, 5); i++) { const r = pick(open); const it = EL_ITEMS[r.el][weighted([['comum', 75], ['incomum', 22], ['raro', 3]])]; itens[it] = (itens[it] || 0) + 1; }
+  for (let i = 0; i < 3 + Math.min(d.serie, 5); i++) { const r = i % 2 ? pick(open) : pick(REGIONS); const it = EL_ITEMS[r.el][weighted([['comum', 75], ['incomum', 22], ['raro', 3]])]; itens[it] = (itens[it] || 0) + 1; }
   if (d.serie % 7 === 0) itens.runa = 1;
+  const T = themeItem(); if (T) itens[T] = 2;
   for (const [k, n] of Object.entries(itens)) addItem(k, n);
   const moedas = 15 + d.serie * 5; S.moedas += moedas; S.brilho += 1;
   save();
@@ -498,9 +643,9 @@ export function hatchFusao() {
   else {
     let target = Math.max(ra, rb) + (rnd() < 0.5 ? 1 : 0);
     const el = rnd() < 0.5 ? ea : eb;
-    const pool = (tg) => FAMILIES.filter((x) => x.el === el && !x.fusao && RARITY_ORDER.indexOf(x.rar) === tg);
+    const pool = (tg) => FAMILIES.filter((x) => x.el === el && !x.fusao && !x.tema && RARITY_ORDER.indexOf(x.rar) === tg);
     while (target > 0 && !pool(target).length) target--;
-    const p = pool(target); famId = p.length ? pick(p).id : pick(FAMILIES.filter((x) => x.el === el && !x.fusao)).id;
+    const p = pool(target); famId = p.length ? pick(p).id : pick(FAMILIES.filter((x) => x.el === el && !x.fusao && !x.tema)).id;
   }
   const res = createAmigo(famId * 3, rnd() < 1 / 12);
   save();

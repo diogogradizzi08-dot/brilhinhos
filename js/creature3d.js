@@ -215,9 +215,11 @@ export function buildCreature(spec, opts = {}) {
   const rnd = mulberry(seed);
   // cores da família: variação dentro do elemento
   let [c1, c2, glow] = el ? ELEMENTS[el].cores : [spec.npc.cor, shade(spec.npc.cor, 0, -0.1, 0.15), '#ffffff'];
+  const famObj = el ? FAMILIES[SPECIES[spec.sp].fam] : null;
+  if (famObj?.cores) [c1, c2, glow] = famObj.cores;
   if (el) {
     const fi = FAMILIES.filter((f) => f.el === el).findIndex((f) => f.id === SPECIES[spec.sp].fam);
-    c1 = shade(c1, ((fi * 7) % 6 - 2.5) * 0.022, (rnd() - 0.5) * 0.15, (fi % 3 - 1) * 0.07);
+    if (!famObj.cores) c1 = shade(c1, ((fi * 7) % 6 - 2.5) * 0.022, (rnd() - 0.5) * 0.15, (fi % 3 - 1) * 0.07);
     if (opts.shiny) { c1 = shade(c1, 0.45, 0.1, 0.05); c2 = shade(c2, 0.4, 0, 0); glow = shade(glow, 0.3, 0, 0); }
   }
   const plan = PLAN[arch] || 'quad';
@@ -240,6 +242,7 @@ export function buildCreature(spec, opts = {}) {
   // R: { height, head, headR, top (ponto no alto da cabeça), back: [pontos das costas], tailTip, eyesFwd }
   if (!spec.npc) { elementParts(ctx, R); armor(ctx, R); }
   if (spec.npc) hat(b, R.head, R.headR, spec.npc.chapeu);
+  if (famObj?.fantasia && !b.sil) for (const k of famObj.fantasia) costume(ctx, R, k);
   // aura de raridade alta no adulto
   if (!spec.npc && stage === 2 && ['epico', 'lendario', 'mitico'].includes(rar) && !b.sil) {
     const ring = b.m(root, G.ring, mat(rar === 'epico' ? '#ff6fb5' : rar === 'mitico' ? '#7df9ff' : '#ffc22e', { glow: 2 }), [0, 0.03, 0], [R.footR || 1, R.footR || 1, 1], [Math.PI / 2, 0, 0]);
@@ -260,6 +263,7 @@ export function buildCreature(spec, opts = {}) {
 
 // ---------- olhos (menores, com pálpebra: olhar decidido) ----------
 function eyes(ctx, head, r, opts) {
+  ctx.eyeAt ||= { ...opts, head, r };
   const { b } = ctx; const { x, y, z, size, slit, color, fierce = 0.35, glowEyes } = opts;
   for (const sx of [1, -1]) {
     const g = b.g(head, [sx * x, y, z], [0, sx * (opts.yaw ?? 0.45), 0]);
@@ -307,7 +311,7 @@ function buildQuad(ctx) {
     const sl = hr * P.snout;
     b.m(head, G.sph, ctx.skinM, [0, -hr * 0.22, hr * 0.62 + sl * 0.35], [hr * 0.55, hr * 0.45, sl * 0.75]);
     b.m(head, G.sph, ctx.secM, [0, -hr * 0.38, hr * 0.55 + sl * 0.3], [hr * 0.45, hr * 0.25, sl * 0.65]);
-    b.m(head, G.sph, mat('#1c1620', { rough: 0.3 }), [0, -hr * 0.1, hr * 0.62 + sl * 1.05], [hr * 0.15, hr * 0.11, hr * 0.1]);
+    b.m(head, G.sph, mat('#1c1620', { rough: 0.3 }), [0, -hr * 0.1, hr * 0.62 + sl * 1.05], [hr * 0.15, hr * 0.11, hr * 0.1]); ctx.nose = [0, -hr * 0.1, hr * 0.62 + sl * 1.05];
     if (['lobo', 'felino', 'dragao', 'lagarto', 'urso', 'raposa'].includes(arch) && stage > 0) for (const sx of [1, -1]) b.m(head, G.cone, mat('#ffffff', { rough: 0.3 }), [sx * hr * 0.2, -hr * 0.55, hr * 0.55 + sl * 0.85], [hr * 0.05, hr * 0.14, hr * 0.05], [Math.PI, 0, 0]);
   } else {
     b.m(head, G.sph, ctx.secM, [0, -hr * 0.3, hr * 0.72], [hr * 0.52, hr * 0.36, hr * 0.36]);
@@ -754,6 +758,28 @@ function hat(b, head, R, kind) {
     case 'gorro': b.m(head, G.dome, m('#3a6fd1'), [0, t - 0.1, 0], [R * 0.85, R * 0.75, R * 0.85]); b.m(head, G.sph, m('#ffffff'), [0, t + R * 0.62, 0], R * 0.18); break;
     case 'capacete': b.m(head, G.dome, mat('#f2c21b', { rough: 0.35, metal: 0.3 }), [0, t - 0.1, 0], [R * 0.88, R * 0.6, R * 0.88]); b.m(head, G.cyl, mat('#fff6c2', { glow: 2 }), [0, t + 0.05, R * 0.78], [0.07, 0.05, 0.07], [Math.PI / 2, 0, 0]); break;
     case 'estrela': b.m(head, G.sph, mat('#cfe8ff', { op: 0.35, rough: 0.05 }), [0, 0, 0], R * 1.35); break;
+  }
+}
+
+// ---------- fantasias dos bichos de época ----------
+function costume(ctx, R, kind) {
+  const { b } = ctx; const head = R.head, hr = R.headR; const t = hr * 0.85;
+  const m = (c, o = {}) => mat(c, { rough: 0.6, ...o });
+  const E = ctx.eyeAt && ctx.eyeAt.head === head ? ctx.eyeAt : { x: hr * 0.45, y: hr * 0.18, z: hr * 0.72, r: hr };
+  switch (kind) {
+    case 'gorro_natal': { const g = b.g(head, [0, t * 0.9, -hr * 0.05], [-0.35, 0, 0.2]); b.m(g, G.cone, m('#e2403a'), [0, hr * 0.45, 0], [hr * 0.72, hr * 1.1, hr * 0.72]); b.m(g, G.cyl, m('#ffffff', { rough: 0.95 }), [0, 0, 0], [hr * 0.78, hr * 0.22, hr * 0.78]); b.m(g, G.sph, m('#ffffff', { rough: 0.95 }), [0, hr * 1.02, 0], hr * 0.2); break; }
+    case 'cachecol': { const r1 = b.m(head, G.ring, m('#e2403a'), [0, -hr * 0.78, -hr * 0.05], [hr * 0.72, hr * 0.72, 5], [Math.PI / 2, 0, 0]); r1.castShadow = false; b.m(head, G.box, m('#2f9a55'), [hr * 0.35, -hr * 1.05, hr * 0.45], [hr * 0.25, hr * 0.55, hr * 0.08], [0.2, 0, 0.15]); break; }
+    case 'rena': { const n = ctx.nose || [0, -hr * 0.1, hr * 1.02]; b.m(head, G.sph, mat('#ff2a2a', { glow: 1.4, emis: '#ff2a2a', rough: 0.3 }), n, hr * 0.2).castShadow = false; b.m(head, G.sph, mat('#ffd34d', { metal: 0.8, rough: 0.25 }), [0, -hr * 0.95, hr * 0.3], hr * 0.18); break; }
+    case 'oculos': { const fm = m('#e2403a', { rough: 0.3 }); for (const sx of [1, -1]) { b.m(head, G.cyl, mat('#141820', { rough: 0.1, metal: 0.4 }), [sx * E.x, E.y, E.z + hr * 0.08], [E.r * 0.24, 0.012, E.r * 0.2], [Math.PI / 2, 0, 0]).castShadow = false; b.m(head, G.ring, fm, [sx * E.x, E.y, E.z + hr * 0.09], [E.r * 0.25, E.r * 0.21, 1]).castShadow = false; } b.m(head, G.box, fm, [0, E.y + hr * 0.02, E.z + hr * 0.1], [E.x * 1.1, hr * 0.04, hr * 0.03]); break; }
+    case 'boia': { const y = (R.height || 1) * 0.35; const ring = b.m(ctx.body, G.ring, m('#ff6a8a', { rough: 0.4 }), [0, y, 0], [(R.footR || 0.8) * 0.75, (R.footR || 0.8) * 0.75, 6], [Math.PI / 2, 0, 0]); ring.castShadow = false; break; }
+    case 'colar_flores': for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; b.m(head, G.sph, m(['#ff4f8a', '#ffd34d', '#ffffff'][i % 3], { rough: 0.5 }), [Math.cos(a) * hr * 0.72, -hr * 0.82, Math.sin(a) * hr * 0.6], hr * 0.13).castShadow = false; } break;
+    case 'plumas': { const g = b.g(head, [0, t, -hr * 0.1]); ['#ff4fb0', '#ffd34d', '#2fb5a0', '#7a5cff', '#ff8a2a'].forEach((c, i) => { const a = (i - 2) * 0.32; b.m(g, SHAPES.feather, m(c, { glow: 0.2, emis: c }), [Math.sin(a) * hr * 0.15, 0, 0], [hr * 0.9, hr * 1.3, hr * 0.9], [0, 0, -a]).castShadow = false; }); b.m(g, G.sph, m('#ffd34d', { metal: 0.7, rough: 0.2 }), [0, 0, hr * 0.15], hr * 0.16); break; }
+    case 'mascara': { const mm = m('#ff4fb0', { rough: 0.3, metal: 0.2 }); for (const sx of [1, -1]) b.m(head, G.sph, mm, [sx * E.x, E.y, E.z + hr * 0.02], [E.r * 0.36, E.r * 0.26, hr * 0.12]).castShadow = false; b.m(head, G.box, mm, [0, E.y + hr * 0.04, E.z + hr * 0.04], [E.x * 1.2, hr * 0.12, hr * 0.06]); for (const sx of [1, -1]) b.m(head, SHAPES.feather, m('#ffd34d', { glow: 0.3 }), [sx * (E.x + hr * 0.3), E.y + hr * 0.25, E.z - hr * 0.1], hr * 0.5, [0, 0, -sx * 0.5]).castShadow = false; break; }
+    case 'laco': { const g = b.g(head, [hr * 0.35, t * 0.95, hr * 0.05], [0, 0, -0.35]); const lm = m('#ff4f8a', { rough: 0.4 }); for (const sx of [1, -1]) b.m(g, G.cone, lm, [sx * hr * 0.24, 0, 0], [hr * 0.2, hr * 0.38, hr * 0.14], [0, 0, sx * Math.PI / 2]); b.m(g, G.sph, lm, [0, 0, 0], hr * 0.12); break; }
+    case 'casca_ovo': { const g = b.g(head, [0, t * 0.8, -hr * 0.05], [-0.2, 0, 0.25]); b.m(g, G.dome, m('#fff8ec', { rough: 0.5 }), [0, 0, 0], [hr * 0.7, hr * 0.62, hr * 0.7]); for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; b.m(g, G.cone, m('#fff8ec'), [Math.cos(a) * hr * 0.62, -hr * 0.02, Math.sin(a) * hr * 0.62], [hr * 0.12, hr * 0.18, hr * 0.06], [Math.PI, a, 0]); } break; }
+    case 'palha': hat(b, head, hr, 'palha'); break;
+    case 'bandana': { b.m(head, G.cone, m('#e2403a', { kind: 'pele', seed: 3 }), [0, -hr * 0.85, hr * 0.35], [hr * 0.55, hr * 0.5, hr * 0.12], [Math.PI + 0.4, 0, 0]).castShadow = false; break; }
+    case 'abobora': { const g = b.g(head, [0, t * 0.85, 0], [-0.15, 0, 0.1]); const pm = m('#ff8a1c', { rough: 0.55 }); for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; b.m(g, G.sph, pm, [Math.cos(a) * hr * 0.25, 0, Math.sin(a) * hr * 0.25], [hr * 0.38, hr * 0.42, hr * 0.38]); } b.m(g, G.cyl, m('#4a7a2a'), [0, hr * 0.42, 0], [hr * 0.07, hr * 0.22, hr * 0.07], [0, 0, 0.3]); b.m(g, SHAPES.leaf, m('#5fb84a'), [hr * 0.12, hr * 0.42, 0], hr * 0.35, [0, 0, -1.2]); for (const sx of [1, -1]) b.m(g, G.cone, mat('#ffe066', { glow: 1.6, emis: '#ffb020' }), [sx * hr * 0.17, hr * 0.06, hr * 0.6], [hr * 0.09, hr * 0.12, hr * 0.04], [Math.PI / 2, 0, 0]).castShadow = false; break; }
   }
 }
 

@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Boneco</title><style>body{margin:0;background:#9fd0ff}canvas{display:block;width:100vw;height:100vh}#b{position:fixed;top:8px;left:8px;font:16px sans-serif}</style></head>
+<body><div id="b"></div><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from '../js/vendor/three.module.js';
+import { buildKid } from '../js/kid3d.js';
+import { defaultKid, randomKid } from '../js/kidlook.js';
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true }); r.setPixelRatio(devicePixelRatio); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping;
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#bfe6ff');
+sc.add(new THREE.HemisphereLight('#ffffff', '#6a8a5a', 1.6)); const d = new THREE.DirectionalLight('#fff', 2.4); d.position.set(2, 4, 3); sc.add(d);
+const g = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshStandardMaterial({ color: '#6fbf4a' })); g.rotation.x = -Math.PI / 2; sc.add(g);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+const kids = []; const acts = [null, 'cortar', 'minerar', 'regar', 'carinho', 'plantar', 'comemorar', 'acenar'];
+for (let i = 0; i < 8; i++) { const look = i === 0 ? defaultKid() : randomKid(); const k = buildKid(look); k.position.set((i % 4 - 1.5) * 0.9, 0, Math.floor(i / 4) * -1.2); sc.add(k); kids.push({ k, a: acts[i] }); }
+const clock = new THREE.Clock(); let t = 0;
+function loop() { requestAnimationFrame(loop); const dt = Math.min(0.05, clock.getDelta()); t += dt;
+  const w = innerWidth, h = innerHeight; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+  const ang = +new URLSearchParams(location.search).get('ang') || 0; cam.position.set(Math.sin(ang) * 6, 2.4, Math.cos(ang) * 6); cam.lookAt(0, 0.5, -0.6);
+  for (const o of kids) { const c = o.k.userData.ctrl; if (o.a && !c.busy) c.act(o.a, 3); if (!o.a) c.setMove(Math.sin(t) > 0 ? 1.6 : 0); c.update(t, dt); }
+  r.render(sc, cam); }
+loop();
+</script></body></html>

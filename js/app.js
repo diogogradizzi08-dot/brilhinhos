@@ -1,7 +1,11 @@
 // Brilhinhos — as telas: Mapa, Forja do Trovão, Fazendinha, Equipe, Códice e Pedidos.
 import * as G from './game.js';
-import { ITEMS, RARITIES, RARITY_ORDER, ELEMENTS, ELEMENT_ORDER, FAMILIES, SPECIES, REGIONS, ACHIEVEMENTS, EVOLVE_AT, EVOLVE_COST, GROW_ITEM, EL_ITEMS, GUIDE_SPECIES, SKILLS, skillsOf, yieldOf, BUILDINGS, CRAFTS, SKILL_COUNT } from './data.js';
-import { initStage, setScene, nestScene, farmScene, showcaseScene, thumb, rayAt, toScreen } from './stage3d.js';
+import { ITEMS, RARITIES, RARITY_ORDER, ELEMENTS, ELEMENT_ORDER, FAMILIES, SPECIES, REGIONS, ACHIEVEMENTS, EVOLVE_AT, EVOLVE_COST, GROW_ITEM, EL_ITEMS, GUIDE_SPECIES, SKILLS, skillsOf, yieldOf, BUILDINGS, CRAFTS, SKILL_COUNT, FORGE_MIN, CODEX_TOTAL, THEME_ITEM, isSeasonal } from './data.js';
+import { initStage, setScene, nestScene, showcaseScene, thumb, rayAt, toScreen, kidShowcaseScene, kidThumb } from './stage3d.js';
+import { farmScene } from './farm3d.js';
+import { ALL_ZONES, zoneResources } from './world.js';
+import { THEMES } from './season.js';
+import { SKIN, HAIR_COLORS, COLORS, EYE_COLORS, HAIR, EYES, MOUTH, BROWS, TOPS, BOTTOMS, SHOES, PATTERNS, ACCESSORIES, HEADWEAR, randomKid } from './kidlook.js';
 import { play, setMusic, setSfx, unlockAudio } from './audio.js';
 
 // ---------- utilidades de tela ----------
@@ -74,6 +78,7 @@ function updateHud() {
   $('#hud-coins').textContent = s.moedas;
   $('#hud-grow').textContent = s.brilho;
   $('#hud-gift').hidden = !s.diario.pendente;
+  const me = $('#hud-me img'); const src = kidThumb(s.boneco, 96); if (me.getAttribute('src') !== src) me.src = src;
   $('#nav [data-go=pedidos] .dot').hidden = !s.pedidos.some((o) => G.orderReady(o));
 }
 function flushNotices() {
@@ -97,34 +102,133 @@ function go(name, arg) {
   document.body.classList.toggle('no3d', NO3D.has(name));
   if (NO3D.has(name)) setScene(null);
   const sc = $('#screen'); sc.innerHTML = '';
-  ({ mapa: renderMapa, ninho: renderNinho, fazenda: renderFazenda, amigos: renderAmigos, codice: renderCodice, pedidos: renderPedidos, perfil: renderPerfil })[name](sc, arg);
+  sc.className = '';
+  ({ mapa: renderMapa, ninho: renderNinho, fazenda: renderFazenda, amigos: renderAmigos, codice: renderCodice, pedidos: renderPedidos, perfil: renderPerfil, boneco: renderBoneco })[name](sc, arg);
   updateHud(); updateGuide();
 }
 
-// =========================== MAPA ===========================
+// =========================== MAPA (mundo aberto) ===========================
+// posição de cada região no mapa (em %), ligadas por uma trilha com as pontes rúnicas
+const MAP_POS = { floresta: [15, 72], lago: [33, 84], vulcao: [52, 72], picos: [40, 46], geleira: [20, 28], canion: [47, 17], raios: [71, 27], cosmo: [83, 60] };
+const MAP_DECO = { floresta: ['🌳', '🌲', '🍄', '🌳'], lago: ['🌊', '🐟', '🌊', '⛵'], vulcao: ['🌋', '🔥', '🪨'], picos: ['☁️', '⛰️', '🪁'], geleira: ['🏔️', '❄️', '⛄'], canion: ['🏜️', '🪨', '🌵'], raios: ['⚡', '🗼', '🌩️'], cosmo: ['🌙', '✨', '🪐'] };
+const THEME_DECO = { natal: ['🎄', '🎁', '⛄', '🦌'], ferias: ['🌴', '🏖️', '🐚', '☀️'], carnaval: ['🎭', '🎊', '🎈', '🥁'], pascoa: ['🥚', '🐰', '🌷', '🐣'], junina: ['🌽', '🔥', '🎏', '🎪'], halloween: ['🎃', '🍬', '👻', '🦇'] };
 function renderMapa(sc) {
-  sc.append(h('div', { class: 'title' }, '🗺️ Vale das Feras', h('small', {}, 'toque numa região')));
-  const grid = h('div', { class: 'map' });
+  const tema = G.themeOn();
+  sc.append(h('div', { class: 'title' }, '🗺️ Vale das Feras', h('small', {}, 'toque numa região para viajar'), tema ? h('button', { class: 'chip theme-chip', style: `--tc:${THEMES[tema].cor};--tc2:${THEMES[tema].cor2};margin-left:auto`, onclick: () => themeModal(tema) }, THEMES[tema].icone, ' ', THEMES[tema].nome) : null));
+  const wrap = h('div', { class: 'wm-wrap grow' }); const map = h('div', { class: 'wm' });
+  // fundo desenhado: mar, a ilha grande, a trilha
+  const ids = REGIONS.map((r) => r.id); const pts = ids.map((id) => MAP_POS[id]);
+  const trail = pts.map(([x, y], i) => (i ? 'L' : 'M') + (x * 10) + ' ' + (y * 6.4)).join(' ');
+  const blobs = REGIONS.map((r) => { const [x, y] = MAP_POS[r.id]; return `<radialGradient id="g-${r.id}"><stop offset="0" stop-color="${r.chao}"/><stop offset=".72" stop-color="${r.chao}" stop-opacity=".9"/><stop offset="1" stop-color="${r.chao}" stop-opacity="0"/></radialGradient><ellipse cx="${x * 10}" cy="${y * 6.4}" rx="150" ry="105" fill="url(#g-${r.id})"/>`; }).join('');
+  map.innerHTML = `<svg viewBox="0 0 1000 640" preserveAspectRatio="none" class="wm-svg">
+    <defs><linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fc3ff"/><stop offset="1" stop-color="#2f7ad6"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="14"/></filter><pattern id="waves" width="60" height="30" patternUnits="userSpaceOnUse"><path d="M0 15 q15 -10 30 0 t30 0" fill="none" stroke="#ffffff" stroke-opacity=".25" stroke-width="3"/></pattern></defs>
+    <rect width="1000" height="640" fill="url(#sea)"/><rect width="1000" height="640" fill="url(#waves)"/>
+    <path d="M60 470 C 40 300 120 120 300 90 C 470 50 640 40 800 110 C 960 180 980 380 930 470 C 880 590 700 620 520 600 C 340 585 120 610 60 470 Z" fill="#f3e2b4" stroke="#fff6dc" stroke-width="10"/>
+    <g filter="url(#soft)">${blobs}</g>
+    <path d="${trail}" fill="none" stroke="#8a5a34" stroke-width="9" stroke-linecap="round" stroke-dasharray="2 18" opacity=".75"/>
+  </svg>`;
+  // pontes entre as regiões
   REGIONS.forEach((r, i) => {
-    const g = S().regioes[r.id];
-    const fam = FAMILIES.find((f) => f.el === r.el);
-    const card = h('button', { class: 'region' + (g.aberta ? '' : ' locked'), style: `background:linear-gradient(160deg, ${r.ceu[0]}, ${r.chao})` },
-      h('div', { class: 'rname' }, `${ELEMENTS[r.el].icone} ${r.nome}`),
-      h('img', { class: 'mascot', src: thumb(fam.id * 3, { size: 200 }), alt: '' }));
-    const info = h('div', { class: 'info' });
-    if (g.aberta) {
-      info.append(h('span', { class: 'chip' }, `🏡 Fazendinha nível ${g.fazenda}`), h('span', { class: 'chip' }, `🐾 ${G.amigosEm(r.id).length}/${G.farmSlots(r.id)} companheiros`));
-      info.append(g.salvo ? h('span', { class: 'badge-ok' }, `✓ ${r.resgate.quem} salv${r.resgate.g}`) : h('span', { class: 'badge-help' }, `Socorro! ${r.resgate.quem}`));
-      card.onclick = () => { play('tap'); farmRid = r.id; go('fazenda'); };
-    } else {
-      const b = G.bridgeState(r.id);
-      info.append(h('span', { class: 'lockico' }, '🔒'), h('span', { class: 'chip' }, b.ok ? '✨ Pronta para abrir!' : 'Ponte rúnica quebrada'));
-      card.onclick = () => { play('tap'); bridgeModal(r); };
-      if (b.ok) card.classList.add('pointing');
-    }
-    card.append(info); grid.append(card);
+    if (!i) return; const [x0, y0] = MAP_POS[REGIONS[i - 1].id], [x1, y1] = MAP_POS[r.id]; const open = S().regioes[r.id].aberta;
+    map.append(h('span', { class: 'wm-bridge' + (open ? ' ok' : ''), style: `left:${(x0 + x1) / 2}%;top:${(y0 + y1) / 2}%`, title: open ? 'Ponte consertada' : 'Ponte rúnica quebrada' }, open ? '🌉' : '🧱'));
   });
-  sc.append(h('div', { class: 'scroll grow' }, grid));
+  // enfeites de cada região (e da época)
+  REGIONS.forEach((r, i) => {
+    const [x, y] = MAP_POS[r.id]; const list = [...MAP_DECO[r.id], ...(tema ? THEME_DECO[tema].slice(i % 2, i % 2 + 2) : [])];
+    list.forEach((e, k) => { const a = k * 2.3 + i, d = 9 + (k % 2) * 3; map.append(h('span', { class: 'wm-deco', style: `left:${x + Math.cos(a) * d}%;top:${y + Math.sin(a) * d * 1.3}%;animation-delay:${k * 0.4}s` }, e)); });
+  });
+  REGIONS.forEach((r) => {
+    const g = S().regioes[r.id]; const [x, y] = MAP_POS[r.id];
+    const fam = FAMILIES.find((f) => f.el === r.el);
+    const node = h('button', { class: 'wm-node' + (g.aberta ? '' : ' locked') + (r.id === farmRid && g.aberta ? ' here' : ''), style: `left:${x}%;top:${y}%;--c1:${ELEMENTS[r.el].cores[0]};--c2:${ELEMENTS[r.el].cores[1]}` },
+      h('span', { class: 'wm-face' }, h('img', { src: thumb(fam.id * 3, { size: 128, silhouette: !g.aberta }), alt: '' })),
+      h('span', { class: 'wm-name' }, `${ELEMENTS[r.el].icone} ${r.nome}`));
+    if (g.aberta) {
+      node.append(h('span', { class: 'wm-tags' }, h('span', {}, `🧱${g.zonas.length}`), h('span', {}, `🐾${G.amigosEm(r.id).length}`), g.salvo ? null : h('span', { class: 'help' }, '❗')));
+      node.onclick = () => { play('tap'); farmRid = r.id; go('fazenda'); };
+    } else {
+      const b = G.bridgeState(r.id); node.append(h('span', { class: 'wm-cloud' }), h('span', { class: 'wm-lock' }, b.ok ? '✨' : '🔒'));
+      node.onclick = () => { play('tap'); bridgeModal(r); }; if (b.ok) node.classList.add('pointing');
+    }
+    map.append(node);
+  });
+  // você está aqui
+  const here = MAP_POS[S().regioes[farmRid]?.aberta ? farmRid : 'floresta'];
+  map.append(h('span', { class: 'wm-me', style: `left:${here[0]}%;top:${here[1]}%` }, h('img', { src: kidThumb(S().boneco, 96) }), h('i', {}, S().boneco.nome || 'Você')));
+  map.append(h('span', { class: 'wm-compass' }, '🧭'));
+  wrap.append(map); sc.append(wrap);
+  const fit = () => { const W = wrap.clientWidth, H = wrap.clientHeight; const k = Math.min(W / 1000, H / 640); map.style.width = 1000 * k + 'px'; map.style.height = 640 * k + 'px'; };
+  requestAnimationFrame(fit); const ro = new ResizeObserver(fit); ro.observe(wrap); cleanup = () => ro.disconnect();
+}
+
+// =========================== MEU PERSONAGEM ===========================
+let kidTab = 'cabelo';
+function renderBoneco(sc, arg = {}) {
+  const look = structuredClone(S().boneco); const first = !look.criado;
+  const show = kidShowcaseScene(look); setScene(show);
+  $('#sky').style.background = 'radial-gradient(circle at 30% 45%, #8fd0ff, #3a5aa8 70%, #24345e)';
+  const panel = h('div', { class: 'kid-panel' });
+  sc.append(h('div', { class: 'title kid-title' }, first ? '✨ Crie seu personagem!' : '👤 Meu personagem', h('small', {}, 'arraste para girar · troque quando quiser')), h('div', { class: 'grow passthru' }), panel);
+  sc.classList.add('kid-screen');
+  const changed = (react = true) => { show.set(look, react); };
+  const sw = (cur, colors, set) => h('div', { class: 'swatches' }, ...colors.map((c) => h('button', { class: 'sw' + (c === cur ? ' on' : ''), style: `background:${c}`, onclick: () => { set(c); play('tap'); changed(); draw(); } })));
+  const chips = (cur, list, set, extra) => h('div', { class: 'opts' }, ...list.map(([k, label, ico]) => h('button', { class: 'opt' + (k === cur ? ' on' : ''), onclick: () => { set(k); play('tap'); changed(); draw(); } }, ico ? h('span', {}, ico) : null, label, extra?.(k))));
+  const patStyle = (p, c) => ({ liso: c, listras: `repeating-linear-gradient(0deg, ${c} 0 7px, #fff 7px 11px)`, bolinhas: `radial-gradient(#fff 3px, transparent 3.5px) 0 0/12px 12px, ${c}`, xadrez: `linear-gradient(90deg, #ffffff66 50%, transparent 50%) 0 0/14px 14px, linear-gradient(#ffffff66 50%, transparent 50%) 0 0/14px 14px, ${c}`, camuflado: `radial-gradient(circle at 30% 30%, #0003 25%, transparent 26%) 0 0/16px 16px, radial-gradient(circle at 70% 60%, #fff3 22%, transparent 23%) 0 0/18px 18px, ${c}` }[p] || c);
+  const pats = (cur, color, set) => h('div', { class: 'opts' }, ...PATTERNS.map(([k, label]) => h('button', { class: 'opt pat' + (k === cur ? ' on' : ''), onclick: () => { set(k); play('tap'); changed(); draw(); } }, h('i', { style: `background:${patStyle(k, color)}` }, { estrelas: '★', raios: '⚡', coracoes: '♥' }[k] || ''), label)));
+  const sec = (t, ...kids) => h('div', { class: 'kid-sec' }, h('div', { class: 'sec-h' }, t), ...kids);
+  function draw() {
+    panel.innerHTML = '';
+    const tabs = h('div', { class: 'tabs kid-tabs' });
+    for (const [k, label] of [['nome', '✏️ Nome'], ['cabelo', '💇 Cabelo'], ['rosto', '😊 Rosto'], ['roupa', '👕 Roupas'], ['pes', '👟 Calçados'], ['acess', '🎒 Acessórios']]) tabs.append(h('button', { class: 'tab' + (kidTab === k ? ' on' : ''), onclick: () => { kidTab = k; play('tap'); draw(); } }, label));
+    const body = h('div', { class: 'kid-body' });
+    if (kidTab === 'nome') {
+      const inp = h('input', { class: 'kid-name', maxlength: 14, placeholder: 'Seu nome aqui', value: look.nome || '' });
+      inp.addEventListener('input', () => { look.nome = inp.value.trim(); }); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); });
+      body.append(sec('Como você quer ser chamado?', inp), sec('Sem ideia?', h('button', { class: 'btn ghost', onclick: () => { Object.assign(look, randomKid(look), { nome: look.nome, criado: look.criado }); play('hatch', 2); changed(); draw(); } }, '🎲 Visual surpresa!')));
+      setTimeout(() => first && inp.focus(), 50);
+    } else if (kidTab === 'cabelo') {
+      body.append(sec('Corte', chips(look.cabelo.estilo, HAIR, (k) => { look.cabelo.estilo = k; })), sec('Cor do cabelo', sw(look.cabelo.cor, HAIR_COLORS, (c) => { look.cabelo.cor = c; })));
+    } else if (kidTab === 'rosto') {
+      body.append(sec('Cor da pele', sw(look.pele, SKIN, (c) => { look.pele = c; })),
+        sec('Olhos', chips(look.olhos.tipo, EYES, (k) => { look.olhos.tipo = k; }), sw(look.olhos.cor, EYE_COLORS, (c) => { look.olhos.cor = c; })),
+        sec('Boca', chips(look.boca, MOUTH, (k) => { look.boca = k; })),
+        sec('Sobrancelhas', chips(look.sobrancelha, BROWS, (k) => { look.sobrancelha = k; })),
+        sec('Detalhes', h('div', { class: 'opts' }, h('button', { class: 'opt' + (look.sardas ? ' on' : ''), onclick: () => { look.sardas = !look.sardas; play('tap'); changed(); draw(); } }, '🟤 Sardinhas'), h('button', { class: 'opt' + (look.bochechas ? ' on' : ''), onclick: () => { look.bochechas = !look.bochechas; play('tap'); changed(); draw(); } }, '🌸 Bochechas rosadas'))));
+    } else if (kidTab === 'roupa') {
+      body.append(sec('Parte de cima', chips(look.topo.tipo, TOPS, (k) => { look.topo.tipo = k; }), sw(look.topo.cor, COLORS, (c) => { look.topo.cor = c; }), pats(look.topo.estampa, look.topo.cor, (k) => { look.topo.estampa = k; })),
+        sec('Parte de baixo', chips(look.baixo.tipo, BOTTOMS, (k) => { look.baixo.tipo = k; }), sw(look.baixo.cor, COLORS, (c) => { look.baixo.cor = c; }), pats(look.baixo.estampa, look.baixo.cor, (k) => { look.baixo.estampa = k; })));
+    } else if (kidTab === 'pes') {
+      body.append(sec('Calçado', chips(look.calcado.tipo, SHOES, (k) => { look.calcado.tipo = k; })), sec('Cor', sw(look.calcado.cor, COLORS, (c) => { look.calcado.cor = c; })));
+    } else {
+      look.acess ||= {};
+      for (const [id, label, ico] of ACCESSORIES) {
+        const on = !!look.acess[id]?.on;
+        const row = h('div', { class: 'acc-row' + (on ? ' on' : '') }, h('button', { class: 'opt' + (on ? ' on' : ''), onclick: () => {
+          if (on) delete look.acess[id];
+          else { if (HEADWEAR.includes(id)) for (const hw of HEADWEAR) delete look.acess[hw]; if (id === 'oculos') delete look.acess.oculos_sol; if (id === 'oculos_sol') delete look.acess.oculos; look.acess[id] = { on: true, cor: look.acess[id]?.cor || COLORS[(ACCESSORIES.findIndex((a) => a[0] === id) * 3) % COLORS.length] }; }
+          play('tap'); changed(); draw();
+        } }, h('span', {}, ico), label, h('b', {}, on ? ' ✓' : '')));
+        if (on && !['relogio'].includes('x')) row.append(sw(look.acess[id].cor, COLORS, (c) => { look.acess[id].cor = c; }));
+        body.append(row);
+      }
+    }
+    panel.append(tabs, body, h('div', { class: 'actions kid-actions' },
+      h('button', { class: 'btn ghost small', onclick: () => { Object.assign(look, randomKid(look), { nome: look.nome, criado: look.criado }); play('hatch', 2); changed(); draw(); } }, '🎲 Surpresa'),
+      first ? null : h('button', { class: 'btn ghost small', onclick: () => { play('tap'); go(arg.back || 'mapa'); } }, 'Cancelar'),
+      h('button', { class: 'btn green', onclick: () => {
+        look.criado = true; if (!look.nome) look.nome = 'Aventureiro';
+        S().boneco = look; G.save(); play('fanfare'); show.cheer(); updateHud();
+        setTimeout(() => go(first ? (S().amigos.length ? 'mapa' : 'ninho') : (arg.back || 'mapa')), 700);
+      } }, first ? '✔ Começar a aventura!' : '✔ Pronto!')));
+  }
+  draw();
+  // girar o personagem arrastando
+  const cv = $('#stage'); let down = null;
+  const pd = (e) => { down = { x: e.clientX }; }, pm = (e) => { if (!down) return; show.turn(e.clientX - down.x); down.x = e.clientX; }, pu = () => { if (down) { down = null; } };
+  const tap = (e) => { if (show.onTap(rayAt(e.clientX, e.clientY))) play('heart'); };
+  cv.addEventListener('pointerdown', pd); cv.addEventListener('click', tap); window.addEventListener('pointermove', pm); window.addEventListener('pointerup', pu);
+  cleanup = () => { sc.classList.remove('kid-screen'); cv.removeEventListener('pointerdown', pd); cv.removeEventListener('click', tap); window.removeEventListener('pointermove', pm); window.removeEventListener('pointerup', pu); };
 }
 function reqRow(ok, ...txt) { return h('div', { class: 'r ' + (ok ? 'ok' : 'no') }, ok ? '✅' : '⬜', ...txt); }
 function bridgeModal(r) {
@@ -158,14 +262,14 @@ function renderNinho(sc, arg) {
   function draw() {
     top.innerHTML = ''; bottom.innerHTML = ''; updateGuide();
     if (phase === 'pick') {
-      top.append(h('div', { class: 'nest-hint' }, chosen.length ? 'Coloque até ' + G.nestSlots() + ' itens e toque em Forjar!' : 'Toque nos itens para colocar na bigorna da Forja'));
+      top.append(h('div', { class: 'nest-hint' }, chosen.length < FORGE_MIN ? `Coloque ${FORGE_MIN - chosen.length} ${FORGE_MIN - chosen.length === 1 ? 'item' : 'itens'} na bigorna (mínimo ${FORGE_MIN})` : 'Pronto! Toque em Forjar' + (chosen.length < G.nestSlots() ? ` (cabe mais ${G.nestSlots() - chosen.length})` : '')));
       const slots = h('div', { class: 'slots' });
       for (let i = 0; i < G.nestSlots(); i++) {
         const id = chosen[i];
         slots.append(h('button', { class: 'slot' + (id ? ' full' : ''), style: id ? `--rc:${itemRing(id)}` : '', onclick: () => { if (!id) return; play('pop'); chosen.splice(i, 1); draw(); } }, id ? ITEMS[id].emoji : ''));
       }
       top.append(slots);
-      if (chosen.length) top.append(previewEl());
+      if (chosen.length >= FORGE_MIN) top.append(previewEl());
       const c = counts();
       const ids = Object.keys(ITEMS).filter((id) => (S().itens[id] || 0) > 0)
         .sort((a, b) => (ELEMENT_ORDER.indexOf(ITEMS[a].el) - ELEMENT_ORDER.indexOf(ITEMS[b].el)) || (RARITY_ORDER.indexOf(ITEMS[a].rar) - RARITY_ORDER.indexOf(ITEMS[b].rar)));
@@ -177,11 +281,11 @@ function renderNinho(sc, arg) {
           if (left <= 0 || chosen.length >= G.nestSlots()) { play('sad'); return; }
           chosen.push(id); play('drop'); nest.dropItem(ITEMS[id].emoji, itemRing(id)); setTimeout(() => play('splash'), 330); draw();
         }, left <= 0 ? 'off' : '');
-        if (S().tutorial < 2 && id === 'trevo' && chosen.length < 2) t.classList.add('pointing');
+        if (S().tutorial < 2 && chosen.length < FORGE_MIN && ['trevo', 'concha', 'brasa'].includes(id)) t.classList.add('pointing');
         tray.append(t);
       }
-      const mixBtn = h('button', { class: 'btn', disabled: !chosen.length, onclick: startStir }, '🔨 Forjar!');
-      if (S().tutorial < 2 && chosen.filter((x) => x === 'trevo').length >= 2) mixBtn.classList.add('pointing');
+      const mixBtn = h('button', { class: 'btn', disabled: chosen.length < FORGE_MIN, onclick: startStir }, '🔨 Forjar!');
+      if (S().tutorial < 2 && chosen.length >= FORGE_MIN) mixBtn.classList.add('pointing');
       bottom.append(h('div', { class: 'row' }, chosen.length ? h('button', { class: 'btn ghost small', onclick: () => { chosen = []; play('pop'); draw(); } }, 'Limpar') : null, mixBtn), tray);
     } else if (phase === 'stir') {
       top.append(h('div', { class: 'nest-hint' }, `🔨 Bata o martelo na bigorna! Toque ${HITS} vezes`));
@@ -200,14 +304,17 @@ function renderNinho(sc, arg) {
       const f = FAMILIES[p.fam]; const known = S().descobertos[f.id * 3];
       return h('div', { class: 'chance' }, '💡', known ? `Receita do ${f.nomes[0]}!` : 'Combinação perfeita! Vai sair um companheiro de receita!');
     }
+    if (p.tema) { const T = THEMES[p.tema]; return h('div', { class: 'chance theme-chance', style: `--tc:${T.cor};--tc2:${T.cor2}` }, T.icone, h('b', {}, `Vai sair um bicho de ${T.nome}!`), h('span', { class: 'muted' }, 'fica com você para sempre')); }
     const ch = p.chances; const good = (ch.raro + ch.epico + ch.lendario) * 100;
     const bar = h('div', { class: 'row', style: 'gap:2px;width:160px' }, ...['comum', 'incomum', 'raro', 'epico', 'lendario'].map((r) => h('i', { style: `width:${Math.max(ch[r] * 100, ch[r] > 0.001 ? 3 : 0)}%;background:${rarColor(r)}` })));
-    return h('div', { class: 'chance' }, '⚡ Energia:', bar, h('b', {}, good < 5 ? 'fraca' : good < 15 ? 'boa' : good < 30 ? 'forte' : 'máxima!'));
+    const els = Object.entries(G.elementChances(chosen)).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 0.05).slice(0, 4);
+    return h('div', { class: 'chance' }, '⚡', bar, h('b', {}, good < 5 ? 'fraca' : good < 15 ? 'boa' : good < 30 ? 'forte' : 'máxima!'),
+      h('span', { class: 'elodds', title: 'Elementos que podem sair' }, ...els.map(([e, v]) => h('span', { title: ELEMENTS[e].nome, style: `font-size:${15 + Math.round(v * 18)}px` }, ELEMENTS[e].icone)), h('span', { class: 'muted' }, '+?')));
   }
   // --- martelar na bigorna ---
   let zone = null; const HITS = 6;
   function startStir() {
-    if (!chosen.length) return;
+    if (chosen.length < FORGE_MIN) return;
     phase = 'stir'; stirP = 0; play('tap'); draw();
     zone = h('div', { class: 'stirzone' }, h('div', { class: 'stir-hand' }, '🔨'));
     document.body.append(zone);
@@ -242,21 +349,34 @@ function renderNinho(sc, arg) {
     };
   }
   function revealCard(res) {
-    const a = res.amigo; const s = SPECIES[a.sp];
-    const card = h('div', { class: 'card reveal' },
-      h('div', { class: 'row wrap', style: 'justify-content:center' }, res.novo ? h('span', { class: 'tag-new' }, 'NOVO!') : null, rarBadge(s.rar), h('span', { class: 'stars', style: 'font-size:24px' }, stars(s.rar)), a.shiny ? h('span', { class: 'chip' }, '✨ Cintilante!') : null),
-      h('div', { class: 'name' }, G.nomeDe(a)),
-      h('div', { class: 'row wrap', style: 'justify-content:center' }, elChip(s.el), h('span', { class: 'chip' }, '⚡ ', ELEMENTS[s.el].dom)),
-      res.novo && !res.exato && res.fam.receita ? h('p', { class: 'muted', style: 'margin:6px 0 0' }, 'Descoberta! A receita dele agora está no Códice 📖') : null,
+    const a = res.amigo; const s = SPECIES[a.sp]; const rc = rarColor(s.rar);
+    const wide = innerWidth >= 900 && innerWidth / innerHeight > 1.2;
+    top.append(h('div', { class: 'reveal-banner' + (wide ? ' left' : ''), style: `--rc:${rc}` },
+      h('small', {}, res.novo ? (res.exato ? 'RECEITA CERTA!' : 'NOVA DESCOBERTA!') : 'MAIS UM PARA A EQUIPE!'),
+      h('b', {}, G.nomeDe(a))));
+    cleanupRays();
+    nest.setPresent(wide ? 1.1 : 0, wide ? 0 : 0.42);
+    const rays = h('div', { class: 'rays r-' + s.rar + (wide ? ' left' : ''), style: `--rc:${rc}` }); document.body.append(rays);
+    cleanupRays = () => { rays.remove(); cleanupRays = () => {}; };
+    const st = h('span', { class: 'stars pop-stars', style: 'font-size:28px' }, ...Array.from({ length: RARITIES[s.rar].estrelas }, (_, i) => h('i', { style: `animation-delay:${0.3 + i * 0.2}s` }, '★')));
+    const card = h('div', { class: 'card reveal' + (wide ? ' side' : ''), style: `--rc:${rc}` },
+      h('div', { class: 'row wrap', style: 'justify-content:center' },
+        h('span', { class: 'chip num' }, '#' + String(s.id + 1).padStart(3, '0') + ' / 450'),
+        res.novo ? h('span', { class: 'tag-new' }, 'NOVO!') : null, rarBadge(s.rar), st, a.shiny ? h('span', { class: 'chip shiny' }, '✨ Cintilante!') : null),
+      h('div', { class: 'row wrap', style: 'justify-content:center;margin-top:6px' }, elChip(s.el), h('span', { class: 'chip' }, '⚡ ', ELEMENTS[s.el].dom), h('span', { class: 'chip' }, s.estagio)),
+      workPanel(a.sp),
+      evoLine(a.sp, null),
+      res.novo && !res.exato && res.fam.receita ? h('p', { class: 'muted', style: 'margin:6px 0 0' }, 'A receita dele agora está no Códice 📖') : null,
       h('div', { class: 'row wrap', style: 'justify-content:center;margin-top:10px' },
-        h('button', { class: 'btn ghost small', onclick: () => renameModal(a, () => draw()) }, '✏️ Dar nome'),
-        h('button', { class: 'btn green small', onclick: () => placeModal(a, (rid) => { farmRid = rid; go('fazenda'); }) }, '🏡 Mandar para a fazendinha'),
-        h('button', { class: 'btn small', onclick: () => { nest.clearCreature(); phase = 'pick'; draw(); } }, '🔨 Forjar outro')));
+        h('button', { class: 'btn ghost small', onclick: () => renameModal(a, () => { top.innerHTML = ''; bottom.innerHTML = ''; bottom.append(revealCard(res)); }) }, '✏️ Dar nome'),
+        h('button', { class: 'btn green small', onclick: () => { cleanupRays(); placeModal(a, (rid) => { farmRid = rid; go('fazenda'); }); } }, '🏡 Mandar trabalhar'),
+        h('button', { class: 'btn small', onclick: () => { cleanupRays(); nest.clearCreature(); phase = 'pick'; draw(); } }, '🔨 Forjar outro')));
     return card;
   }
+  let cleanupRays = () => {};
   if (arg?.fusao) { result = G.hatchFusao(); if (result) toEgg(); else draw(); }
   else draw();
-  cleanup = () => { zone?.remove(); nest.clearItems(); };
+  cleanup = () => { zone?.remove(); cleanupRays(); nest.clearItems(); };
 }
 
 function renameModal(a, done) {
@@ -290,147 +410,280 @@ function placeModal(a, done) {
 
 // =========================== FAZENDINHA ===========================
 const skillChips = (spId, small) => h('span', { class: 'skills' + (small ? ' small' : '') }, ...skillsOf(spId).map((k) => h('span', { class: 'sk', title: `${SKILLS[k.id].nome} nível ${k.nivel}` }, SKILLS[k.id].icone, h('b', {}, k.nivel))));
-function nodesView(rid) {
-  const g = S().regioes[rid]; const t = Date.now();
-  return {
-    arv: g.arv.map((n) => ({ vivo: n.livre <= t })), roc: g.roc.map((n) => ({ vivo: n.livre <= t })),
-    cant: g.cant.map((n) => ({ st: n.st, grow: n.st === 'regado' ? Math.min(1, 1 - (n.ate - t) / G.GROW_TIME) : 0 })),
-  };
+const kidSpot = {}; // onde o personagem estava em cada fazendinha (para voltar no mesmo lugar)
+function resourcesView(r) {
+  const g = S().regioes[r.id]; const t = Date.now(); const out = [];
+  for (const k of ALL_ZONES) {
+    const open = g.zonas.includes(k);
+    for (const res of zoneResources(r.id, r.el, k)) {
+      const st = g.rec[res.id]; const vivo = !open || !st || st.livre <= t;
+      out.push({ ...res, vivo, bloqueado: !open, cresce: vivo || !st ? 1 : Math.max(0, 1 - (st.livre - t) / G.RESPAWN) });
+    }
+  }
+  return out;
 }
-function renderFazenda(sc) {
+function obrasView(rid) { const t = Date.now(); return G.obrasOf(rid).map((o) => ({ ...o, grow: o.st === 'regado' ? Math.min(1, 1 - (o.ate - t) / G.GROW_TIME) : 0 })); }
+// barra lateral: um atalho para cada fazendinha
+function farmRail(cur) {
+  const rail = h('div', { class: 'farm-rail' }, h('button', { class: 'rail-map', title: 'Mapa do Vale', onclick: () => { play('tap'); go('mapa'); } }, '🗺️', h('small', {}, 'Mapa')));
+  let shownLocked = false;
+  for (const rr of REGIONS) {
+    const open = S().regioes[rr.id].aberta;
+    if (!open && shownLocked) continue;
+    const fam = FAMILIES.find((f) => f.el === rr.el);
+    const ready = open && G.amigosEm(rr.id).some((a) => a.bolsa?.length);
+    const help = open && !S().regioes[rr.id].salvo;
+    const btn = h('button', { class: 'rail-btn' + (rr.id === cur ? ' on' : '') + (open ? '' : ' locked'), style: `--c1:${ELEMENTS[rr.el].cores[0]};--c2:${ELEMENTS[rr.el].cores[1]}`, title: rr.nome,
+      onclick: () => { play('tap'); if (!open) return bridgeModal(rr); if (rr.id !== cur) { farmRid = rr.id; go('fazenda'); } } },
+      h('span', { class: 'rail-face' }, h('img', { src: thumb(fam.id * 3, { size: 96, silhouette: !open }), alt: '' })),
+      h('span', { class: 'rail-el' }, open ? ELEMENTS[rr.el].icone : '🔒'),
+      h('span', { class: 'rail-name' }, rr.nome),
+      ready ? h('i', { class: 'dot' }) : help ? h('i', { class: 'rail-help' }, '!') : null);
+    if (!open) shownLocked = true;
+    rail.append(btn);
+  }
+  return rail;
+}
+function renderFazenda(sc, arg) {
   if (!S().regioes[farmRid]?.aberta) farmRid = 'floresta';
   const r = REGIONS.find((x) => x.id === farmRid); const g = S().regioes[r.id];
-  const isBase = r.id === G.BASE_REGION_ID;
-  const amigos = G.amigosEm(r.id);
+  const amigos = G.amigosEm(r.id); const tema = G.themeOn();
   $('#sky').style.background = `linear-gradient(180deg, ${r.ceu[0]} 0%, ${r.ceu[1]} 70%)`;
   const bagEmoji = (a) => (a.bolsa?.length ? ITEMS[a.bolsa[a.bolsa.length - 1]]?.emoji : '🎁');
-  const farm = farmScene(r, { nivel: g.fazenda, amigos: amigos.map((a) => ({ uid: a.uid, spId: a.sp, shiny: a.shiny, bolsa: a.bolsa?.length || 0, emoji: bagEmoji(a) })), brilhos: g.brilhos, resgate: { salvo: g.salvo }, nodes: nodesView(r.id), base: isBase ? S().base : null });
+  const farm = farmScene(r, {
+    zonas: g.zonas, abriveis: G.expandOptions(r.id).map((k) => ({ key: k })), recursos: resourcesView(r), obras: obrasView(r.id),
+    amigos: amigos.map((a) => ({ uid: a.uid, spId: a.sp, shiny: a.shiny, arch: SPECIES[a.sp].arch, stage: SPECIES[a.sp].stage, bolsa: a.bolsa?.length || 0, emoji: bagEmoji(a) })),
+    brilhos: g.brilhos, resgate: { salvo: g.salvo }, tema, kid: S().boneco, reveal: arg?.reveal, spawn: kidSpot[r.id],
+  });
   setScene(farm);
-  const chips = h('div', { class: 'farm-top' });
-  for (const rr of REGIONS) {
-    if (!S().regioes[rr.id].aberta) continue;
-    const ready = G.amigosEm(rr.id).some((a) => a.bolsa?.length);
-    chips.append(h('button', { class: 'farm-chip' + (rr.id === r.id ? ' on' : ''), onclick: () => { play('tap'); farmRid = rr.id; go('fazenda'); } }, ELEMENTS[rr.el].icone, rr.nome, rr.id === G.BASE_REGION_ID ? ' 🛠️' : '', ready && rr.id !== r.id ? h('i', { class: 'dot' }) : null));
-  }
+  // ---------- interface ----------
+  const rail = farmRail(r.id);
   const info = h('div', { class: 'farm-info' });
   const workers = h('div', { class: 'workers' });
-  const actions = h('div', { class: 'farm-actions' });
-  sc.append(chips, info, h('div', { class: 'grow passthru' }, workers), actions);
+  const side = h('div', { class: 'farm-side' });
+  const build = h('div', { class: 'build-panel', hidden: true });
+  sc.append(rail, info, side, h('div', { class: 'grow passthru' }), workers, build);
+  sc.classList.add('farm-screen'); const unclass = () => sc.classList.remove('farm-screen');
   function drawUi() {
-    info.innerHTML = ''; actions.innerHTML = ''; workers.innerHTML = '';
+    info.innerHTML = ''; side.innerHTML = ''; workers.innerHTML = '';
     const am = G.amigosEm(r.id); const ready = am.reduce((t, a) => t + (a.bolsa?.length || 0), 0);
-    const nv = nodesView(r.id);
-    info.append(h('span', { class: 'chip' }, `🏡 Nível ${g.fazenda}`), h('span', { class: 'chip' }, `🐾 ${am.length}/${G.farmSlots(r.id)}`),
-      nv.arv.length ? h('span', { class: 'chip', title: 'Árvores (precisa de 🪓 Cortar)' }, `🌳 ${nv.arv.filter((x) => x.vivo).length}/${nv.arv.length}`) : null,
-      h('span', { class: 'chip', title: 'Rochas (precisa de ⛏️ Minerar)' }, `⛰️ ${nv.roc.filter((x) => x.vivo).length}/${nv.roc.length}`),
-      h('span', { class: 'chip', title: 'Canteiros: 🌱 Semear → 💦 Regar → 🍎 colher' }, `🌱 ${nv.cant.filter((x) => x.st === 'pronto').length} prontos / ${nv.cant.length}`));
-    if (!g.salvo) info.append(h('button', { class: 'rescue-banner', onclick: () => rescueModal(r, farm) }, h('img', { src: thumb(0, { npc: r.resgate, size: 128 }) }), h('b', {}, `Socorro! Ajude ${r.resgate.quem}!`)));
-    // o que cada um está fazendo
+    info.append(h('span', { class: 'chip farm-title', style: `--c1:${ELEMENTS[r.el].cores[0]}` }, ELEMENTS[r.el].icone, ' ', r.nome),
+      h('span', { class: 'chip', title: 'Lotes liberados' }, `🧱 Nível ${G.farmLevel(r.id)} · ${g.zonas.length}/25 lotes`),
+      h('span', { class: 'chip', title: 'Companheiros trabalhando aqui' }, `🐾 ${am.length}/${G.farmSlots(r.id)}`));
+    if (tema) info.append(h('button', { class: 'chip theme-chip', style: `--tc:${THEMES[tema].cor};--tc2:${THEMES[tema].cor2}`, onclick: () => themeModal(tema) }, THEMES[tema].icone, ' ', THEMES[tema].nome));
+    if (!g.salvo) info.append(h('button', { class: 'rescue-banner', onclick: () => goNpc() }, h('img', { src: thumb(0, { npc: r.resgate, size: 128 }) }), h('b', {}, `Socorro! Ajude ${r.resgate.quem}!`)));
     for (const a of am) {
       const tk = G.taskOf(a); const ti = G.TASK_INFO[tk] || { icone: '💤', nome: 'Descansando' };
-      workers.append(h('button', { class: 'worker' + (tk === 'cheio' ? ' full' : ''), onclick: () => amigoMiniModal(a) }, h('img', { src: thumb(a.sp, { shiny: a.shiny, size: 96 }) }), h('span', {}, ti.icone), a.bolsa?.length ? h('i', { class: 'n' }, a.bolsa.length) : null));
+      workers.append(h('button', { class: 'worker' + (tk === 'cheio' ? ' full' : ''), title: `${G.nomeDe(a)}: ${ti.nome}`, onclick: () => amigoMiniModal(a) }, h('img', { src: thumb(a.sp, { shiny: a.shiny, size: 96 }) }), h('span', {}, ti.icone), a.bolsa?.length ? h('i', { class: 'n' }, a.bolsa.length) : null));
     }
-    const place = h('button', { class: 'btn green', onclick: () => pickAmigoModal(r) }, '➕ Colocar');
+    const sideBtn = (ico, label, cls, onclick, extra) => h('button', { class: 'side-btn ' + cls, onclick }, h('span', { class: 'ico' }, ico), h('span', { class: 'lb' }, label), extra || null);
+    const place = sideBtn('➕', 'Bicho', 'green', () => pickAmigoModal(r));
     if (S().tutorial === 2 && !am.length) place.classList.add('pointing');
-    actions.append(place, h('button', { class: 'btn gold' + (ready && S().tutorial === 3 ? ' pointing' : ''), disabled: !ready, onclick: collectAll }, `🎒 Pegar tudo${ready ? ` (${ready})` : ''}`));
-    if (isBase) actions.append(h('button', { class: 'btn' + (G.buildState('bancada').ok ? ' pointing' : ''), onclick: () => bancadaModal(farm) }, S().base.bancada ? '🛠️ Bancada' : '🛠️ Construir'));
-    if (G.expandCost(r.id)) actions.append(h('button', { class: 'btn blue', onclick: () => expandModal(r) }, '🌱 Aumentar'));
+    const getAll = sideBtn('🎒', 'Pegar tudo', 'gold' + (ready && S().tutorial === 3 ? ' pointing' : ''), collectAll, ready ? h('i', { class: 'n' }, ready) : null); if (!ready) getAll.disabled = true;
+    const canBuild = Object.keys(BUILDINGS).some((id) => G.buildState(id, r.id).ok);
+    side.append(sideBtn('🔨', 'Construir', 'blue' + (canBuild && S().tutorial >= 4 && !S().base.bancada ? ' pointing' : ''), () => openBuild()), place, getAll,
+      sideBtn('🧱', 'Aumentar', 'violet', () => { play('tap'); const ab = G.expandOptions(r.id); toast('Toque num cadeado dourado 🔒✨', innerWidth / 2 - 60, innerHeight / 2); if (ab.length === 1) expandZoneModal(r, ab[0]); }),
+      sideBtn(h('img', { src: kidThumb(S().boneco, 96) }), 'Visual', 'ghost', () => { play('tap'); go('boneco', { back: 'fazenda' }); }));
   }
-  function collectFrom(a, obj) {
-    const got = G.collect(a); if (!got.length) return;
-    play('collect'); const p = toScreen(obj);
+  // ---------- o personagem faz as coisas ----------
+  const busy = () => farm.kidBusy;
+  const say = (txt, obj, dy = 1) => { const p = obj ? toScreen(obj, dy) : { x: innerWidth / 2, y: innerHeight / 2 }; toast(txt, p.x, p.y); };
+  const flyItems = (got, obj) => {
     const cnt = {}; for (const it of got) cnt[it] = (cnt[it] || 0) + 1;
-    toast(Object.entries(cnt).map(([id, n]) => `+${n} ${ITEMS[id].emoji}`).join(' '), p.x, p.y); fly(ITEMS[got[0]].emoji, p.x, p.y);
-    farm.setAmigoBubbles(a.uid, 0); farm.popAt(obj);
-    if (S().tutorial === 3) S().tutorial = 4;
-    sync(); flushNotices(); updateGuide();
+    const p = obj?.isVector3 ? toScreenV(obj) : toScreen(obj || farm.kid, 1.2);
+    toast(Object.entries(cnt).map(([id, n]) => `+${n} ${ITEMS[id].emoji}`).join(' '), p.x, p.y);
+    Object.keys(cnt).forEach((id, i) => setTimeout(() => fly(ITEMS[id].emoji, p.x, p.y), i * 120));
+  };
+  const toScreenV = (v) => { const o = new farm.kid.constructor(); o.position.copy(v); farm.world.add(o); o.updateMatrixWorld(); const p = toScreen(o); farm.world.remove(o); return p; };
+  function goNpc() {
+    farm.walkTo(farm.npcPos.x, farm.npcPos.z, { stopAt: 1.2, onArrive: () => { if (!S().regioes[r.id].salvo) rescueModal(r, farm); else { play('heart'); farm.kidAct('acenar', 1.2); } } });
   }
-  function collectAll() { let i = 0; for (const w of farm.walkers) { const a = S().amigos.find((x) => x.uid === w.uid); if (a?.bolsa?.length) setTimeout(() => collectFrom(a, w.c), 160 * i++); } }
-  const cv = $('#stage'); let down = null;
-  const pd = (e) => { down = { x: e.clientX, y: e.clientY, moved: 0 }; };
-  const pm = (e) => { if (!down) return; const dx = e.clientX - down.x; down.moved += Math.abs(dx) + Math.abs(e.clientY - down.y); farm.rotate(dx); down.x = e.clientX; down.y = e.clientY; };
-  const pu = (e) => {
-    if (!down) return; const moved = down.moved; down = null; if (moved > 12) return;
-    let hit = farm.pick(rayAt(e.clientX, e.clientY));
-    if (!hit || hit.tipo === 'canteiro' || hit.tipo === 'arvore' || hit.tipo === 'rocha') {
-      let best = null, bd = 80;
-      for (const w of farm.walkers) { const p = toScreen(w.c, w.c.userData.height * 0.6); const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = w; } }
-      if (best && (!hit || bd < 45)) hit = { tipo: 'amigo', walker: best, obj: best.c };
+  function gather(hit) {
+    const res = hit.data; const acao = G.PLAYER_ACTION[res.tipo];
+    if (!hit.vivo) { const st = g.rec[res.id]; say(`⏳ volta em ${fmtTime((st?.livre || 0) - Date.now())}`, hit.obj, 0.6); play('pop'); return; }
+    farm.walkTo(res.x, res.z, { stopAt: res.r + 0.42, marker: false, onArrive: () => {
+      const dur = { cortar: 2.25, minerar: 2.55, catar: 1.8 }[acao];
+      farm.kidAct(acao, dur, () => { play(acao === 'minerar' ? 'anvil' : 'pop', 1); farm.popAt(new farm.kid.position.constructor(res.x, acao === 'cortar' ? 0.9 : 0.5, res.z), acao === 'cortar' ? ['#c9a06a', '#8a6a44'] : acao === 'minerar' ? ['#c0c8d8', '#ffd27a'] : ['#ff6a5a', '#8ee07a'], 8); },
+        () => { const out = G.playerGather(r.id, res.id); if (out.erro) { say(out.erro, farm.kid, 1.4); return; } farm.removeResource(res.id); play('collect'); flyItems(out.itens, farm.kid); if (out.itens.length) farm.kidAct('comemorar', 0.5); flushNotices(); sync(); });
+    } });
+  }
+  function plotAction(uid) {
+    const pos = farm.obraPos(uid); if (!pos) return;
+    const c = G.plotState(r.id, uid); if (!c) return;
+    if (c.por) { const who = S().amigos.find((a) => a.uid === c.por); say(`${who ? G.nomeDe(who) : 'Um companheiro'} está cuidando daqui`, farm.obraObj(uid), 1); return; }
+    if (c.st === 'regado') { say(`🌱 crescendo… ${fmtTime(c.ate - Date.now())}`, farm.obraObj(uid), 1); return; }
+    const acao = { vazio: 'plantar', semeado: 'regar', pronto: 'colher' }[c.st];
+    farm.walkTo(pos.x, pos.z, { stopAt: 1.05, marker: false, onArrive: () => {
+      const dur = { plantar: 1.6, regar: 2.4, colher: 1.8 }[acao];
+      let water = null;
+      if (acao === 'regar') water = setInterval(() => { const tip = farm.kid.userData.ctrl.toolTip; if (tip) farm.popAt(tip, ['#8fd8ff', '#ffffff'], 4); }, 140);
+      farm.kidAct(acao, dur, () => { if (acao !== 'regar') { play('pop'); farm.popAt(pos.clone().setY(0.3), acao === 'plantar' ? ['#d9b070', '#8ee07a'] : ['#ff6a5a', '#8ee07a'], 8); } }, () => {
+        clearInterval(water);
+        if (acao === 'plantar' && G.playerPlant(r.id, uid)) { play('drop'); say('🌰 Plantado!', farm.obraObj(uid), 0.8); }
+        if (acao === 'regar' && G.playerWater(r.id, uid)) { play('splash'); say('💦 Regado!', farm.obraObj(uid), 0.8); }
+        if (acao === 'colher') { const n = G.harvestPlot(r.id, uid); if (n) { play('collect'); flyItems(Array(n).fill('fruta'), farm.kid); farm.kidAct('comemorar', 0.5); } }
+        flushNotices(); sync();
+      });
+    } });
+  }
+  function petAction(w) {
+    farm.walkTo(w.c.position.x, w.c.position.z, { follow: () => farm.walkerPos(w.uid), stopAt: w.r + 0.55, marker: false, onArrive: () => {
+      const a = S().amigos.find((x) => x.uid === w.uid); if (!a) return;
+      const pp = farm.walkerPos(w.uid); if (pp) { farm.kid.rotation.y = Math.atan2(pp.x - farm.kid.position.x, pp.z - farm.kid.position.z); }
+      if (a.bolsa?.length) {
+        farm.kidAct('pegar', 0.9, null, () => { const got = G.collect(a); if (!got.length) return; play('collect'); farm.setAmigoBubbles(a.uid, 0); flyItems(got, farm.kid); farm.petHappy(a.uid); if (S().tutorial === 3) S().tutorial = 4; flushNotices(); sync(); updateGuide(); });
+      } else {
+        farm.kidAct('carinho', 1.6, null, () => { farm.petHappy(a.uid); if (G.pet(a)) { play('heart'); say('💕 +3', farm.kid, 1.3); } else { play('heart'); say('💕', farm.kid, 1.3); } sync(); });
+      }
+    } });
+  }
+  function obraAction(hit) {
+    const pos = farm.obraPos(hit.uid); const B = BUILDINGS[hit.obra];
+    if (hit.obra === 'canteiro') return plotAction(hit.uid);
+    farm.walkTo(pos.x, pos.z, { stopAt: B.r + 0.45, marker: false, onArrive: () => {
+      if (hit.obra === 'bancada') bancadaModal(r);
+      else if (hit.obra === 'forno') fornoModal(r);
+      else { play('heart'); farm.kidAct(hit.obra === 'banco' || hit.obra === 'balanco' ? 'comemorar' : 'acenar', 1.1); say(`${B.icone} ${B.nome}`, hit.obj, 1.5); }
+    } });
+  }
+  function collectFrom(a) { const got = G.collect(a); if (!got.length) return; play('collect'); farm.setAmigoBubbles(a.uid, 0); const p = farm.walkerPos(a.uid); if (p) farm.popAt(p.clone().setY(1)); flyItems(got, p || farm.kid); if (S().tutorial === 3) S().tutorial = 4; sync(); flushNotices(); updateGuide(); }
+  function collectAll() { let i = 0; for (const w of farm.walkers) { const a = S().amigos.find((x) => x.uid === w.uid); if (a?.bolsa?.length) setTimeout(() => collectFrom(a), 160 * i++); } if (i) farm.kidAct('pegar', 0.9); }
+  // ---------- construir: escolher o que e onde ----------
+  let bm = null; // { tipo, x, z, rot, mover: uid }
+  let buildTab = 'util';
+  function openBuild(tab) {
+    play('tap'); if (tab) buildTab = tab; bm = null; farm.setGhost(null); build.hidden = false; side.hidden = true; workers.hidden = true; drawBuild();
+  }
+  function closeBuild() { bm = null; farm.setGhost(null); build.hidden = true; side.hidden = false; workers.hidden = false; }
+  function drawBuild() {
+    build.innerHTML = '';
+    if (bm) { // escolhendo o lugar
+      const okPlace = bm.mover ? G.canPlace(r.id, bm.tipo, bm.x, bm.z, bm.mover) : G.canPlace(r.id, bm.tipo, bm.x, bm.z);
+      farm.setGhost(bm.tipo, bm.x, bm.z, bm.rot, okPlace.ok);
+      const B = BUILDINGS[bm.tipo];
+      build.append(h('div', { class: 'place-bar' },
+        h('div', { class: 'place-what' }, h('span', { class: 'ci' }, B.icone), h('div', {}, h('b', {}, bm.mover ? `Mover: ${B.nome}` : B.nome), h('div', { class: okPlace.ok ? 'ok-txt' : 'bad-txt' }, okPlace.ok ? '✅ Lugar livre! Toque no chão para mudar.' : `⛔ ${okPlace.motivo}`))),
+        h('button', { class: 'btn ghost small', onclick: () => { bm.rot = (bm.rot + Math.PI / 4) % (Math.PI * 2); play('tap'); drawBuild(); } }, '↻ Girar'),
+        bm.mover && B.cat !== 'util' || bm.mover && bm.tipo === 'canteiro' ? h('button', { class: 'btn ghost small', onclick: () => { const back = G.removeObra(r.id, bm.mover); if (back) { play('pop'); farm.setObras(obrasView(r.id)); say(`📦 Guardado! Voltou: ${Object.entries(back).map(([id, n]) => `${n}${ITEMS[id].emoji}`).join(' ') || 'nada'}`); flushNotices(); } bm = null; farm.setGhost(null); drawBuild(); } }, '📦 Guardar') : null,
+        h('button', { class: 'btn green', disabled: !okPlace.ok, onclick: confirmPlace }, bm.mover ? '✔ Mover aqui' : '✔ Construir aqui'),
+        h('button', { class: 'btn ghost small', onclick: () => { bm = null; farm.setGhost(null); play('tap'); drawBuild(); } }, '✖')));
+      return;
     }
-    if (!hit) return;
-    const amigo = hit.walker && S().amigos.find((x) => x.uid === hit.walker.uid);
-    if ((hit.tipo === 'bolha' || hit.tipo === 'amigo') && amigo?.bolsa?.length) collectFrom(amigo, hit.walker.c);
-    else if (hit.tipo === 'amigo') { hit.walker.c.userData.ctrl.jump(); if (G.pet(amigo)) { play('heart'); const p = toScreen(hit.walker.c, hit.walker.c.userData.height); toast('💕 +3', p.x, p.y); } else play('pop'); amigoMiniModal(amigo); }
-    else if (hit.tipo === 'brilho') { const item = G.collectSparkle(r.id); if (!item) return; play('coin'); const p = toScreen(hit.obj); toast(`+1 ${ITEMS[item].emoji}`, p.x, p.y); fly(ITEMS[item].emoji, p.x, p.y); farm.popAt(hit.obj, '#fff3a0'); farm.removeSparkle(hit.obj); }
-    else if (hit.tipo === 'npc') { if (!g.salvo) rescueModal(r, farm); else { hit.obj.userData.ctrl.happy(); play('heart'); } }
-    else if (hit.tipo === 'canteiro') {
-      const c = g.cant[hit.idx];
-      if (c.st === 'pronto') { const n = G.harvestPlot(r.id, hit.idx); if (n) { play('collect'); const p = toScreen(hit.obj, 0.8); toast(`+${n} 🍎`, p.x, p.y); fly('🍎', p.x, p.y); farm.popAt(hit.obj, ['#ff6a5a', '#8ee07a']); sync(); flushNotices(); } }
-      else nodeModal('canteiro', c);
-    } else if (hit.tipo === 'arvore') nodeModal('arvore', g.arv[hit.idx]);
-    else if (hit.tipo === 'rocha') nodeModal('rocha', g.roc[hit.idx]);
-    else if (hit.tipo === 'bancada') bancadaModal(farm);
-    else if (hit.tipo === 'forno') fornoModal();
+    const tabs = h('div', { class: 'tabs build-tabs' });
+    const cats = [['util', '🛠️ Úteis'], ['enfeite', '🌷 Enfeites'], ...(tema ? [['epoca', `${THEMES[tema].icone} ${THEMES[tema].nome}`]] : []), ['mover', '✋ Mover ou guardar']];
+    for (const [k, label] of cats) tabs.append(h('button', { class: 'tab' + (buildTab === k ? ' on' : ''), onclick: () => { buildTab = k; play('tap'); drawBuild(); } }, label));
+    const list = h('div', { class: 'build-list' });
+    if (buildTab === 'mover') list.append(h('p', { class: 'muted', style: 'margin:6px 10px' }, '👆 Toque numa construção da fazendinha para mudar de lugar, girar ou guardar.'));
+    else for (const [id, B] of Object.entries(BUILDINGS)) {
+      if (B.cat !== buildTab) continue;
+      const st = G.buildState(id, r.id);
+      const cost = h('div', { class: 'req mini' }, ...Object.entries(B.custo).map(([it, n]) => h('span', { class: 'c ' + (G.has(it, n) ? 'ok' : 'no') }, `${ITEMS[it].emoji}${S().itens[it] || 0}/${n}`)));
+      list.append(h('button', { class: 'build-card' + (st.ok ? '' : ' off'), onclick: () => {
+        if (!st.ok) { play('sad'); say(st.done ? 'Já tem o máximo!' : st.locked ? (st.temaFora ? 'Só na época certa!' : `Precisa: ${BUILDINGS[B.precisa].nome}`) : 'Faltam materiais'); return; }
+        play('tap'); const f = farm.kidPos; const a = farm.camAng; let x = f.x - Math.sin(a) * 2.2, z = f.z - Math.cos(a) * 2.2; const sp = G.findSpot(r.id, id, x, z) || [x, z]; bm = { tipo: id, x: sp[0], z: sp[1], rot: 0 }; drawBuild();
+      } }, h('span', { class: 'ci' }, B.icone), h('b', {}, B.nome), h('small', {}, B.desc), st.done ? h('span', { class: 'badge-ok' }, '✓ Máximo') : st.locked ? h('span', { class: 'muted' }, st.temaFora ? `${THEMES[B.tema].icone} Só na época` : `🔒 ${BUILDINGS[B.precisa].nome}`) : cost,
+        st.lim > 1 && st.lim < 40 ? h('span', { class: 'cnt' }, `${st.count}/${st.lim}`) : null));
+    }
+    build.append(h('div', { class: 'build-head' }, h('b', {}, '🔨 Construir'), h('span', { class: 'muted' }, 'escolha e depois toque onde quer colocar'), h('button', { class: 'btn ghost small', onclick: () => { play('tap'); closeBuild(); } }, 'Fechar')), tabs, list);
+  }
+  function confirmPlace() {
+    if (!bm) return;
+    if (bm.mover) { if (G.moveObra(r.id, bm.mover, bm.x, bm.z, bm.rot)) { play('drop'); farm.setObras(obrasView(r.id)); farm.popAt(new farm.kid.position.constructor(bm.x, 0.4, bm.z), ['#ffffff', '#ffd25a'], 20); } bm = null; farm.setGhost(null); drawBuild(); return; }
+    const o = G.build(r.id, bm.tipo, bm.x, bm.z, bm.rot); if (!o) { play('sad'); return; }
+    const tipo = bm.tipo; bm = null; farm.setGhost(null); closeBuild();
+    farm.setObras(obrasView(r.id)); farm.hideObra(o.uid); updateHud();
+    const B = BUILDINGS[tipo]; let done = false;
+    const finish = () => { if (done) return; done = true; farm.revealObra(o.uid); play('fanfare'); farm.kidAct('comemorar', 0.9); say(`${B.icone} ${B.nome} pronto!`, farm.obraObj(o.uid), 1.6); flushNotices(); sync(); };
+    farm.walkTo(o.x, o.z, { stopAt: B.r + 0.5, marker: false, onArrive: () => farm.kidAct('construir', 2.2, () => { play('anvil', 2); farm.popAt(new farm.kid.position.constructor(o.x, 0.3, o.z), ['#c9a06a', '#ffffff', '#ffd25a'], 10); }, finish), onFail: finish });
+  }
+  // ---------- toques na tela ----------
+  const cv = $('#stage'); const ptrs = new Map(); let drag = null, pinch = 0;
+  const pd = (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, moved: 0, t: performance.now() }; else { drag = null; const [a, b2] = [...ptrs.values()]; pinch = Math.hypot(a.x - b2.x, a.y - b2.y); } };
+  const pm = (e) => {
+    if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 2) { const [a, b2] = [...ptrs.values()]; const d = Math.hypot(a.x - b2.x, a.y - b2.y); if (pinch) farm.zoomBy(pinch / d); pinch = d; return; }
+    if (!drag) return; const dx = e.clientX - drag.x; drag.moved += Math.abs(dx) + Math.abs(e.clientY - drag.y); if (drag.moved > 12) farm.rotate(dx); drag.x = e.clientX; drag.y = e.clientY;
+  };
+  const pu = (e) => {
+    ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0;
+    if (!drag || e.target !== cv) { drag = null; return; } const moved = drag.moved; drag = null; if (moved > 12) return;
+    let hit = farm.pick(rayAt(e.clientX, e.clientY)); if (!hit) return;
+    unlockAudio();
+    // os companheiros são pequenos: um toque perto deles conta como toque neles
+    if (build.hidden && !['brilho', 'npc', 'bolha', 'amigo', 'eu'].includes(hit.tipo)) {
+      let best = null, bd = 56;
+      for (const w of farm.walkers) { const p = toScreen(w.c, w.c.userData.height * 0.5); const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = w; } }
+      if (best) hit = { tipo: 'amigo', walker: best, obj: best.c };
+    }
+    if (!build.hidden) { // modo construir
+      if (hit.tipo === 'obra' && (buildTab === 'mover' || bm?.mover)) { const o = G.obrasOf(r.id).find((q) => q.uid === hit.uid); bm = { tipo: o.tipo, x: o.x, z: o.z, rot: o.rot || 0, mover: o.uid }; play('tap'); drawBuild(); return; }
+      const p = farm.groundAt(rayAt(e.clientX, e.clientY));
+      if (bm && p) { bm.x = Math.round(p.x * 4) / 4; bm.z = Math.round(p.z * 4) / 4; play('tap'); drawBuild(); }
+      return;
+    }
+    if (busy() && hit.tipo !== 'eu') { farm.kid.userData.ctrl.stop(); }
+    switch (hit.tipo) {
+      case 'eu': play('heart'); farm.kidAct('acenar', 1.2); say(`Oi! Eu sou ${S().boneco.nome || 'você'} 👋`, farm.kid, 1.5); break;
+      case 'chao': play('tap'); farm.walkTo(hit.x, hit.z); break;
+      case 'longe': play('pop'); say('🌲 Lá é mata fechada!'); break;
+      case 'lote': play('tap'); if (G.expandOptions(r.id).includes(hit.key)) expandZoneModal(r, hit.key); else say('🔒 Abra primeiro um lote vizinho a este'); break;
+      case 'recurso': gather(hit); break;
+      case 'obra': obraAction(hit); break;
+      case 'amigo': case 'bolha': petAction(hit.walker); break;
+      case 'brilho': { const obj = hit.obj; farm.walkTo(obj.position.x, obj.position.z, { stopAt: 0.5, marker: false, onArrive: () => farm.kidAct('catar', 0.7, null, () => { if (!obj.parent) return; const item = G.collectSparkle(r.id); if (!item) return; play('coin'); farm.popAt(obj, '#fff3a0'); farm.setSparkles(S().regioes[r.id].brilhos); lastSpark = S().regioes[r.id].brilhos; flyItems([item], farm.kid); }) }); break; }
+      case 'npc': play('tap'); goNpc(); break;
+    }
   };
   const wheel = (e) => farm.zoomBy(e.deltaY > 0 ? 1.08 : 0.92);
-  cv.addEventListener('pointerdown', pd); window.addEventListener('pointermove', pm); window.addEventListener('pointerup', pu); cv.addEventListener('wheel', wheel, { passive: true });
+  cv.addEventListener('pointerdown', pd); window.addEventListener('pointermove', pm); window.addEventListener('pointerup', pu); window.addEventListener('pointercancel', pu); cv.addEventListener('wheel', wheel, { passive: true });
   function sync() {
     for (const w of farm.walkers) {
       const a = S().amigos.find((x) => x.uid === w.uid); if (!a) continue;
       const n = a.bolsa?.length || 0; if (w.bubbles.length !== Math.min(3, n)) farm.setAmigoBubbles(a.uid, n, bagEmoji(a));
       const tk = G.taskOf(a); farm.setJob(a.uid, tk === 'explorar' ? null : tk, a.task?.alvo);
     }
-    farm.setNodes(nodesView(r.id));
-    farm.setForno(isBase && G.amigosEm(r.id).some((a) => a.task?.tipo === 'fundir'));
-    drawUi();
+    farm.setResources(resourcesView(r).filter((x) => !x.bloqueado));
+    farm.setObras(obrasView(r.id));
+    farm.setForno(G.amigosEm(r.id).some((a) => a.task?.tipo === 'fundir'));
+    drawUi(); if (!build.hidden && !bm) drawBuild();
   }
   farmSync = sync;
   let lastSpark = g.brilhos;
-  farmSparkSync = () => { if (g.brilhos !== lastSpark) { lastSpark = g.brilhos; farm.setSparkles(g.brilhos); } farm.setNodes(nodesView(r.id)); };
-  cleanup = () => { cv.removeEventListener('pointerdown', pd); window.removeEventListener('pointermove', pm); window.removeEventListener('pointerup', pu); cv.removeEventListener('wheel', wheel); farmSync = null; farmSparkSync = null; };
+  farmSparkSync = () => { if (g.brilhos !== lastSpark) { lastSpark = g.brilhos; farm.setSparkles(g.brilhos); } };
+  cleanup = () => { kidSpot[r.id] = [farm.kidPos.x, farm.kidPos.z]; unclass(); cv.removeEventListener('pointerdown', pd); window.removeEventListener('pointermove', pm); window.removeEventListener('pointerup', pu); window.removeEventListener('pointercancel', pu); cv.removeEventListener('wheel', wheel); farmSync = null; farmSparkSync = null; farmApi = null; };
+  farmApi = { farm, openBuild, region: r }; window.__farm = farm; // ajuda nos testes
   sync();
+  if (arg?.reveal) { play('fanfare'); setTimeout(() => say('🎉 Lote novo liberado!'), 300); }
+  if (tema && !S().epoca[tema + new Date().getFullYear()]) { S().epoca[tema + new Date().getFullYear()] = true; G.save(); setTimeout(() => themeModal(tema), 600); }
 }
-let farmSync = null, farmSparkSync = null;
-function nodeModal(tipo, n) {
-  play('tap');
-  const t = Date.now();
+let farmSync = null, farmSparkSync = null, farmApi = null;
+function themeModal(tema) {
+  const T = THEMES[tema]; const fams = FAMILIES.filter((f) => f.tema === tema);
   modal((box, close) => {
-    if (tipo === 'arvore') box.append(h('div', { class: 'big' }, n.livre <= t ? '🌳' : '🪵'), h('h2', {}, 'Árvore'), h('p', {}, n.livre <= t ? 'Um companheiro com 🪓 Cortar transforma ela em Madeira 🪵.' : `Cortada! Volta a crescer em ${fmtTime(n.livre - t)}.`));
-    if (tipo === 'rocha') box.append(h('div', { class: 'big' }, '⛰️'), h('h2', {}, 'Rocha com minério'), h('p', {}, n.livre <= t ? 'Um companheiro com ⛏️ Minerar tira Ferro Bruto 🔩, pedras e às vezes uma gema 💎.' : `Quebrada! A rocha volta em ${fmtTime(n.livre - t)}.`));
-    if (tipo === 'canteiro') {
-      const txt = { vazio: 'Vazio. Só um companheiro com 🌱 Semear pode plantar aqui (geralmente os de Planta).', semeado: 'Semeado! Agora precisa de um companheiro com 💦 Regar (geralmente os de Água).', regado: `Crescendo... fica pronto em ${fmtTime(n.ate - t)}.` }[n.st];
-      box.append(h('div', { class: 'big' }, { vazio: '🟫', semeado: '🌰', regado: '🌱' }[n.st] || '🍎'), h('h2', {}, 'Canteiro'), h('p', {}, txt), h('p', { class: 'muted' }, 'Quando ficar pronto, você ou um companheiro com 🧺 Coletar colhe as frutas 🍎.'));
-    }
-    box.append(h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Entendi')));
+    box.classList.add('theme-modal'); box.style.setProperty('--tc', T.cor); box.style.setProperty('--tc2', T.cor2);
+    box.append(h('div', { class: 'big' }, T.icone), h('h2', {}, `É época de ${T.nome}!`), h('p', {}, `De ${T.periodo} o Vale fica enfeitado e aparecem bichos especiais. Eles ficam com você para sempre!`),
+      h('div', { class: 'theme-row' }, ...fams.map((f) => h('div', { class: 'theme-mon' }, h('img', { src: thumb(f.id * 3, { size: 128, silhouette: !S().descobertos[f.id * 3] }) }), h('small', {}, S().descobertos[f.id * 3] ? f.nomes[0] : '???'), h('span', { class: 'stars' }, stars(f.rar))))),
+      h('p', { class: 'muted' }, `Ache ${ITEMS[THEME_ITEM[tema]].emoji} ${ITEMS[THEME_ITEM[tema]].nome} nos brilhos, arbustos e presentes, e coloque na Forja com outros itens. Na aba 🔨 Construir tem enfeite de época também!`),
+      h('div', { class: 'actions' }, h('button', { class: 'btn gold', onclick: close }, 'Oba!')));
   });
 }
-function bancadaModal(farm) {
+function bancadaModal(r) {
   play('tap');
   modal((box, close) => {
     const s = S(); const reqs = (c) => h('div', { class: 'req' }, ...Object.entries(c).map(([id, n]) => reqRow(G.has(id, n), `${id === 'brilho' ? '🔷' : ITEMS[id].emoji} ${id === 'brilho' ? s.brilho : s.itens[id] || 0}/${n}`)));
-    box.append(h('h2', {}, '🛠️ Base da Floresta'), h('p', { class: 'muted' }, 'Madeira 🪵 vem das árvores, Ferro 🔩 das rochas, Frutas 🍎 da plantação e Barras 🧱 do Forno.'));
-    box.append(h('h3', { style: 'text-align:left;margin:10px 0 4px' }, 'Construir'));
-    for (const [id, b] of Object.entries(BUILDINGS)) {
-      const st = G.buildState(id);
-      box.append(h('div', { class: 'craft' }, h('span', { class: 'ci' }, b.icone), h('div', { class: 'grow' }, h('b', {}, b.nome, b.max ? ` (${st.count}/${b.max})` : ''), h('div', { class: 'muted' }, b.desc), st.done ? h('div', { class: 'badge-ok' }, '✓ Construído') : st.locked ? h('div', { class: 'muted' }, `🔒 Precisa: ${BUILDINGS[b.precisa].nome}`) : reqs(b.custo)),
-        st.done || st.locked ? null : h('button', { class: 'btn green small', disabled: !st.ok, onclick: () => { if (G.build(id)) { play('fanfare'); close(); flushNotices(); go('fazenda'); } } }, 'Construir')));
+    box.append(h('div', { class: 'big' }, '🛠️'), h('h2', {}, 'Bancada de Trabalho'), h('p', { class: 'muted' }, 'Madeira 🪵 vem das árvores, Ferro 🔩 das rochas, Frutas 🍎 dos canteiros e arbustos, Barras 🧱 do Forno. Para construir, use o botão 🔨 Construir da fazendinha.'));
+    for (const c of CRAFTS) {
+      box.append(h('div', { class: 'craft' }, h('span', { class: 'ci' }, c.icone), h('div', { class: 'grow' }, h('b', {}, c.nome), h('div', { class: 'muted' }, c.desc), reqs(c.custo)),
+        h('button', { class: 'btn small', disabled: !G.canPay({ itens: c.custo }), onclick: () => { if (G.craft(c.id)) { play('anvil'); updateHud(); close(); farmApi?.farm.kidAct('construir', 1.2); bancadaModal(r); } } }, 'Fazer')));
     }
-    if (s.base.bancada) {
-      box.append(h('h3', { style: 'text-align:left;margin:14px 0 4px' }, 'Fabricar'));
-      for (const c of CRAFTS) {
-        box.append(h('div', { class: 'craft' }, h('span', { class: 'ci' }, c.icone), h('div', { class: 'grow' }, h('b', {}, c.nome), h('div', { class: 'muted' }, c.desc), reqs(c.custo)),
-          h('button', { class: 'btn small', disabled: !G.canPay({ itens: c.custo }), onclick: () => { if (G.craft(c.id)) { play('anvil'); updateHud(); close(); bancadaModal(farm); } } }, 'Fazer')));
-      }
-      if (s.base.forno) box.append(h('div', { class: 'actions' }, h('button', { class: 'btn gold', onclick: () => { close(); fornoModal(); } }, '🏭 Abrir o Forno')));
-    }
-    box.append(h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Fechar')));
+    box.append(h('div', { class: 'actions' }, s.base.forno ? h('button', { class: 'btn gold', onclick: () => { close(); fornoModal(); } }, '🏭 Abrir o Forno') : null, h('button', { class: 'btn ghost', onclick: close }, 'Fechar')));
   });
 }
 function fornoModal() {
   play('tap');
   modal((box, close) => {
-    const s = S(); const fire = G.amigosEm(G.BASE_REGION_ID).filter((a) => G.skillLevel(a, 'acender') > 0);
-    box.append(h('div', { class: 'big' }, '🏭'), h('h2', {}, 'Forno de Fundição'), h('p', {}, 'Coloque Ferro Bruto 🔩 aqui. Um companheiro com 🔥 Acender na Floresta Viva derrete e faz Barras de Metal 🧱.'),
+    const s = S(); const home = REGIONS.find((x) => G.hasObra(x.id, 'forno')); const fire = home ? G.amigosEm(home.id).filter((a) => G.skillLevel(a, 'acender') > 0) : [];
+    box.append(h('div', { class: 'big' }, '🏭'), h('h2', {}, 'Forno de Fundição'), h('p', {}, `Coloque Ferro Bruto 🔩 aqui. Um companheiro com 🔥 Acender${home ? ' em ' + home.nome : ''} derrete e faz Barras de Metal 🧱.`),
       h('div', { class: 'req' }, h('div', { class: 'r' }, `Na fila: 🔩 ${s.base.fila}`), h('div', { class: 'r' }, `Você tem: 🔩 ${s.itens.ferro || 0}`), h('div', { class: 'r ' + (fire.length ? 'ok' : 'no') }, fire.length ? `🔥 ${fire.length} acendedor(es)` : '🔥 Ninguém para acender')),
       h('div', { class: 'actions' },
         h('button', { class: 'btn', disabled: !s.itens.ferro, onclick: () => { G.addToForno(1); play('drop'); close(); fornoModal(); } }, '+1 🔩'),
@@ -446,17 +699,17 @@ function amigoMiniModal(a) {
       h('p', {}, h('b', {}, `${ti.icone} ${ti.nome}`)), skillChips(a.sp),
       h('p', { class: 'muted' }, `Bolsa: ${a.bolsa?.length || 0}/${G.bagCap(a)} · rende ~${yieldOf(a.sp).toFixed(1)} itens por tarefa`),
       h('div', { class: 'actions' },
-        a.bolsa?.length ? h('button', { class: 'btn gold small', onclick: () => { close(); const got = G.collect(a); play('collect'); flushNotices(); if (farmSync) farmSync(); updateHud(); toast(got.map((i) => ITEMS[i].emoji).join(''), innerWidth / 2, innerHeight / 2); } }, '🎒 Pegar itens') : null,
+        h('button', { class: 'btn small', onclick: () => { close(); const w = farmApi?.farm.walkers.find((x) => x.uid === a.uid); if (w) farmApi.farm.walkTo(w.c.position.x, w.c.position.z, { follow: () => farmApi.farm.walkerPos(a.uid), stopAt: w.r + 0.6 }); } }, '🏃 Ir até ele'),
         h('button', { class: 'btn ghost small', onclick: () => { close(); go('perfil', a.uid); } }, '👀 Ver ficha'),
         h('button', { class: 'btn ghost small', onclick: () => { G.collect(a); G.placeAmigo(a, null); close(); go('fazenda'); } }, '🏠 Descansar'),
-        h('button', { class: 'btn small', onclick: close }, 'OK')));
+        h('button', { class: 'btn ghost small', onclick: close }, 'OK')));
   });
 }
 function pickAmigoModal(r) {
   modal((box, close) => {
     const n = G.amigosEm(r.id).length, cap = G.farmSlots(r.id);
     box.append(h('h2', {}, `Quem vai trabalhar em ${r.nome}?`), h('p', { class: 'muted' }, `${n}/${cap} lugares · ⚡ = mesmo elemento (explora 2× mais rápido). Veja as habilidades de cada um!`));
-    if (n >= cap) box.append(h('p', {}, '🏡 A fazendinha está cheia. Aumente a fazendinha ou construa Casinhas na Bancada!'));
+    if (n >= cap) box.append(h('p', {}, '🏡 A fazendinha está cheia. Abra mais lotes ou construa Casinhas!'));
     const list = S().amigos.filter((a) => a.local !== r.id).sort((a, b) => (SPECIES[b.sp].el === r.el) - (SPECIES[a.sp].el === r.el) || b.nivel - a.nivel);
     if (!list.length) box.append(h('p', {}, 'Todos os seus companheiros já estão aqui. Forje mais na Forja! 🔨'));
     const grid = h('div', { class: 'pickgrid' });
@@ -467,13 +720,17 @@ function pickAmigoModal(r) {
     box.append(grid, h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Fechar')));
   });
 }
-function expandModal(r) {
+function expandZoneModal(r, key) {
   modal((box, close) => {
-    const c = G.expandCost(r.id); const s = S();
-    box.append(h('div', { class: 'big' }, '🌱🏡'), h('h2', {}, 'Aumentar a fazendinha'), h('p', {}, `Nível ${s.regioes[r.id].fazenda} → ${s.regioes[r.id].fazenda + 1}: mais 1 lugar para companheiros, a ilha cresce e os itens raros aparecem mais!`),
-      h('div', { class: 'req' }, reqRow(s.moedas >= c.moedas, `🪙 ${s.moedas}/${c.moedas}`), ...Object.entries(c.itens).map(([id, n]) => reqRow(G.has(id, n), `${ITEMS[id].emoji} ${s.itens[id] || 0}/${n}`))),
+    const c = G.expandCost(r.id); const s = S(); const g = s.regioes[r.id];
+    if (!c) { box.append(h('h2', {}, 'A fazendinha está completa! 🎉'), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'OK'))); return; }
+    const lvlNow = G.farmLevel(r.id), lvlNext = Math.min(5, 1 + Math.floor(g.zonas.length / 3));
+    box.append(h('div', { class: 'big' }, '🔓🌱'), h('h2', {}, 'Abrir este lote?'),
+      h('p', {}, 'O lote sai da sombra e ganha cores: árvores, pedras e arbustos novos para você e seus companheiros, e mais espaço para construir!'),
+      ...(lvlNext > lvlNow ? [h('p', { class: 'badge-ok' }, `⭐ A fazendinha sobe para o nível ${lvlNext}: +1 lugar para companheiros e itens raros aparecem mais!`)] : []),
+      h('div', { class: 'req' }, reqRow(s.moedas >= c.moedas, `🪙 ${s.moedas}/${c.moedas}`), ...Object.entries(c.itens).map(([id, n]) => reqRow(G.has(id, n), `${ITEMS[id].emoji} ${s.itens[id] || 0}/${n} ${ITEMS[id].nome}`))),
       h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Depois'),
-        h('button', { class: 'btn green', disabled: !G.canPay(c), onclick: () => { if (G.expand(r.id)) { play('fanfare'); close(); flushNotices(); go('fazenda'); } } }, 'Aumentar!')));
+        h('button', { class: 'btn green', disabled: !G.canPay(c), onclick: () => { if (G.expand(r.id, key)) { close(); flushNotices(); go('fazenda', { reveal: key }); } } }, '🔓 Abrir!')));
   });
 }
 function rescueModal(r, farm) {
@@ -493,11 +750,11 @@ function rescueModal(r, farm) {
     box.append(h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Depois'),
       h('button', { class: 'btn green', disabled: !G.canRescue(r.id), onclick: () => {
         const premio = G.rescue(r.id, chosen); if (!premio) return; close();
-        farm?.freeNpc(); play('fanfare'); if (S().tutorial < 5) S().tutorial = 5;
+        farm?.freeNpc(); farm?.kidAct('comemorar', 1.8); play('fanfare'); if (S().tutorial < 5) S().tutorial = 5;
         modal((bx, cl) => {
-          bx.append(h('img', { src: thumb(0, { npc: res, size: 192 }), style: 'width:150px' }), h('h2', {}, `${res.quem} está salv${res.g}! 🎉`), h('p', {}, `“Valeu, ${G.nomeDe(chosen)}! Te devo essa. De vez em quando vou te pedir uma ajuda.”`),
+          bx.append(h('img', { src: thumb(0, { npc: res, size: 192 }), style: 'width:150px' }), h('h2', {}, `${res.quem} está salv${res.g}! 🎉`), h('p', {}, `“Valeu, ${S().boneco.nome || 'amigo'} e ${G.nomeDe(chosen)}! Te devo essa. De vez em quando vou te pedir uma ajuda.”`),
             h('div', { class: 'req' }, h('div', { class: 'r ok' }, `🪙 +${premio.moedas}`), h('div', { class: 'r ok' }, '🔷 +1 Cristal de Evolução'), h('div', { class: 'r ok' }, '💠 +1 Runa do Trovão'), premio.coroa ? h('div', { class: 'r ok' }, '👑 +1 Coroa do Trovão') : null),
-            h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { cl(); go(screen === 'fazenda' ? 'fazenda' : screen); } }, 'Oba!')));
+            h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { cl(); if (screen === 'fazenda') farmSync?.(); } }, 'Oba!')));
         });
         flushNotices();
       } }, '🦸 Salvar!')));
@@ -589,15 +846,17 @@ function renderCodice(sc) {
   for (const [meta, item, q] of G.codexGoals()) goals.append(h('span', { class: 'goal' + (n >= meta ? ' done' : '') }, `${meta}: ${item === 'brilho' ? '🔷' : ITEMS[item].emoji}×${q}`));
   sc.append(goals);
   const tabs = h('div', { class: 'tabs' });
-  for (const [k, label] of [['todos', 'Todos'], ...ELEMENT_ORDER.concat('trovao').map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome])]) {
-    const tot = SPECIES.filter((s) => k === 'todos' || s.el === k); const got = tot.filter((s) => S().descobertos[s.id]).length;
+  const inTab = (s, k) => (k === 'epoca' ? isSeasonal(s.id) : s.id < CODEX_TOTAL && (k === 'todos' || s.el === k));
+  for (const [k, label] of [['todos', 'Todos'], ...ELEMENT_ORDER.concat('trovao').map((e) => [e, ELEMENTS[e].icone + ' ' + ELEMENTS[e].nome]), ['epoca', '🎉 Época']]) {
+    const tot = SPECIES.filter((s) => inTab(s, k)); const got = tot.filter((s) => S().descobertos[s.id]).length;
     tabs.append(h('button', { class: 'tab' + (codexTab === k ? ' on' : ''), onclick: () => { codexTab = k; play('tap'); go('codice'); } }, `${label} ${got}/${tot.length}`));
   }
   sc.append(tabs);
   const grid = h('div', { class: 'grid' });
   const queue = [];
+  if (codexTab === 'epoca') { const t = G.themeOn(); sc.append(h('p', { class: 'muted', style: 'margin:4px 6px' }, t ? `${THEMES[t].icone} Agora é época de ${THEMES[t].nome}! Bichos de época ficam com você para sempre.` : '🎉 Cada época do ano (Natal, Férias, Carnaval, Páscoa, Festa Junina e Halloween) traz bichos especiais. Eles ficam para sempre!')); }
   for (const s of SPECIES) {
-    if (codexTab !== 'todos' && s.el !== codexTab) continue;
+    if (!inTab(s, codexTab)) continue;
     const known = !!S().descobertos[s.id]; const f = FAMILIES[s.fam];
     const img = h('img', { alt: '' });
     queue.push(() => { img.src = thumb(s.id, { silhouette: !known, size: 160 }); });
@@ -615,23 +874,65 @@ function renderCodice(sc) {
 }
 function recipeHint(s, f) {
   if (f.fusao) return h('div', { class: 'sub' }, '⚡ Fusão do Trovão');
+  if (f.tema && s.stage === 0) return h('div', { class: 'sub' }, `${THEMES[f.tema].icone} ${G.themeOn() === f.tema ? 'Agora!' : THEMES[f.tema].periodo}`);
   if (s.stage > 0) return h('div', { class: 'sub' }, `🌟 Evolui no Nv ${EVOLVE_AT[s.stage - 1]}`);
   return h('div', { class: 'recipe' }, ...f.receita.map((id) => h('span', { class: G.has(id) ? '' : 'miss', title: ITEMS[id].nome }, ITEMS[id].emoji)));
+}
+// painel de trabalho: habilidades com nome e estrelas, bolsa e rendimento
+function workPanel(spId, hide) {
+  const sp = SPECIES[spId];
+  const bag = 3 + RARITY_ORDER.indexOf(sp.rar) + sp.stage;
+  return h('div', { class: 'work' },
+    h('div', { class: 'sec-h' }, '🛠️ Trabalho na fazendinha'),
+    h('div', { class: 'work-list' }, ...skillsOf(spId).map((k) => h('div', { class: 'wsk', title: SKILLS[k.id].desc },
+      h('span', { class: 'ic' }, SKILLS[k.id].icone), h('span', { class: 'nm' }, hide ? '???' : SKILLS[k.id].nome), h('span', { class: 'stars' }, '★'.repeat(Math.min(7, k.nivel)))))),
+    h('div', { class: 'row wrap', style: 'justify-content:center;gap:6px;margin-top:6px' }, h('span', { class: 'chip' }, `🎒 Bolsa: ${bag}`), h('span', { class: 'chip' }, `📦 ~${yieldOf(spId).toFixed(1)} itens por tarefa`)));
+}
+// linha da evolução: as 3 formas, as não descobertas em silhueta
+function evoLine(spId, onPick) {
+  const sp = SPECIES[spId]; const base = sp.fam * 3;
+  const parts = [];
+  for (let st = 0; st < 3; st++) {
+    const id = base + st; const known = !!S().descobertos[id];
+    if (st) parts.push(h('div', { class: 'evo-arrow' }, '➜', h('small', {}, `Nv ${EVOLVE_AT[st - 1]}`), SPECIES[id].arch !== SPECIES[id - 1].arch ? h('small', { class: 'morph' }, 'muda!') : null));
+    const img = h('img', { alt: '' }); setTimeout(() => { img.src = thumb(id, { silhouette: !known, size: 128 }); }, 30 + st * 40);
+    parts.push(h(onPick ? 'button' : 'div', { class: 'evo' + (id === spId ? ' on' : ''), onclick: onPick ? () => onPick(SPECIES[id]) : null }, img, h('span', {}, known ? SPECIES[id].nome : '???'), h('small', {}, SPECIES[id].estagio)));
+  }
+  return h('div', { class: 'evoline' }, ...parts);
 }
 function codexModal(s) {
   play('tap');
   modal((box, close) => {
-    const known = !!S().descobertos[s.id]; const f = FAMILIES[s.fam];
-    box.append(h('img', { src: thumb(s.id, { silhouette: !known, size: 256 }), style: 'width:200px' }), h('h2', {}, known ? s.nome : '??? (ainda não descoberto)'),
-      h('div', { class: 'row wrap', style: 'justify-content:center' }, rarBadge(s.rar), elChip(s.el), h('span', { class: 'chip' }, s.estagio)), h('p', {}, 'Habilidades: '), skillChips(s.id), h('p', { class: 'muted' }, `Rende ~${yieldOf(s.id).toFixed(1)} itens por tarefa`));
-    if (f.fusao) box.append(h('p', {}, '⚡ Esta espécie só sai de uma Fusão do Trovão!'));
-    else if (s.stage > 0) box.append(h('p', {}, `🌟 Evolui de ${S().descobertos[s.id - 1] ? SPECIES[s.id - 1].nome : '???'} no nível ${EVOLVE_AT[s.stage - 1]}.`));
+    box.classList.add('sheet');
+    const known = !!S().descobertos[s.id]; const f = FAMILIES[s.fam]; const el = ELEMENTS[s.el];
+    const owned = S().amigos.filter((a) => a.sp === s.id).length;
+    box.style.setProperty('--ec', el.cores[0]); box.style.setProperty('--ec2', el.cores[2]); box.style.setProperty('--rc', rarColor(s.rar));
+    box.append(
+      h('div', { class: 'sheet-head' },
+        h('span', { class: 'num' }, '#' + String(s.id + 1).padStart(3, '0')),
+        h('span', { class: 'el-big' }, el.icone),
+        h('div', { class: 'sheet-art' + (known ? '' : ' unk') }, h('img', { src: thumb(s.id, { silhouette: !known, size: 256 }) })),
+        h('h2', {}, known ? s.nome : '???'),
+        h('div', { class: 'row wrap', style: 'justify-content:center' }, rarBadge(s.rar), h('span', { class: 'stars', style: 'font-size:22px' }, stars(s.rar)), elChip(s.el), h('span', { class: 'chip' }, s.estagio)),
+        h('p', { class: 'owned' }, !known ? 'Ainda não descoberto' : owned ? `Você tem ${owned} na equipe` : 'Já descoberto · nenhum na equipe agora')),
+    );
+    const body = h('div', { class: 'sheet-body' },
+      h('div', { class: 'sheet-sec' }, h('div', { class: 'sec-h' }, '🧬 Evolução'), evoLine(s.id, (o) => { close(); codexModal(o); })),
+      h('div', { class: 'sheet-sec' }, workPanel(s.id, !known)));
+    box.append(body);
+    const how = h('div', { class: 'sheet-sec' }, h('div', { class: 'sec-h' }, '🔨 Como conseguir'));
+    if (f.tema) how.append(h('p', {}, `${THEMES[f.tema].icone} Bicho de ${THEMES[f.tema].nome}: só aparece na Forja de ${THEMES[f.tema].periodo}, usando ${ITEMS[THEME_ITEM[f.tema]].emoji} ${ITEMS[THEME_ITEM[f.tema]].nome}. Depois fica com você para sempre!`));
+    if (f.tema && s.stage > 0) { /* evolução normal */ }
+    if (f.fusao) how.append(h('p', {}, '⚡ Só sai de uma Fusão do Trovão (dois Adultos na Forja).'));
+    else if (s.stage > 0) how.append(h('p', {}, `🔷 Evolui de ${S().descobertos[s.id - 1] ? SPECIES[s.id - 1].nome : '???'} no nível ${EVOLVE_AT[s.stage - 1]}, com ${EVOLVE_COST[s.stage - 1]} Cristal de Evolução.`));
     else {
-      box.append(h('p', {}, 'Receita para a Forja do Trovão:'), h('div', { class: 'row', style: 'justify-content:center;gap:14px' }, ...f.receita.map((id) => token(id, S().itens[id] || 0, null, G.has(id) ? '' : 'off'))));
-      const where = [...new Set(f.receita.map((id) => ITEMS[id].el ? regionOf(ITEMS[id].el).nome : id === 'orvalho' ? 'todo lugar' : 'baús, pedidos e resgates'))];
-      box.append(h('p', { class: 'muted' }, '📍 Onde achar: ', where.join(' · ')));
+      how.append(h('div', { class: 'row', style: 'justify-content:center;gap:14px' }, ...f.receita.map((id) => token(id, S().itens[id] || 0, null, G.has(id) ? '' : 'off'))));
+      const where = [...new Set(f.receita.map((id) => ITEMS[id].el ? regionOf(ITEMS[id].el).nome : id === 'orvalho' ? 'brilhos e Bancada' : ITEMS[id].recurso ? 'fazendinha e Bancada' : 'pedidos e resgates'))];
+      how.append(h('p', { class: 'muted' }, '📍 Onde achar: ', where.join(' · ')));
     }
-    box.append(h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Fechar')));
+    const reg = regionOf(s.el);
+    how.append(h('p', { class: 'muted', style: 'margin:2px 0 0' }, reg ? `🏞️ Trabalha 2× mais rápido em ${reg.nome}` : '🌩️ Fera da Fusão: forte em qualquer lugar'));
+    body.append(how, h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Fechar')));
   });
 }
 
@@ -689,10 +990,10 @@ function bagModal() {
     box.append(h('h2', {}, '🎒 Mochila'), h('p', { class: 'muted' }, 'Toque num item para saber onde achar.'));
     const info = h('p', { style: 'min-height:28px' });
     const wrap = h('div', { class: 'row wrap', style: 'justify-content:center;gap:14px' });
-    const ids = Object.keys(ITEMS).sort((a, b) => (ELEMENT_ORDER.indexOf(ITEMS[a].el) - ELEMENT_ORDER.indexOf(ITEMS[b].el)) || RARITY_ORDER.indexOf(ITEMS[a].rar) - RARITY_ORDER.indexOf(ITEMS[b].rar));
+    const ids = Object.keys(ITEMS).filter((id) => !ITEMS[id].tema || S().itens[id]).sort((a, b) => (ELEMENT_ORDER.indexOf(ITEMS[a].el) - ELEMENT_ORDER.indexOf(ITEMS[b].el)) || RARITY_ORDER.indexOf(ITEMS[a].rar) - RARITY_ORDER.indexOf(ITEMS[b].rar));
     for (const id of ids) {
       const it = ITEMS[id]; const n = S().itens[id] || 0;
-      wrap.append(token(id, n, () => { play('tap'); info.textContent = `${it.emoji} ${it.nome} — ${RARITIES[it.rar].nome}. ${it.el ? 'Colhido em ' + regionOf(it.el).nome + '.' : id === 'orvalho' ? 'Aparece em todas as fazendinhas.' : 'Ganho em pedidos, resgates, presentes e no Códice.'}`; }, n ? 'mini' : 'mini off'));
+      wrap.append(token(id, n, () => { play('tap'); info.textContent = `${it.emoji} ${it.nome} — ${RARITIES[it.rar].nome}. ${it.tema ? `Item da época de ${THEMES[it.tema].nome} (${THEMES[it.tema].periodo}): chama bichos especiais na Forja.` : it.el ? 'Colhido em ' + regionOf(it.el).nome + '.' : id === 'orvalho' ? 'Aparece em todas as fazendinhas.' : it.recurso ? 'Vem das árvores, rochas, arbustos, canteiros ou do Forno.' : 'Ganho em pedidos, resgates, presentes e no Códice.'}`; }, n ? 'mini' : 'mini off'));
     }
     box.append(h('p', {}, `${GROW_ITEM.emoji} ${GROW_ITEM.nome}: `, h('b', {}, String(S().brilho)), h('span', { class: 'muted' }, ' (usado para evoluir)')), wrap, info, h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Fechar')));
   });
@@ -738,9 +1039,10 @@ function updateGuide() {
   document.querySelectorAll('#nav .pointing').forEach((b) => b.classList.remove('pointing'));
   let text = null, nav = null;
   const placed = s.amigos.some((a) => a.local);
-  if (s.tutorial < 2) { if (screen !== 'ninho') { text = 'E aí! Eu sou o Raiozinho ⚡ Vamos forjar seu primeiro companheiro na Forja do Trovão?'; nav = 'ninho'; } else text = 'Coloque 2 Trevos 🍀 na bigorna e toque em Forjar!'; }
-  else if (s.tutorial === 2 && !placed) { if (screen !== 'fazenda' && screen !== 'ninho') { text = 'Mande seu companheiro para a Fazendinha! 🏡'; nav = 'fazenda'; } else if (screen === 'fazenda') text = 'Toque em ➕ Colocar companheiro!'; }
-  else if (s.tutorial <= 3 && placed) { if (screen === 'fazenda') text = 'Ele trabalha sozinho conforme as habilidades dele (🌱 semear, 💦 regar, 🪓 cortar, ⛏️ minerar...). Quando aparecer a bolha, toque nele para pegar os itens!'; else { text = 'Vá até a Fazendinha colher itens! 🧺'; nav = 'fazenda'; } }
+  if (screen === 'boneco' && !s.boneco.criado) text = 'Monte o seu personagem do jeitinho que quiser! Depois é só tocar em Começar.';
+  else if (s.tutorial < 2) { if (screen !== 'ninho') { text = 'E aí! Eu sou o Raiozinho ⚡ Vamos forjar seu primeiro companheiro na Forja do Trovão?'; nav = 'ninho'; } else text = 'Coloque 3 itens na bigorna (experimente misturar 🍀 🐚 🔥) e toque em Forjar!'; }
+  else if (s.tutorial === 2 && !placed) { if (screen !== 'fazenda' && screen !== 'ninho') { text = 'Mande seu companheiro para a Fazendinha! 🏡'; nav = 'fazenda'; } else if (screen === 'fazenda') text = 'Toque em ➕ Bicho para colocar seu companheiro aqui!'; }
+  else if (s.tutorial <= 3 && placed) { if (screen === 'fazenda') text = 'Toque no chão para andar! Toque numa árvore 🌳, pedra ⛰️ ou arbusto para pegar recursos. Quando aparecer a bolha no companheiro, toque nele para pegar os itens!'; else { text = 'Vá até a Fazendinha colher itens! 🧺'; nav = 'fazenda'; } }
   else if (s.tutorial === 4 && !s.regioes.floresta.salvo) { if (screen === 'fazenda') text = 'A Vovó Margarida precisa de ajuda! Junte 3 Trevos e toque nela'; else { text = 'A Vovó Margarida está pedindo socorro na Floresta Viva!'; nav = 'fazenda'; } }
   else if (s.tutorial === 5) { text = 'Você é um herói! Agora veja os 📜 Pedidos, descubra receitas no 📖 Códice e conserte as pontes 🌉 no Mapa!'; setTimeout(() => { if (S().tutorial === 5) { S().tutorial = 6; G.save(); updateGuide(); } }, 9000); }
   if (modalOpen) text = null;
@@ -771,7 +1073,8 @@ function start() {
     updateHud();
   }, 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) G.tick(); else G.save(); });
-  go(S().amigos.length ? 'mapa' : 'ninho');
+  $('#hud-me').onclick = () => { play('tap'); if (screen !== 'boneco') go('boneco', { back: screen === 'perfil' ? 'amigos' : screen }); };
+  go(!S().boneco.criado ? 'boneco' : S().amigos.length ? 'mapa' : 'ninho');
   setTimeout(() => $('#splash').classList.add('hide'), 300); setTimeout(() => $('#splash').remove(), 1000);
   flushNotices();
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && !location.hostname.match(/^(localhost|127\.)/)) navigator.serviceWorker.register('sw.js');
